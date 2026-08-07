@@ -120,10 +120,27 @@ pub fn focus_session_in_terminal(pid: u32, cwd: &str, app_slug: &str) -> Result<
     // 优先使用目标进程的终端，读取失败再回退设置中的默认终端。
     let app_slug = terminal_app_from_pid(pid).unwrap_or(app_slug);
     match app_slug {
-        "terminal" => focus_via_tty("Terminal", pid, terminal_app_script),
-        "iterm" => focus_via_tty("iTerm", pid, iterm_script),
+        // Ghostty 没有 tty API，按 working directory 匹配。
         "ghostty" => focus_ghostty_via_cwd(cwd),
-        _ => Err(FocusFailure::Unsupported(app_slug.to_string())),
+        // tty 类终端（Terminal/iTerm）共用 pid → tty → AppleScript 路径。
+        slug => match tty_terminal_script(slug) {
+            Some((label, build_script)) => focus_via_tty(label, pid, build_script),
+            None => Err(FocusFailure::Unsupported(slug.to_string())),
+        },
+    }
+}
+
+/// tty 类终端的 AppleScript 生成器：入参是转义后的 tty，返回完整脚本。
+pub(crate) type TtyScriptBuilder = fn(&str) -> String;
+
+/// slug → (终端展示名, tty AppleScript 生成器)。tty 类终端（Terminal/iTerm）的唯一映射源，
+/// terminal_focus 的 pid 分发与 herdr 宿主跳共用；Ghostty 走 cwd 不在此表内。
+/// 新增 tty 类终端只改这一处。
+pub(crate) fn tty_terminal_script(slug: &str) -> Option<(&'static str, TtyScriptBuilder)> {
+    match slug {
+        "terminal" => Some(("Terminal", terminal_app_script)),
+        "iterm" => Some(("iTerm", iterm_script)),
+        _ => None,
     }
 }
 
@@ -253,7 +270,7 @@ fn escape_applescript_string(s: &str) -> String {
     out
 }
 
-pub(crate) fn terminal_app_script(escaped_tty: &str) -> String {
+fn terminal_app_script(escaped_tty: &str) -> String {
     format!(
         r#"tell application "Terminal"
 set targetTty to "{escaped_tty}"
@@ -272,7 +289,7 @@ end tell"#
     )
 }
 
-pub(crate) fn iterm_script(escaped_tty: &str) -> String {
+fn iterm_script(escaped_tty: &str) -> String {
     format!(
         r#"tell application "iTerm"
 set targetTty to "{escaped_tty}"

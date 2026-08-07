@@ -86,19 +86,18 @@ pub fn focus_herdr_session(
     let socket_path = resolve_socket_path(ctx);
 
     // ---- 第一跳：herdr socket 聚焦 ----
-    let pane_id = match find_pane_by_pid(&socket_path, pid) {
-        Ok(Some(pane_id)) => pane_id,
-        Ok(None) => match find_pane_by_cwd(&socket_path, cwd) {
-            Ok(Some(pane_id)) => pane_id,
-            Ok(None) => {
-                log::warn!(
-                    "event=tray.session_focus status=miss reason=pane_not_found app=herdr pid={pid}"
-                );
-                return Err(FocusFailure::HerdrPaneNotFound);
-            }
-            Err(e) => return Err(e.into_focus_failure()),
-        },
-        Err(e) => return Err(e.into_focus_failure()),
+    // pid 精确匹配优先，失配再按 cwd 兜底；两条查找同签名，串联后错误转换只写一次。
+    let pane_id = find_pane_by_pid(&socket_path, pid)
+        .and_then(|hit| match hit {
+            Some(pane_id) => Ok(Some(pane_id)),
+            None => find_pane_by_cwd(&socket_path, cwd),
+        })
+        .map_err(SocketError::into_focus_failure)?;
+    let Some(pane_id) = pane_id else {
+        log::warn!(
+            "event=tray.session_focus status=miss reason=pane_not_found app=herdr pid={pid}"
+        );
+        return Err(FocusFailure::HerdrPaneNotFound);
     };
     if let Err(e) = focus_pane(&socket_path, &pane_id) {
         log::warn!(
@@ -121,23 +120,19 @@ pub fn focus_herdr_session(
         .or(ctx.host_terminal)
         .unwrap_or(fallback_slug);
     let host_result = match host_slug {
-        "terminal" => crate::terminal_focus::focus_tty(
-            "Terminal",
-            &client.tty,
-            crate::terminal_focus::terminal_app_script,
-        ),
-        "iterm" => crate::terminal_focus::focus_tty(
-            "iTerm",
-            &client.tty,
-            crate::terminal_focus::iterm_script,
-        ),
         // Ghostty 没有 tty API，按 working directory 匹配；匹配对象必须是 client
         // 进程的 cwd（用户敲 `herdr` 的目录），而不是 pane 的 cwd。
         "ghostty" => match process_cwd(client.pid) {
             Some(client_cwd) => crate::terminal_focus::focus_ghostty_via_cwd(&client_cwd),
             None => Err(FocusFailure::EmptyCwd),
         },
-        other => Err(FocusFailure::Unsupported(other.to_string())),
+        // tty 类终端复用 terminal_focus 的单点映射，client.tty 直接聚焦，不重复 pid 反查。
+        slug => match crate::terminal_focus::tty_terminal_script(slug) {
+            Some((label, build_script)) => {
+                crate::terminal_focus::focus_tty(label, &client.tty, build_script)
+            }
+            None => Err(FocusFailure::Unsupported(slug.to_string())),
+        },
     };
     match host_result {
         Ok(()) => {

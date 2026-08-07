@@ -841,20 +841,20 @@ fn build_sessions_tray_menu(
     items.push(Box::new(header));
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
-    // 聚焦可用性按会话判定：herdr 会话即使默认终端不支持也能聚焦，
-    // 因此逐会话计算 enabled，底部提示行只在存在可聚焦会话时展示。
-    let any_focusable = sessions
+    // 聚焦可用性按会话判定：herdr 会话即使默认终端不支持也能聚焦，因此逐会话计算。
+    // session_focus_available 内部会 spawn ps，预先算一次复用，避免 enabled 与底部提示行
+    // 各扫描一遍。
+    let focusable: Vec<bool> = sessions
         .iter()
-        .any(|session| session_focus_available(session.pid, &state.app.default_terminal_app));
-    for session in sessions {
+        .map(|session| session_focus_available(session.pid, &state.app.default_terminal_app))
+        .collect();
+    let any_focusable = focusable.iter().any(|&b| b);
+    for (session, &enabled) in sessions.iter().zip(&focusable) {
         let item = MenuItemBuilder::with_id(
             session_menu_item_id(session),
             session_menu_item_label(session, labels.language),
         )
-        .enabled(session_focus_available(
-            session.pid,
-            &state.app.default_terminal_app,
-        ))
+        .enabled(enabled)
         .build(app)?;
         items.push(Box::new(item));
     }
