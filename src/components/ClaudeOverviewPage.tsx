@@ -9,7 +9,6 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -435,15 +434,11 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
     ? (entryByPath.get(activePreview.path) ?? selectedEntry)
     : selectedEntry;
 
-  // 用 useLayoutEffect 同步 ref：事件处理（目录变更、预览选择）会在 commit 后立刻读取这些 ref，
-  // 若用被动 useEffect，在调度繁忙时 effect flush 可能滞后于事件回调，读到过期值（例如目录变更
-  // 事件到达时 openPreviewsRef 仍是空数组，导致已打开的预览跳过刷新/关闭）。layout effect 在
-  // commit 时同步执行，保证 ref 与 state 严格一致。
-  useLayoutEffect(() => {
+  useEffect(() => {
     openPreviewsRef.current = openPreviews;
   }, [openPreviews]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     activePreviewPathRef.current = activePreviewPath;
   }, [activePreviewPath]);
 
@@ -526,10 +521,7 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
   );
 
   useEffect(() => {
-    // 挂载时统一用 preserveCurrent:true 加载：mount 阶段 selectedPath/openPreviews 等本就处于
-    // 初始值，preserveCurrent:false 的全量重置是冗余的；若被动 effect 因调度延迟晚于用户交互才
-    // 执行，setOpenPreviews([]) 会误清用户刚打开的预览，导致目录变更事件跳过预览刷新/关闭。
-    void loadOverview({ preserveCurrent: true });
+    void loadOverview({ preserveCurrent: cachedOverviewOnMountRef.current !== null });
   }, [loadOverview]);
 
   useEffect(() => {
