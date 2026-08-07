@@ -435,6 +435,8 @@ fn focus_pane(socket_path: &Path, pane_id: &str) -> Result<(), SocketError> {
 /// 只体现在 argv 的 `--session <name>`；而新版 herdr 会把标记注入 env）:
 /// - env 通道：`HERDR_SESSION` / `HERDR_SOCKET_PATH` 相等；
 /// - argv 通道：`--session <name>` / `--session=<name>` / `session attach <name>`。
+///
+/// `--remote` 与 `--no-session` 不承载本机持久会话，即使有 tty 也必须排除。
 fn find_attached_client(ctx: &HerdrSessionContext) -> Option<HerdrClientInfo> {
     let processes = list_herdr_processes()?;
     processes.into_iter().find_map(|(pid, argv)| {
@@ -483,8 +485,17 @@ fn list_herdr_processes() -> Option<Vec<(u32, String)>> {
     )
 }
 
+/// remote attach 与 monolithic 模式不属于本机持久会话 client，不能参与宿主终端匹配。
+fn herdr_argv_uses_non_local_mode(argv: &str) -> bool {
+    argv.split_ascii_whitespace()
+        .any(|arg| matches!(arg, "--remote" | "--no-session") || arg.starts_with("--remote="))
+}
+
 /// client 进程与 pane 会话上下文是否一致：env / argv 双通道（见 `find_attached_client` 文档）。
 fn client_matches_session(env: &str, argv: &str, ctx: &HerdrSessionContext) -> bool {
+    if herdr_argv_uses_non_local_mode(argv) {
+        return false;
+    }
     let env_ctx = herdr_context_from_ps_output(env);
     let argv_session = herdr_session_from_argv(argv);
     match (&ctx.session_name, &ctx.socket_override) {
@@ -794,6 +805,36 @@ mod tests {
             "herdr TERM_PROGRAM=ghostty",
             "herdr",
             &default_with_socket_marker
+        ));
+    }
+
+    #[test]
+    fn client_rejects_remote_and_no_session_processes() {
+        let default = HerdrSessionContext {
+            session_name: None,
+            socket_override: None,
+            host_terminal: None,
+        };
+        assert!(!client_matches_session(
+            "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr --remote build-host",
+            &default
+        ));
+        assert!(!client_matches_session(
+            "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr --no-session",
+            &default
+        ));
+
+        let named = HerdrSessionContext {
+            session_name: Some("work".to_string()),
+            socket_override: None,
+            host_terminal: None,
+        };
+        assert!(!client_matches_session(
+            "herdr HERDR_SESSION=work TERM_PROGRAM=Apple_Terminal",
+            "herdr --remote build-host --session work",
+            &named
         ));
     }
 
