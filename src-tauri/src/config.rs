@@ -707,14 +707,10 @@ const CODEX_BUILTIN_OPENAI_ID: &str = "codex-builtin:openai";
 /// 旧的 `chat`（Chat Completions）已被上游移除,遇到 `chat` 会解析报错。
 pub const CODEX_WIRE_API_RESPONSES: &str = "responses";
 
-/// 把 provider 的 `wire_api` 规整为受支持值：上游已移除 `chat`,任何非 `responses` 的值
-/// (含存量 `chat`、空值)统一按 `responses` 处理,避免落盘出 Codex 无法解析的 config.toml。
-fn coerce_codex_wire_api(value: &str) -> String {
-    if value == CODEX_WIRE_API_RESPONSES {
-        value.to_string()
-    } else {
-        CODEX_WIRE_API_RESPONSES.to_string()
-    }
+/// 规整 provider 的 `wire_api`：上游已移除 `chat`,当前任何输入(含存量 `chat`、空值)
+/// 统一返回 `responses`,避免落盘出 Codex 无法解析的 config.toml。
+fn coerce_codex_wire_api(_value: &str) -> String {
+    CODEX_WIRE_API_RESPONSES.to_string()
 }
 
 /// `~/.codex/config.toml` 路径。
@@ -875,7 +871,7 @@ pub fn render_codex_config(
     provider_table["name"] = toml_edit::value(provider.name.clone());
     provider_table["base_url"] = toml_edit::value(provider.base_url.clone());
     // env_key 与 wire_api 按用户定义写入：Codex 据此读取环境变量与选择协议。
-    // 最后防线：wire_api 恒规整为 responses（Codex 已移除 chat），保证落盘永不写出无法解析的协议。
+    // wire_api 恒规整为 responses（Codex 已移除 chat）；旧 provider 段按外科补丁契约原样保留。
     provider_table["env_key"] = toml_edit::value(provider.env_key.clone());
     provider_table["wire_api"] = toml_edit::value(coerce_codex_wire_api(&provider.wire_api));
     provider_table.decor_mut().set_prefix("\n");

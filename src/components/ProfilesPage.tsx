@@ -42,6 +42,11 @@ import { isTauri } from "../types";
 import ConfigPreview from "./ConfigPreview";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
+  CARD_ACTION_BAR_CLASS,
+  CARD_ACTION_BUTTON_CLASS,
+  INTERACTIVE_CARD_CLASS,
+} from "./card-interaction-classes";
+import {
   formatModelTestDurationMs,
   getEnabledPluginsSummary,
   isPlainObject,
@@ -1801,7 +1806,8 @@ function ProfilesPage({
               <Card
                 key={profile.id}
                 className={cn(
-                  "group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 shadow-panel transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  "group relative flex flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 shadow-panel",
+                  INTERACTIVE_CARD_CLASS,
                   isAppliedProfile && "active border-primary ring-1 ring-primary/30",
                   isEditingProfile && "editing border-chart-3 ring-1 ring-chart-3/30",
                   dragState.draggingIndex === index &&
@@ -1826,6 +1832,8 @@ function ProfilesPage({
                   });
                 }}
                 onKeyDown={(event) => {
+                  // 只响应卡片自身的 Enter/Space,内层按钮按键不冒泡误触
+                  if (event.target !== event.currentTarget) return;
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     requestEditorExit(() => {
@@ -1999,13 +2007,13 @@ function ProfilesPage({
                   </Button>
                 ) : null}
 
-                <div className="mt-[-1rem] flex max-h-0 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100 pointer-events-none translate-y-2 group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
+                <div className={CARD_ACTION_BAR_CLASS}>
                   {isAppliedProfile ? (
                     <Button
                       type="button"
                       variant="outline"
                       size="icon-sm"
-                      className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                      className={CARD_ACTION_BUTTON_CLASS}
                       aria-label={t("profiles.actions.syncShared")}
                       title={t("profiles.actions.syncShared")}
                       disabled={profiles.length <= 1}
@@ -2021,7 +2029,7 @@ function ProfilesPage({
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                    className={CARD_ACTION_BUTTON_CLASS}
                     aria-label={t("profiles.actions.copyEnv")}
                     title={t("profiles.actions.copyEnv")}
                     onClick={(event) => {
@@ -2035,7 +2043,7 @@ function ProfilesPage({
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                    className={CARD_ACTION_BUTTON_CLASS}
                     aria-label={t("profiles.actions.copyLaunchCommand")}
                     title={t("profiles.actions.copyLaunchCommand")}
                     onClick={(event) => {
@@ -2049,7 +2057,7 @@ function ProfilesPage({
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                    className={CARD_ACTION_BUTTON_CLASS}
                     aria-label={t("profiles.actions.export")}
                     title={t("profiles.actions.export")}
                     onClick={(event) => {
@@ -2063,7 +2071,7 @@ function ProfilesPage({
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    className="border-border bg-muted text-foreground hover:border-primary hover:text-primary"
+                    className={CARD_ACTION_BUTTON_CLASS}
                     aria-label={t("profiles.actions.duplicate")}
                     title={t("profiles.actions.duplicate")}
                     onClick={(event) => {

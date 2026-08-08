@@ -149,6 +149,39 @@ describe("CodexProfilesPage", () => {
     });
   });
 
+  it("内层按钮上按 Enter 不触发整卡编辑(键盘守卫)", async () => {
+    const ws: CodexWorkspace = {
+      providers: [
+        ...BUILTIN_WORKSPACE.providers,
+        {
+          id: "custom:relay",
+          name: "我的中转",
+          baseUrl: "https://r.example.com/v1",
+          envKey: "RELAY_KEY",
+          wireApi: "responses",
+        },
+      ],
+      profiles: [],
+      bindings: {},
+      builtinProviderIds: ["codex-builtin:openai"],
+    };
+    stubInvoke(ws);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("我的中转")).toBeInTheDocument());
+
+    // 焦点在卡片内删除按钮上按 Enter:事件不冒泡到卡片,编辑器不被误打开
+    const deleteButton = screen.getAllByLabelText("删除")[0];
+    deleteButton.focus();
+    fireEvent.keyDown(deleteButton, { key: "Enter" });
+
+    expect(screen.queryByText("编辑 Codex Provider")).not.toBeInTheDocument();
+    // 卡片本身未被标记为按钮焦点误触(未触发整卡点击)
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "upsert_codex_provider",
+      expect.anything() as never,
+    );
+  });
+
   it("空 Provider 列表展示空状态", async () => {
     const empty: CodexWorkspace = {
       providers: [],
