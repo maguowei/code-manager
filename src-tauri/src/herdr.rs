@@ -22,9 +22,11 @@
 //! - 检测：命名会话的 pane 进程 env 继承 `HERDR_SESSION=<name>`；默认会话没有任何
 //!   环境标记，只能沿 ppid 链向上找到名为 `herdr` 的 server 进程。
 
+#[cfg(unix)]
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(unix)]
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -40,6 +42,7 @@ const HERDR_SESSION_NAME_MAX: usize = 64;
 /// ppid 链向上查找 herdr server 的最大层数。
 const ANCESTOR_WALK_MAX: usize = 8;
 /// socket 读写超时：herdr server 是本地进程，1 秒足够，超时避免后台线程卡死。
+#[cfg(unix)]
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// 一个 herdr 会话上下文：从 pane 进程环境解析出的定位信息。
@@ -156,6 +159,7 @@ pub fn focus_herdr_session(
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum SocketError {
     /// 连接失败：server 未运行或 socket 已失效。
+    #[cfg(unix)]
     NotRunning,
     /// 读写超时 / 协议解析失败 / 响应里带 error。
     Protocol,
@@ -164,6 +168,7 @@ enum SocketError {
 impl SocketError {
     fn into_focus_failure(self) -> FocusFailure {
         match self {
+            #[cfg(unix)]
             SocketError::NotRunning => FocusFailure::HerdrNotRunning,
             SocketError::Protocol => FocusFailure::ScriptError,
         }
@@ -813,6 +818,7 @@ mod tests {
 
     #[test]
     fn socket_error_maps_to_focus_failure() {
+        #[cfg(unix)]
         assert_eq!(
             SocketError::NotRunning.into_focus_failure(),
             FocusFailure::HerdrNotRunning

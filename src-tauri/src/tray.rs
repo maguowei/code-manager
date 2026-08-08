@@ -2210,9 +2210,14 @@ mod tests {
     fn pending_session_notification_interaction_follows_session_focus_availability() {
         // 默认终端支持聚焦 → 可点击聚焦（pid 无关，短路判定）
         let terminal_session = test_session("/Users/demo/work/code-manager", "waiting", 2000);
+        let expected_terminal_interaction = if cfg!(target_os = "macos") {
+            PendingSessionNotificationInteraction::FocusTerminal
+        } else {
+            PendingSessionNotificationInteraction::Plain
+        };
         assert_eq!(
             pending_session_notification_interaction(&terminal_session, "terminal"),
-            PendingSessionNotificationInteraction::FocusTerminal
+            expected_terminal_interaction
         );
         // 默认终端不支持（warp）→ 不可聚焦
         assert_eq!(
