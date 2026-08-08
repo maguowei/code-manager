@@ -17,6 +17,11 @@ import type {
   CodexWorkspace,
 } from "../types";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
+import {
+  CARD_ACTION_BAR_CLASS,
+  CARD_ACTION_BUTTON_CLASS,
+  INTERACTIVE_CARD_CLASS,
+} from "./card-interaction-classes";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
 import PageHeader from "./PageHeader";
@@ -47,21 +52,14 @@ import {
   SheetTitle,
 } from "./ui/sheet";
 
+// wire_api 恒为 responses(Codex 已移除 chat);与后端 CODEX_WIRE_API_RESPONSES 对齐
+const WIRE_API_RESPONSES = "responses";
+
 // 卡片与 chip 样式对齐 ProvidersPage 的 preset-card / preset-chip 体系
 const PROVIDER_CARD_CLASS =
   "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel";
 const PROVIDER_CHIP_CLASS =
   "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
-
-// 可点击卡片的 hover 提升(对齐 ProfilesPage 的卡片交互)
-const INTERACTIVE_CARD_CLASS =
-  "cursor-pointer transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
-// hover / focus 展开的图标操作条(对齐 ProfilesPage 的操作条)
-const CARD_ACTION_BAR_CLASS =
-  "pointer-events-none mt-[-0.5rem] flex max-h-0 translate-y-2 flex-wrap justify-end gap-2 self-end overflow-hidden opacity-0 transition-[max-height,margin-top,opacity,transform] duration-200 group-hover:pointer-events-auto group-hover:mt-0 group-hover:max-h-12 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:mt-0 group-focus-within:max-h-12 group-focus-within:translate-y-0 group-focus-within:opacity-100";
-// 操作条内的图标按钮基础样式
-const CARD_ACTION_BUTTON_CLASS =
-  "border-border bg-muted text-foreground hover:border-primary hover:text-primary";
 
 interface ProviderDraft {
   id: string | null;
@@ -198,7 +196,7 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
       baseUrl: providerDraft.baseUrl.trim(),
       envKey: providerDraft.envKey.trim(),
       // wire_api 恒为 responses(Codex 已移除 chat),后端负责落盘
-      wireApi: "responses",
+      wireApi: WIRE_API_RESPONSES,
       docUrl: providerDraft.docUrl.trim() ? providerDraft.docUrl.trim() : undefined,
     };
     setProviderSaving(true);
@@ -457,6 +455,8 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                                 "aria-label": provider.name,
                                 onClick: openThisProvider,
                                 onKeyDown: (event: KeyboardEvent) => {
+                                  // 只响应卡片自身的 Enter/Space,内层按钮按键不冒泡误触
+                                  if (event.target !== event.currentTarget) return;
                                   if (event.key === "Enter" || event.key === " ") {
                                     event.preventDefault();
                                     openThisProvider();
@@ -603,6 +603,8 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                           aria-label={profile.name}
                           onClick={openThisProfile}
                           onKeyDown={(event) => {
+                            // 只响应卡片自身的 Enter/Space,内层按钮按键不冒泡误触
+                            if (event.target !== event.currentTarget) return;
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
                               openThisProfile();
@@ -629,16 +631,7 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                               </div>
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-2">
-                              {isEditing ? (
-                                <Badge
-                                  className={cn(
-                                    "editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-chart-3",
-                                    TYPOGRAPHY.badge,
-                                  )}
-                                >
-                                  {t("codex.editingBadge")}
-                                </Badge>
-                              ) : isActive ? (
+                              {isActive ? (
                                 <Badge
                                   variant="secondary"
                                   className={cn(
@@ -648,6 +641,15 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                                 >
                                   <CircleCheck className="size-3" />
                                   {t("codex.activeBadge")}
+                                </Badge>
+                              ) : isEditing ? (
+                                <Badge
+                                  className={cn(
+                                    "editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-chart-3",
+                                    TYPOGRAPHY.badge,
+                                  )}
+                                >
+                                  {t("codex.editingBadge")}
                                 </Badge>
                               ) : (
                                 <Button

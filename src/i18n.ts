@@ -1727,8 +1727,7 @@ const translations = {
     "codex.providerSectionHint": "内置 Provider 只读，自定义 Provider 可编辑与删除。",
     "codex.createProvider": "新增 Codex Provider",
     "codex.editProvider": "编辑 Codex Provider",
-    "codex.editorDescription":
-      "Codex Provider 只承载连接信息（base_url、env_key、wire_api），不含 API key。",
+    "codex.editorDescription": "Codex Provider 只承载连接信息（base_url、env_key），不含 API key。",
     "codex.deleteProviderTitle": "删除 Codex Provider",
     "codex.deleteProviderDescription":
       "确认删除该自定义 Codex Provider？被 Codex 配置引用时，删除将被阻止。",
@@ -3592,7 +3591,7 @@ const translations = {
     "codex.createProvider": "New Codex Provider",
     "codex.editProvider": "Edit Codex Provider",
     "codex.editorDescription":
-      "A Codex Provider only holds connection info (base_url, env_key, wire_api), not the API key.",
+      "A Codex Provider only holds connection info (base_url, env_key), not the API key.",
     "codex.deleteProviderTitle": "Delete Codex Provider",
     "codex.deleteProviderDescription":
       "Delete this custom Codex provider? Deletion is blocked while a profile references it.",
