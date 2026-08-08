@@ -23,6 +23,9 @@ pub enum FocusFailure {
     /// osascript 调用本身失败，详情已写入日志。
     ScriptError,
     /// herdr socket 连不上（server 未运行或 socket 已失效）。
+    /// 唯一构造点在 `herdr.rs` 的 `#[cfg(unix)]` socket 错误转换里；non-unix 平台
+    /// 没有 unix socket，该变体永不构造，但消息表与测试仍需在所有平台引用它。
+    #[cfg_attr(not(unix), allow(dead_code))]
     HerdrNotRunning,
     /// herdr 中按 pid 精确匹配与 cwd 兜底都未命中 pane。
     HerdrPaneNotFound,
