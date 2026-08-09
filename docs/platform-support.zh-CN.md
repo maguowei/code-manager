@@ -2,8 +2,6 @@
 
 [English](./platform-support.md) | [中文](./platform-support.zh-CN.md)
 
-适用版本：`1.0.0`
-
 > 本文档面向用户与维护者。用户视角用来确认"我这台机器上能用哪些功能、哪些是降级或不可用"；维护者视角用来判断"补哪个平台缺口、风险与代码位置在哪"。
 >
 > 硬约束、模块拓扑和验证清单的权威来源是仓库根目录的 `CLAUDE.md` 与 `.claude/rules/*.md`；本文档只记录与平台相关的事实切片。当代码或配置发生变更时，按本文末尾的「维护指引」同步本文档。
@@ -219,4 +217,4 @@ git diff --check
 人工审阅两点：
 
 - 矩阵每一行支持度与代码现状一致（spot-check `src-tauri/src/terminal_focus.rs`、`src-tauri/src/config.rs:1561-1571`、`src-tauri/Cargo.toml:46-47`、`src/components/SettingsDrawer.tsx:124-137`）。
-- 风格与 `docs/user-manual.zh-CN.md`、`docs/claude-code-best-practices.md` 一致（中文、表格驱动、文件路径用反引号）。
+- 风格与 `docs/user-manual.zh-CN.md` 一致（中文、表格驱动、文件路径用反引号）。

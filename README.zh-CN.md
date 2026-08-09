@@ -30,7 +30,7 @@ Code Manager 不替代 Claude Code，而是提供一个本机配置、会话数�
 | 能力 | 说明 |
 | --- | --- |
 | `~/.claude` 总览 | 浏览、预览、编辑和定位 Claude Code 用户目录。 |
-| 配置 / 内置供应商 | 管理最终写入 `~/.claude/settings.json` 的配置层，从内置供应商(只读)选择连接地址与模型映射。可编辑模型、环境变量、权限、Sandbox、Hooks、插件与状态行。支持预览、复制、模型测试、一键应用、导入现有 settings、导出(可选含密钥、落盘前预览)、差异对比，以及一键把常用选项 / 市场 / 插件同步到其他配置。 |
+| 配置 / 内置供应商 | 管理最终写入 `~/.claude/settings.json` 的配置层，从内置供应商（只读）选择连接地址与模型映射。可编辑模型、环境变量、权限、Sandbox、Hooks、插件与状态行；支持预览、复制、模型测试、一键应用、导入 / 导出（可选含密钥、落盘前预览）、差异对比，以及把常用选项 / 市场 / 插件一键同步到其他配置。 |
 | 记忆管理 | 管理用户级 `CLAUDE.md` 与 `rules/*.md`，支持 Karpathy 行为指南预设、导入、启用、禁用、复制、预览和路径校验。 |
 | Skills 管理 | 新建、编辑、删除、启用、禁用 Claude Code Skills，并可同步为 `~/.codex/skills/<id>` 软链接。 |
 | 历史与会话 | 读取 `~/.claude/history.jsonl`，按项目和会话查看历史详情。 |
@@ -88,7 +88,7 @@ Code Manager 主要读写本机文件。配置合并、目录扫描、用量聚�
 | 用量 SQLite | `~/Library/Application Support/com.gotobeta.app.code-manager/usage.db` | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/usage.db` 或 `~/.config/com.gotobeta.app.code-manager/usage.db` | `%APPDATA%\com.gotobeta.app.code-manager\usage.db` |
 | 日志目录 | `~/Library/Logs/com.gotobeta.app.code-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.code-manager/logs/` 或 `~/.local/share/com.gotobeta.app.code-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` |
 
-应用数据目录包含 `config-registry.json`、`memories.json`、`model-pricing.json` 和 `skills-disabled/`。macOS 上应用数据刻意使用 `~/.config/code-manager/`，便于跨平台备份和脚本访问；SQLite 使用 Tauri `app_config_dir()`，日志使用 Tauri 插件默认路径。
+应用数据目录包含 `config-registry.json`、`memories.json`、`model-pricing.json` 和 `skills-disabled/`。macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备份和脚本访问。
 
 ## 本地开发
 
@@ -129,15 +129,11 @@ make test-frontend    # 运行前端测试
 
 ### 仓库速览
 
-| 路径 | 用途 |
-| --- | --- |
-| `src/` | React 前端页面、组件、hooks、schema 与测试。 |
-| `src/components/` | 页面级组件和复用 UI；更细组件入口见 `CLAUDE.md`。 |
-| `src-tauri/src/` | Rust 后端、Tauri command、本地文件与数据能力。 |
-| `src-tauri/resources/` | 内置 provider、模型价格和状态行脚本等资源。 |
-| `src-tauri/capabilities/` | Tauri 权限声明。 |
-| `docs/` | 用户手册、平台差异和扩展文档。 |
-| `.claude/rules/` | 面向 AI Agent 的 path-scoped 维护规则。 |
+- `src/`：React 前端页面、组件、hooks、schema 与测试。
+- `src-tauri/`：Rust 后端、Tauri command、内置资源与权限声明。
+- `docs/`：用户手册、平台差异和扩展文档。
+
+细粒度的组件入口、模块职责和面向 AI Agent 的路径导航见 [CLAUDE.md](./CLAUDE.md)。
 
 ## 贡献与反馈
 
@@ -152,7 +148,6 @@ make test-frontend    # 运行前端测试
 
 - [docs/user-manual.zh-CN.md](./docs/user-manual.zh-CN.md)：完整用户说明书
 - [docs/platform-support.zh-CN.md](./docs/platform-support.zh-CN.md)：平台支持差异
-- [docs/claude-code-best-practices.md](./docs/claude-code-best-practices.md)：Claude Code / Codex 在本仓库的扩展最佳实践
 - [docs/claude-code/plugin-update.md](./docs/claude-code/plugin-update.md)：Claude Code 插件更新方式
 - [CLAUDE.md](./CLAUDE.md)：面向 AI Agent 的仓库执行手册
 - [LICENSE](./LICENSE)：许可证

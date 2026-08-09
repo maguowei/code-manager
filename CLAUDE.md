@@ -75,6 +75,8 @@
 - 记忆与 Skills：`src-tauri/src/memory.rs`、`src-tauri/src/skills.rs`
 - 历史、统计、用量：`src-tauri/src/history.rs`、`src-tauri/src/stats.rs`、`src-tauri/src/usage.rs`
 - 项目、打开本机应用、托盘：`src-tauri/src/project.rs`、`src-tauri/src/native_open.rs`、`src-tauri/src/tray.rs`
+- 会话终端聚焦：`src-tauri/src/terminal_focus.rs`（AppleScript）、`src-tauri/src/herdr.rs`（herdr 两跳聚焦）
+- 会话终端聚焦：`src-tauri/src/terminal_focus.rs`（AppleScript）、`src-tauri/src/herdr.rs`（herdr 两跳聚焦）
 - 日志与诊断：`src-tauri/src/logging.rs`
 - 内置 provider、模型价格和状态行脚本：`src-tauri/resources/`
 - Tauri capability：`src-tauri/capabilities/default.json`
@@ -122,9 +124,7 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 ## 已知陷阱
 
 - CodeMirror 多版本冲突会导致空白页或配置预览渲染崩溃（`@codemirror/state` 必须全局单例）。排查：`grep "'@codemirror/state@" pnpm-lock.yaml`，预期只有一个版本；如出现多个版本，在 `pnpm-workspace.yaml` 的 `overrides` 段统一（pnpm 11 已不再读取 `package.json` 的 `pnpm.overrides`）。
-- 业务代码不要直接调用 `invoke`；新增 IPC 先更新 Specta command 集合并走 `src/ipc.ts`。`src/bindings.ts` 是生成文件，不手改。
 - 不要自实现浮层：抽屉、设置面板、模态框、下拉菜单和 Toast 都用 shadcn `Sheet` / `Dialog` / `DropdownMenu` / `Popover` / sonner。
-- 不要混淆 Projects、Stats 与 Usage 的数据源。
 - 不要把日志当成配置数据：日志目录由 Tauri 的 `app_log_dir()` 解析。
 - 当前配置 schema 是 `src/schemas/claude-settings.schema.json`。
 - Tauri 事件监听器必须在组件卸载时清理；使用 `useTauriEvent` hook 而非直接调用 `listen()`。

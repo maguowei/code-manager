@@ -1151,6 +1151,12 @@ describe("App", () => {
     });
     resolveOverview?.(overviewFixture);
 
+    // 概览加载结果经 startTransition 提交，transition 在调度繁忙时可能延迟落盘；
+    // 且首帧树可能由模块级缓存概览先行渲染，因此需等待 6 条目状态真正提交后再断言。
+    await waitFor(() => {
+      expect(screen.getByText("已加载 6 个条目")).toBeInTheDocument();
+    });
+
     await waitFor(() => {
       expect(fileTreeOptionsMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1183,7 +1189,6 @@ describe("App", () => {
     expect(invokeMock).not.toHaveBeenCalledWith("get_claude_directory_children", {
       path: null,
     });
-    expect(screen.getByText("已加载 6 个条目")).toBeInTheDocument();
     expect(screen.getByText("已跳过 2 个 node_modules 目录")).toBeInTheDocument();
     expect(screen.queryByText("已达到 100000 个条目上限")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "scripts" }));

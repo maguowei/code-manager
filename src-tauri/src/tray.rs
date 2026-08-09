@@ -158,7 +158,7 @@ impl PendingSessionNotifier {
         preferences: &AppPreferences,
         sessions: &[TraySession],
         language: &str,
-        interaction: PendingSessionNotificationInteraction,
+        default_terminal_app: &str,
     ) -> Vec<PendingSessionNotification> {
         let waiting_sessions = sessions
             .iter()
@@ -183,8 +183,12 @@ impl PendingSessionNotifier {
         }
 
         if new_waiting_sessions.len() == 1 {
+            let session = &new_waiting_sessions[0];
+            // 交互类型按会话判定：herdr 会话即使默认终端不支持也可点击聚焦。
+            let interaction =
+                pending_session_notification_interaction(session, default_terminal_app);
             return vec![build_pending_session_notification(
-                &new_waiting_sessions[0],
+                session,
                 language,
                 &preferences.default_terminal_app,
                 interaction,
@@ -503,31 +507,35 @@ fn session_focus_failure_notification_enabled(preferences: &AppPreferences) -> b
 }
 
 fn pending_session_notification_interaction(
+    session: &TraySession,
     default_terminal_app: &str,
 ) -> PendingSessionNotificationInteraction {
-    pending_session_notification_interaction_for_platform(
-        default_terminal_app,
-        cfg!(target_os = "macos"),
-    )
-}
-
-fn pending_session_notification_interaction_for_platform(
-    default_terminal_app: &str,
-    is_macos: bool,
-) -> PendingSessionNotificationInteraction {
-    if is_macos && crate::terminal_focus::terminal_supports_focus(default_terminal_app) {
+    if session_focus_available(session.pid, default_terminal_app) {
         PendingSessionNotificationInteraction::FocusTerminal
     } else {
         PendingSessionNotificationInteraction::Plain
     }
 }
 
-fn session_menu_focus_enabled(default_terminal_app: &str) -> bool {
-    session_menu_focus_enabled_for_platform(default_terminal_app, cfg!(target_os = "macos"))
+/// 单个会话是否可聚焦：macOS 且（默认终端支持聚焦，或 pid 自身宿主终端支持，
+/// 或会话跑在 herdr pane 里）。herdr 检测与 pid 宿主检测各会发起一次 ps，
+/// 只在菜单构建 / 通知决策时调用；点击时 `focus_session_in_terminal` 会重新检测。
+fn session_focus_available(pid: u32, default_terminal_app: &str) -> bool {
+    session_focus_available_for_platform(pid, default_terminal_app, cfg!(target_os = "macos"))
 }
 
-fn session_menu_focus_enabled_for_platform(default_terminal_app: &str, is_macos: bool) -> bool {
-    is_macos && crate::terminal_focus::terminal_supports_focus(default_terminal_app)
+fn session_focus_available_for_platform(
+    pid: u32,
+    default_terminal_app: &str,
+    is_macos: bool,
+) -> bool {
+    if !is_macos {
+        return false;
+    }
+    crate::terminal_focus::terminal_supports_focus(default_terminal_app)
+        || crate::terminal_focus::terminal_app_from_pid(pid)
+            .is_some_and(crate::terminal_focus::terminal_supports_focus)
+        || crate::herdr::session_runs_in_herdr(pid)
 }
 
 fn build_pending_session_notification(
@@ -833,20 +841,27 @@ fn build_sessions_tray_menu(
     items.push(Box::new(header));
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
-    let supports_focus = session_menu_focus_enabled(&state.app.default_terminal_app);
-    for session in sessions {
+    // 聚焦可用性按会话判定：herdr 会话即使默认终端不支持也能聚焦，因此逐会话计算。
+    // session_focus_available 内部会 spawn ps，预先算一次复用，避免 enabled 与底部提示行
+    // 各扫描一遍。
+    let focusable: Vec<bool> = sessions
+        .iter()
+        .map(|session| session_focus_available(session.pid, &state.app.default_terminal_app))
+        .collect();
+    let any_focusable = focusable.iter().any(|&b| b);
+    for (session, &enabled) in sessions.iter().zip(&focusable) {
         let item = MenuItemBuilder::with_id(
             session_menu_item_id(session),
             session_menu_item_label(session, labels.language),
         )
-        .enabled(supports_focus)
+        .enabled(enabled)
         .build(app)?;
         items.push(Box::new(item));
     }
 
     // 底部提示行：当聚焦快捷键可用且有会话时，展示快捷键告知用户可一键聚焦。
     // 禁用项不可点击；非 session_ 前缀 id 在 on_menu_event 中天然被忽略。
-    if supports_focus && !sessions.is_empty() {
+    if any_focusable && !sessions.is_empty() {
         if let Some(accelerator) = &state.app.focus_session_shortcut {
             items.push(Box::new(PredefinedMenuItem::separator(app)?));
             let hint = MenuItemBuilder::with_id(
@@ -1056,14 +1071,21 @@ pub fn rebuild_sessions_tray_only(app_handle: &AppHandle) {
 pub fn focus_most_urgent_session(app: &AppHandle) {
     let prefs = load_registry_or_default().app;
     let slug = prefs.default_terminal_app.clone();
-    // 非 macOS 或当前终端不支持聚焦时直接返回
-    if !session_menu_focus_enabled(&slug) {
-        return;
-    }
     let sessions = load_tray_sessions();
-    let Some(target) = pick_focus_target_session(&sessions) else {
+    if sessions.is_empty() {
         // 无活跃会话：不弹通知，仅记日志
         log::info!("event=tray.focus_shortcut status=skip reason=no_sessions");
+        return;
+    }
+    // 全局快捷键没有具体会话上下文，只在可聚焦会话里挑最该处理的；
+    // 全部不可聚焦（非 macOS / 默认终端不支持且无 herdr）时静默跳过。
+    let focusable: Vec<TraySession> = sessions
+        .iter()
+        .filter(|session| session_focus_available(session.pid, &slug))
+        .cloned()
+        .collect();
+    let Some(target) = pick_focus_target_session(&focusable) else {
+        log::info!("event=tray.focus_shortcut status=skip reason=no_focusable_sessions");
         return;
     };
     let pid = target.pid;
@@ -1148,11 +1170,14 @@ fn handle_pending_session_notifications(
     sessions: &[TraySession],
 ) {
     let labels = tray_labels_for_language(&state.app.ui_language);
-    let interaction = pending_session_notification_interaction(&state.app.default_terminal_app);
     let (notifications, has_new_waiting) = match pending_session_notifier().lock() {
         Ok(mut notifier) => {
-            let notifications =
-                notifier.observe(&state.app, sessions, labels.language, interaction);
+            let notifications = notifier.observe(
+                &state.app,
+                sessions,
+                labels.language,
+                &state.app.default_terminal_app,
+            );
             (notifications, notifier.last_had_new_waiting)
         }
         Err(e) => {
@@ -1281,7 +1306,8 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
             let notifications_enabled = session_focus_failure_notification_enabled(&prefs);
             let slug = prefs.default_terminal_app;
             let language = prefs.ui_language;
-            if !session_menu_focus_enabled(&slug) {
+            // 菜单项 enabled 已按会话判定过，这里再按同一口径兜底一次。
+            if !session_focus_available(pid, &slug) {
                 return;
             }
             // osascript 可能耗数百毫秒，丢线程避免阻塞 UI 事件循环。
@@ -1417,9 +1443,9 @@ mod tests {
         apply_pulse_update, build_pending_session_notification, format_shortcut_for_display,
         get_tray_title, is_running_session_status, is_starting_session_status,
         is_waiting_session_status, load_tray_sessions_from_dir, main_tray_navigation_items,
-        parse_session_menu_item_id, pending_session_notification_interaction_for_platform,
-        pick_focus_target_session, session_focus_failure_notification_enabled,
-        session_menu_focus_enabled_for_platform, session_menu_item_id, session_menu_item_label,
+        parse_session_menu_item_id, pending_session_notification_interaction,
+        pick_focus_target_session, session_focus_available_for_platform,
+        session_focus_failure_notification_enabled, session_menu_item_id, session_menu_item_label,
         session_project_name, session_status_emoji, session_status_label, sessions_tray_title,
         should_pulse, tick_pulse, to_superscript, tray_labels_for_language,
         PendingSessionFocusTarget, PendingSessionNotificationInteraction, PendingSessionNotifier,
@@ -1437,9 +1463,14 @@ mod tests {
         fs::write(path, content).expect("应可写入测试会话文件");
     }
 
+    /// 必然不存在的 pid：真实 pid 不可能达到 u32::MAX。托盘通知决策会做真实 ps
+    /// 进程树检测（herdr / TERM_PROGRAM），固定小 pid（如 123）在装有 herdr 的
+    /// 机器上可能命中真实进程，导致单测依赖宿主环境而偶发失败。
+    const GHOST_PID: u32 = u32::MAX;
+
     fn test_session(cwd: &str, status: &str, updated_at: u64) -> TraySession {
         TraySession {
-            pid: 123,
+            pid: GHOST_PID,
             session_id: "session-1".to_string(),
             cwd: cwd.to_string(),
             status: status.to_string(),
@@ -1910,7 +1941,7 @@ mod tests {
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
 
         assert!(notifications.is_empty());
@@ -1926,20 +1957,20 @@ mod tests {
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
 
         let first_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
         let repeated_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
 
         assert_eq!(first_notifications.len(), 1);
@@ -1960,7 +1991,7 @@ mod tests {
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
         assert!(!notifier.last_had_new_waiting, "首帧不应触发音效信号");
 
@@ -1969,7 +2000,7 @@ mod tests {
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
         assert!(notifier.last_had_new_waiting, "新等待会话应置位音效信号");
         assert!(notifications.is_empty(), "系统通知关闭时不产生通知");
@@ -1979,7 +2010,7 @@ mod tests {
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
         assert!(!notifier.last_had_new_waiting, "重复 waiting 不应再置位");
     }
@@ -1993,14 +2024,14 @@ mod tests {
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
 
         let first_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
         let repeated_count = (0..10)
             .map(|_| {
@@ -2009,7 +2040,7 @@ mod tests {
                         &test_preferences(true, "terminal"),
                         std::slice::from_ref(&waiting),
                         "zh",
-                        PendingSessionNotificationInteraction::Plain,
+                        "warp",
                     )
                     .len()
             })
@@ -2028,26 +2059,26 @@ mod tests {
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
         let _ = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
         let _ = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
 
         let notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
 
         assert_eq!(notifications.len(), 1);
@@ -2062,20 +2093,20 @@ mod tests {
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
         let disabled_notifications = notifier.observe(
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
 
         let enabled_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            PendingSessionNotificationInteraction::Plain,
+            "warp",
         );
 
         assert!(disabled_notifications.is_empty());
@@ -2095,12 +2126,7 @@ mod tests {
     #[test]
     fn pending_session_notifier_summarizes_multiple_new_waiting_sessions_without_focus_target() {
         let mut notifier = PendingSessionNotifier::default();
-        notifier.observe(
-            &test_preferences(true, "terminal"),
-            &[],
-            "zh",
-            PendingSessionNotificationInteraction::FocusTerminal,
-        );
+        notifier.observe(&test_preferences(true, "terminal"), &[], "zh", "terminal");
         let first = test_session_with_id(
             "session-1",
             "/Users/demo/work/code-manager",
@@ -2113,7 +2139,7 @@ mod tests {
             &test_preferences(true, "terminal"),
             &[first, second],
             "zh",
-            PendingSessionNotificationInteraction::FocusTerminal,
+            "terminal",
         );
 
         assert_eq!(notifications.len(), 1);
@@ -2181,28 +2207,48 @@ mod tests {
     }
 
     #[test]
-    fn pending_session_notification_interaction_requires_macos_and_focusable_terminal() {
-        assert_eq!(
-            pending_session_notification_interaction_for_platform("terminal", true),
+    fn pending_session_notification_interaction_follows_session_focus_availability() {
+        // 默认终端支持聚焦 → 可点击聚焦（pid 无关，短路判定）
+        let terminal_session = test_session("/Users/demo/work/code-manager", "waiting", 2000);
+        let expected_terminal_interaction = if cfg!(target_os = "macos") {
             PendingSessionNotificationInteraction::FocusTerminal
-        );
-        assert_eq!(
-            pending_session_notification_interaction_for_platform("warp", true),
+        } else {
             PendingSessionNotificationInteraction::Plain
-        );
+        };
         assert_eq!(
-            pending_session_notification_interaction_for_platform("terminal", false),
+            pending_session_notification_interaction(&terminal_session, "terminal"),
+            expected_terminal_interaction
+        );
+        // 默认终端不支持（warp）→ 不可聚焦
+        assert_eq!(
+            pending_session_notification_interaction(&terminal_session, "warp"),
             PendingSessionNotificationInteraction::Plain
         );
     }
 
     #[test]
-    fn session_menu_focus_enablement_requires_macos_and_focusable_terminal() {
-        assert!(session_menu_focus_enabled_for_platform("terminal", true));
-        assert!(session_menu_focus_enabled_for_platform("ghostty", true));
-        assert!(!session_menu_focus_enabled_for_platform("warp", true));
-        assert!(!session_menu_focus_enabled_for_platform("terminal", false));
-        assert!(!session_menu_focus_enabled_for_platform("ghostty", false));
+    fn session_focus_availability_requires_macos_or_herdr_or_focusable_terminal() {
+        // 默认终端支持聚焦：与 pid 无关，短路径直接放行
+        assert!(session_focus_available_for_platform(
+            GHOST_PID, "terminal", true
+        ));
+        assert!(session_focus_available_for_platform(
+            GHOST_PID, "ghostty", true
+        ));
+        // 默认终端不支持：pid 检测与 herdr 检测都失败（测试进程不存在）
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "warp", true
+        ));
+        // 非 macOS 恒不可聚焦
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "terminal", false
+        ));
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "ghostty", false
+        ));
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "warp", false
+        ));
     }
 
     /// 回归测试：会话托盘开启时，空 sessions 也必须返回非空占位标题，

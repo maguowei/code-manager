@@ -26,7 +26,8 @@ paths:
 | `claude_directory.rs` | `~/.claude` 文件树、文件预览、创建、重命名、删除与外部打开 |
 | `claude_directory_watcher.rs` | `~/.claude` 变更监听并广播 `claude-directory-changed` |
 | `native_open.rs` | 默认终端 / 编辑器跨平台启动、本机检测受支持工具清单 |
-| `terminal_focus.rs` | macOS 上 `pid -> tty -> AppleScript` 聚焦 Terminal.app / iTerm / Ghostty |
+| `terminal_focus.rs` | macOS 上 `pid -> tty -> AppleScript` 聚焦 Terminal.app / iTerm / Ghostty；herdr 会话两跳聚焦编排 |
+| `herdr.rs` | herdr 会话聚焦：socket API 客户端（NDJSON）、pane 定位（pid 精确 + cwd 兜底）、附着 client 进程发现 |
 | `tray.rs` | 系统托盘：配置切换、会话视图、页面导航 |
 | `logging.rs` | tauri-plugin-log 配置、日志脱敏 helper、panic hook |
 | `plugins.rs` | 插件市场后端操作：触发 `claude plugin list --available --json`，让 claude 按 24h TTL 默认策略刷新插件安装数缓存（不主动删缓存、不强制刷新） |

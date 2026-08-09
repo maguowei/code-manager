@@ -30,7 +30,7 @@ Code Manager does not replace Claude Code; it provides a management layer for lo
 | Capability | Description |
 | --- | --- |
 | `~/.claude` Overview | Browse, preview, edit, and locate the Claude Code user directory. |
-| Profiles / Built-in Providers | Manage the profile layer ultimately written to `~/.claude/settings.json`, picking connection endpoints and model mappings from built-in (read-only) providers. Edit models, environment variables, permissions, Sandbox, hooks, plugins, and the status line. Preview, copy, test models, apply in one click, import an existing settings file, export (optionally with secrets, with a pre-save preview), compare diffs, and sync common options / marketplaces / plugins to other profiles. |
+| Profiles / Built-in Providers | Manage the profile layer ultimately written to `~/.claude/settings.json`, picking connection endpoints and model mappings from built-in (read-only) providers. Edit models, environment variables, permissions, Sandbox, hooks, plugins, and the status line; preview, copy, test models, apply in one click, import / export (optionally with secrets, with a pre-save preview), compare diffs, and sync common options / marketplaces / plugins to other profiles in one click. |
 | Memory Management | Manage user-level `CLAUDE.md` and `rules/*.md`, with support for the Karpathy behavior guide preset, import, enable, disable, copy, preview, and path validation. |
 | Skills Management | Create, edit, delete, enable, and disable Claude Code Skills, and sync them as `~/.codex/skills/<id>` symlinks. |
 | History & Sessions | Read `~/.claude/history.jsonl` and view history details by project and session. |
@@ -88,7 +88,7 @@ Code Manager mainly reads and writes local files. Profile merging, directory sca
 | Usage SQLite | `~/Library/Application Support/com.gotobeta.app.code-manager/usage.db` | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/usage.db` or `~/.config/com.gotobeta.app.code-manager/usage.db` | `%APPDATA%\com.gotobeta.app.code-manager\usage.db` |
 | Log directory | `~/Library/Logs/com.gotobeta.app.code-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.code-manager/logs/` or `~/.local/share/com.gotobeta.app.code-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` |
 
-The application data directory contains `config-registry.json`, `memories.json`, `model-pricing.json`, and `skills-disabled/`. On macOS, application data deliberately uses `~/.config/code-manager/` for easier cross-platform backup and script access; SQLite uses Tauri's `app_config_dir()`, and logs use the Tauri plugin's default path.
+The application data directory contains `config-registry.json`, `memories.json`, `model-pricing.json`, and `skills-disabled/`. On macOS, application data deliberately reuses `~/.config/code-manager/` for easier cross-platform backup and script access.
 
 ## Local Development
 
@@ -129,15 +129,11 @@ Build artifacts are located by default in `src-tauri/target/release/bundle/`.
 
 ### Repository at a Glance
 
-| Path | Purpose |
-| --- | --- |
-| `src/` | React frontend pages, components, hooks, schemas, and tests. |
-| `src/components/` | Page-level components and reusable UI; finer component entry points are in `CLAUDE.md`. |
-| `src-tauri/src/` | Rust backend, Tauri commands, and local file and data capabilities. |
-| `src-tauri/resources/` | Built-in providers, model pricing, status line scripts, and other resources. |
-| `src-tauri/capabilities/` | Tauri permission declarations. |
-| `docs/` | User manual, platform differences, and extended documentation. |
-| `.claude/rules/` | Path-scoped maintenance rules for AI agents. |
+- `src/`: React frontend pages, components, hooks, schemas, and tests.
+- `src-tauri/`: Rust backend, Tauri commands, built-in resources, and permission declarations.
+- `docs/`: user manual, platform differences, and extended documentation.
+
+For fine-grained component entry points, module responsibilities, and path navigation for AI agents, see [CLAUDE.md](./CLAUDE.md).
 
 ## Contributing and Feedback
 
@@ -152,7 +148,6 @@ When filing an issue, please include as much as possible:
 
 - [docs/user-manual.md](./docs/user-manual.md): the complete user manual
 - [docs/platform-support.md](./docs/platform-support.md): platform support differences
-- [docs/claude-code-best-practices.md](./docs/claude-code-best-practices.md): extended best practices for Claude Code / Codex in this repo
 - [CLAUDE.md](./CLAUDE.md): the repository execution manual for AI agents
 - [LICENSE](./LICENSE): license
 
