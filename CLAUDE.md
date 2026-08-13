@@ -76,7 +76,6 @@
 - 历史、统计、用量：`src-tauri/src/history.rs`、`src-tauri/src/stats.rs`、`src-tauri/src/usage.rs`
 - 项目、打开本机应用、托盘：`src-tauri/src/project.rs`、`src-tauri/src/native_open.rs`、`src-tauri/src/tray.rs`
 - 会话终端聚焦：`src-tauri/src/terminal_focus.rs`（AppleScript）、`src-tauri/src/herdr.rs`（herdr 两跳聚焦）
-- 会话终端聚焦：`src-tauri/src/terminal_focus.rs`（AppleScript）、`src-tauri/src/herdr.rs`（herdr 两跳聚焦）
 - 日志与诊断：`src-tauri/src/logging.rs`
 - 内置 provider、模型价格和状态行脚本：`src-tauri/resources/`
 - Tauri capability：`src-tauri/capabilities/default.json`

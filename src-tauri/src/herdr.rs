@@ -220,6 +220,16 @@ fn resolve_socket_path(ctx: &HerdrSessionContext) -> PathBuf {
     resolve_socket_path_with(std::env::var("XDG_CONFIG_HOME").ok().as_deref(), ctx)
 }
 
+/// 当前机器上的默认 herdr socket 路径，用于区分默认会话与真正的自定义 socket。
+fn resolve_default_socket_path() -> PathBuf {
+    let default_ctx = HerdrSessionContext {
+        session_name: None,
+        socket_override: None,
+        host_terminal: None,
+    };
+    resolve_socket_path(&default_ctx)
+}
+
 /// 纯函数版 socket 路径解析，便于单测（config_home 为 None 时用 `~/.config`）。
 fn resolve_socket_path_with(config_home: Option<&str>, ctx: &HerdrSessionContext) -> PathBuf {
     if let Some(override_path) = &ctx.socket_override {
@@ -430,6 +440,8 @@ fn focus_pane(socket_path: &Path, pane_id: &str) -> Result<(), SocketError> {
 /// 只体现在 argv 的 `--session <name>`；而新版 herdr 会把标记注入 env）:
 /// - env 通道：`HERDR_SESSION` / `HERDR_SOCKET_PATH` 相等；
 /// - argv 通道：`--session <name>` / `--session=<name>` / `session attach <name>`。
+///
+/// `--remote` 与 `--no-session` 不承载本机持久会话，即使有 tty 也必须排除。
 fn find_attached_client(ctx: &HerdrSessionContext) -> Option<HerdrClientInfo> {
     let processes = list_herdr_processes()?;
     processes.into_iter().find_map(|(pid, argv)| {
@@ -478,8 +490,17 @@ fn list_herdr_processes() -> Option<Vec<(u32, String)>> {
     )
 }
 
+/// remote attach 与 monolithic 模式不属于本机持久会话 client，不能参与宿主终端匹配。
+fn herdr_argv_uses_non_local_mode(argv: &str) -> bool {
+    argv.split_ascii_whitespace()
+        .any(|arg| matches!(arg, "--remote" | "--no-session") || arg.starts_with("--remote="))
+}
+
 /// client 进程与 pane 会话上下文是否一致：env / argv 双通道（见 `find_attached_client` 文档）。
 fn client_matches_session(env: &str, argv: &str, ctx: &HerdrSessionContext) -> bool {
+    if herdr_argv_uses_non_local_mode(argv) {
+        return false;
+    }
     let env_ctx = herdr_context_from_ps_output(env);
     let argv_session = herdr_session_from_argv(argv);
     match (&ctx.session_name, &ctx.socket_override) {
@@ -489,7 +510,13 @@ fn client_matches_session(env: &str, argv: &str, ctx: &HerdrSessionContext) -> b
                 || (env_ctx.session_name.is_none() && argv_session.as_deref() == Some(name.as_str()))
         }
         (None, Some(socket_path)) => {
-            env_ctx.socket_override.as_deref() == Some(socket_path.as_str())
+            let client_socket_matches =
+                env_ctx.socket_override.as_deref() == Some(socket_path.as_str());
+            // herdr 0.7.x 会把默认 socket 注入 pane env，但 bare client 不继承该变量。
+            // 仅对当前机器的标准默认路径放宽；真正的自定义 socket 仍要求精确匹配。
+            let unmarked_default_client = env_ctx.socket_override.is_none()
+                && Path::new(socket_path) == resolve_default_socket_path();
+            (client_socket_matches || unmarked_default_client)
                 && env_ctx.session_name.is_none()
                 && argv_session.is_none()
         }
@@ -503,8 +530,9 @@ fn client_matches_session(env: &str, argv: &str, ctx: &HerdrSessionContext) -> b
     }
 }
 
-/// 从 herdr client 的 argv 提取会话名：`--session <name>` / `--session=<name>` /
-/// `session attach <name>`；无会话参数返回 None。会话名校验与 env 通道同规则。
+/// 从 herdr client 命令行提取会话名：`--session <name>` / `--session=<name>` /
+/// `session attach <name>`；输入可能保留 `ps` 的 pid 前缀，因此不能依赖固定下标。
+/// 无会话参数返回 None。会话名校验与 env 通道同规则。
 fn herdr_session_from_argv(argv: &str) -> Option<String> {
     let args: Vec<&str> = argv.split_ascii_whitespace().collect();
     for (i, arg) in args.iter().enumerate() {
@@ -517,9 +545,9 @@ fn herdr_session_from_argv(argv: &str) -> Option<String> {
             return sanitize_session_name(name);
         }
     }
-    if args.get(1) == Some(&"session") && args.get(2) == Some(&"attach") {
-        if let Some(name) = args.get(3) {
-            return sanitize_session_name(name);
+    for command in args.windows(3) {
+        if command[0] == "session" && command[1] == "attach" {
+            return sanitize_session_name(command[2]);
         }
     }
     None
@@ -769,6 +797,50 @@ mod tests {
             "herdr --session work",
             &default
         ));
+
+        // herdr 会把默认 socket 路径注入 pane，但 0.7.x 的 bare client 不继承该变量。
+        // 这仍然是默认会话，应该匹配无标记、无命名参数的 client。
+        let default_socket = resolve_socket_path(&default);
+        let default_with_socket_marker = HerdrSessionContext {
+            session_name: None,
+            socket_override: Some(default_socket.to_string_lossy().into_owned()),
+            host_terminal: None,
+        };
+        assert!(client_matches_session(
+            "herdr TERM_PROGRAM=ghostty",
+            "herdr",
+            &default_with_socket_marker
+        ));
+    }
+
+    #[test]
+    fn client_rejects_remote_and_no_session_processes() {
+        let default = HerdrSessionContext {
+            session_name: None,
+            socket_override: None,
+            host_terminal: None,
+        };
+        assert!(!client_matches_session(
+            "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr --remote build-host",
+            &default
+        ));
+        assert!(!client_matches_session(
+            "herdr TERM_PROGRAM=Apple_Terminal",
+            "herdr --no-session",
+            &default
+        ));
+
+        let named = HerdrSessionContext {
+            session_name: Some("work".to_string()),
+            socket_override: None,
+            host_terminal: None,
+        };
+        assert!(!client_matches_session(
+            "herdr HERDR_SESSION=work TERM_PROGRAM=Apple_Terminal",
+            "herdr --remote build-host --session work",
+            &named
+        ));
     }
 
     #[test]
@@ -783,6 +855,11 @@ mod tests {
         );
         assert_eq!(
             herdr_session_from_argv("herdr session attach cloudhub"),
+            Some("cloudhub".to_string())
+        );
+        // list_herdr_processes 当前传入完整 ps 行，开头包含 pid。
+        assert_eq!(
+            herdr_session_from_argv("90936 herdr session attach cloudhub"),
             Some("cloudhub".to_string())
         );
         // 无会话参数 / daemon / 非法值
