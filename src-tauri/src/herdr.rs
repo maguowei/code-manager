@@ -123,10 +123,13 @@ pub fn focus_herdr_session(
         .or(ctx.host_terminal)
         .unwrap_or(fallback_slug);
     let host_result = match host_slug {
-        // Ghostty 没有 tty API，按 working directory 匹配；匹配对象必须是 client
-        // 进程的 cwd（用户敲 `herdr` 的目录），而不是 pane 的 cwd。
+        // Ghostty 没有 tty API：命名会话优先按 client title 匹配，cwd 只做唯一兜底；
+        // cwd 必须是 client 进程的 cwd（用户敲 `herdr` 的目录），而不是 pane 的 cwd。
         "ghostty" => match process_cwd(client.pid) {
-            Some(client_cwd) => crate::terminal_focus::focus_ghostty_via_cwd(&client_cwd),
+            Some(client_cwd) => crate::terminal_focus::focus_ghostty_via_herdr_session(
+                &client_cwd,
+                ctx.session_name.as_deref(),
+            ),
             None => Err(FocusFailure::EmptyCwd),
         },
         // tty 类终端复用 terminal_focus 的单点映射，client.tty 直接聚焦，不重复 pid 反查。
