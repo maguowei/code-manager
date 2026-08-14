@@ -76,7 +76,7 @@ paths:
 - 会话文件只读取普通 `.json` 文件，缺少 `pid`、`sessionId`、`cwd`、`status` 或字段为空时应跳过。
 - 会话菜单项 id 需要能安全携带 `pid` 和 `cwd`；`cwd` 可能包含中文、空格、引号和 `::`。
 - Terminal.app 与 iTerm2 通过 `pid -> tty -> AppleScript` 精确聚焦已有 tab。
-- Ghostty 的 AppleScript 没有 pid/tty API；herdr 命名会话优先按 client title 匹配，`working directory` 仅在唯一时兜底；不要使用 `select tab t of w` 这类循环变量 specifier，容易触发 `-1700` 类型错误。
+- Ghostty 的 AppleScript 没有 pid/tty API；普通会话按 client title 排除 herdr terminal 后，再按 `working directory` 唯一匹配；herdr 命名会话优先按 client title 匹配，cwd 仅在唯一时兜底；不要使用 `select tab t of w` 这类循环变量 specifier，容易触发 `-1700` 类型错误。
 - herdr 会话（跑在 herdr pane 里的 Claude Code）走"两跳聚焦"：先连 herdr unix socket API 按 pid 定位 pane 并 `pane.focus`，再找到附着的 herdr client 进程（其 tty 即宿主 tab 的 tty）复用宿主终端 AppleScript。逻辑集中在 `src-tauri/src/herdr.rs`，`terminal_focus.rs` 只做编排。
 - herdr 检测：先读会话进程 env（`HERDR_SESSION` / `HERDR_SOCKET_PATH` 标记，命名会话才有），无标记时沿 ppid 链找名为 `herdr` 的祖先进程（默认会话没有 env 标记，只能靠进程树）。
 - herdr socket 路径：`HERDR_SOCKET_PATH` > `<config>/herdr/sessions/<name>/herdr.sock`（命名会话）> `<config>/herdr/herdr.sock`；`HERDR_SESSION` 必须按 herdr 命名规则白名单校验，防路径穿越。

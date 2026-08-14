@@ -3,7 +3,7 @@
 //! 设计要点：
 //! - Terminal.app / iTerm2 走 pid → tty → AppleScript 精确定位。
 //! - Ghostty 1.3 的 AppleScript 还没暴露 pid/tty（见 Issue #11592）；herdr 命名会话优先按
-//!   client title 匹配，普通会话按 working directory 匹配且只接受唯一结果。
+//!   client title 匹配，普通会话排除 herdr client 后按 working directory 唯一匹配。
 //! - Warp 没有官方 AppleScript，托盘菜单项会被设为 disabled，正常不会调到本模块。
 //! - 命中失败会记 warn 日志，并把失败原因作为 Err 返回给调用方用于给用户反馈。
 //!   调用方负责决定是否新开窗口；本模块本身绝不自动新开 tab。
@@ -333,10 +333,18 @@ end tell"#
 }
 
 fn ghostty_script(escaped_cwd: &str) -> String {
-    ghostty_script_with_session(escaped_cwd, None)
+    ghostty_script_with_options(escaped_cwd, None, true)
 }
 
 fn ghostty_script_with_session(escaped_cwd: &str, escaped_session_name: Option<&str>) -> String {
+    ghostty_script_with_options(escaped_cwd, escaped_session_name, false)
+}
+
+fn ghostty_script_with_options(
+    escaped_cwd: &str,
+    escaped_session_name: Option<&str>,
+    exclude_herdr_clients: bool,
+) -> String {
     let session_match = escaped_session_name
         .map(|session_name| {
             format!(
@@ -352,18 +360,32 @@ end repeat"#
             )
         })
         .unwrap_or_default();
+    let cwd_match_condition = if exclude_herdr_clients {
+        r#"if (working directory of term is targetCwd) and (not isHerdrClient) then"#
+    } else {
+        r#"if working directory of term is targetCwd then"#
+    };
+    let herdr_client_check = if exclude_herdr_clients {
+        r#"set isHerdrClient to (termName is "herdr") or (termName starts with "herdr --session ") or (termName starts with "herdr --session=") or (termName starts with "herdr session attach ")"#
+    } else {
+        ""
+    };
     format!(
         r#"tell application "Ghostty"
 set targetCwd to "{escaped_cwd}"{session_match}
 set cwdMatchCount to 0
 repeat with term in terminals
-if working directory of term is targetCwd then
+set termName to name of term
+{herdr_client_check}
+{cwd_match_condition}
 set cwdMatchCount to cwdMatchCount + 1
 end if
 end repeat
 if cwdMatchCount is 1 then
 repeat with term in terminals
-if working directory of term is targetCwd then
+set termName to name of term
+{herdr_client_check}
+{cwd_match_condition}
 focus term
 return true
 end if
@@ -503,6 +525,15 @@ mod tests {
 
         assert!(script.contains("cwdMatchCount"));
         assert!(script.contains("if cwdMatchCount is 1 then"));
+    }
+
+    #[test]
+    fn ghostty_script_for_regular_session_excludes_herdr_clients() {
+        let script = ghostty_script("/Users/demo/project");
+
+        assert!(script.contains("set isHerdrClient to"));
+        assert!(script.contains("termName starts with \"herdr --session \""));
+        assert!(script.contains("and (not isHerdrClient)"));
     }
 
     #[test]
