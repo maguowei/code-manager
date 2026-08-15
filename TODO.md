@@ -8,7 +8,7 @@
 - [ ] 支持跨设备 / 云端配置同步
 - [x] 支持 Codex 互通（Skills 同步 ~/.codex/skills、AGENTS.md ↔ CLAUDE.md 配对）
 - [ ] 完整纳管 Codex（配置 / 用量）
-- [x] 配置支持选择供应商（字节跳动方舟 Coding Plan、阿里云百炼 Coding Plan、智谱 GLM Coding Plan、MiniMax Coding Plan、Kimi Code Plan 等）
+- [x] 配置支持选择供应商（字节跳动方舟 Coding Plan、智谱 GLM Coding Plan、MiniMax Coding Plan、Kimi Code Plan 等）
 - [x] 支持 menubar 使用，一键切换配置
 - [x] 支持项目管理（项目内 Skills、Configs、CLAUDE.md 管理，支持一键创建 AGENTS.md 软链接指向 CLAUDE.md）
 - [x] 完善前端检查（ESLint、类型检查等）

@@ -2,7 +2,8 @@
 //!
 //! 设计要点：
 //! - Terminal.app / iTerm2 走 pid → tty → AppleScript 精确定位。
-//! - Ghostty 1.3 的 AppleScript 还没暴露 pid/tty（见 Issue #11592），只能按 working directory 近似匹配。
+//! - Ghostty 1.3 的 AppleScript 还没暴露 pid/tty（见 Issue #11592）；herdr 命名会话优先按
+//!   client title 匹配，普通会话排除 herdr client 后按 working directory 唯一匹配。
 //! - Warp 没有官方 AppleScript，托盘菜单项会被设为 disabled，正常不会调到本模块。
 //! - 命中失败会记 warn 日志，并把失败原因作为 Err 返回给调用方用于给用户反馈。
 //!   调用方负责决定是否新开窗口；本模块本身绝不自动新开 tab。
@@ -123,7 +124,7 @@ pub fn focus_session_in_terminal(pid: u32, cwd: &str, app_slug: &str) -> Result<
     // 优先使用目标进程的终端，读取失败再回退设置中的默认终端。
     let app_slug = terminal_app_from_pid(pid).unwrap_or(app_slug);
     match app_slug {
-        // Ghostty 没有 tty API，按 working directory 匹配。
+        // 普通会话没有可区分的 identity，Ghostty 按唯一 working directory 匹配。
         "ghostty" => focus_ghostty_via_cwd(cwd),
         // tty 类终端（Terminal/iTerm）共用 pid → tty → AppleScript 路径。
         slug => match tty_terminal_script(slug) {
@@ -186,17 +187,35 @@ pub(crate) fn focus_tty(
 }
 
 pub(crate) fn focus_ghostty_via_cwd(cwd: &str) -> Result<(), FocusFailure> {
+    focus_ghostty(cwd, None)
+}
+
+/// 聚焦 herdr 宿主 Ghostty terminal：命名会话优先按 client title 匹配，cwd 只做唯一兜底。
+pub(crate) fn focus_ghostty_via_herdr_session(
+    cwd: &str,
+    session_name: Option<&str>,
+) -> Result<(), FocusFailure> {
+    focus_ghostty(cwd, session_name)
+}
+
+fn focus_ghostty(cwd: &str, session_name: Option<&str>) -> Result<(), FocusFailure> {
     if cwd.is_empty() {
         log::warn!("event=tray.session_focus status=miss reason=empty_cwd app=Ghostty");
         return Err(FocusFailure::EmptyCwd);
     }
-    let script = ghostty_script(&escape_applescript_string(cwd));
+    let escaped_cwd = escape_applescript_string(cwd);
+    let escaped_session_name = session_name.map(escape_applescript_string);
+    let script = match escaped_session_name.as_deref() {
+        Some(session_name) => ghostty_script_with_session(&escaped_cwd, Some(session_name)),
+        None => ghostty_script(&escaped_cwd),
+    };
     match run_osascript_returning_bool(&script) {
         Ok(true) => Ok(()),
         Ok(false) => {
             log::warn!(
-                "event=tray.session_focus status=miss reason=tab_not_found app=Ghostty cwd={}",
-                crate::utils::truncate(cwd, 160)
+                "event=tray.session_focus status=miss reason=tab_not_found app=Ghostty session={} cwd={}",
+                session_name.unwrap_or("default"),
+                crate::utils::truncate(cwd, 160),
             );
             Err(FocusFailure::TabNotFound)
         }
@@ -314,17 +333,66 @@ end tell"#
 }
 
 fn ghostty_script(escaped_cwd: &str) -> String {
+    ghostty_script_with_options(escaped_cwd, None, true)
+}
+
+fn ghostty_script_with_session(escaped_cwd: &str, escaped_session_name: Option<&str>) -> String {
+    ghostty_script_with_options(escaped_cwd, escaped_session_name, false)
+}
+
+fn ghostty_script_with_options(
+    escaped_cwd: &str,
+    escaped_session_name: Option<&str>,
+    exclude_herdr_clients: bool,
+) -> String {
+    let session_match = escaped_session_name
+        .map(|session_name| {
+            format!(
+                r#"
+set targetSessionName to "{session_name}"
+repeat with term in terminals
+set termName to name of term
+if termName is ("herdr --session " & targetSessionName) or termName is ("herdr --session=" & targetSessionName) or termName is ("herdr session attach " & targetSessionName) then
+focus term
+return true
+end if
+end repeat"#
+            )
+        })
+        .unwrap_or_default();
+    let cwd_match_condition = if exclude_herdr_clients {
+        r#"if (working directory of term is targetCwd) and (not isHerdrClient) then"#
+    } else {
+        r#"if working directory of term is targetCwd then"#
+    };
+    let herdr_client_check = if exclude_herdr_clients {
+        r#"set isHerdrClient to (termName is "herdr") or (termName starts with "herdr --session ") or (termName starts with "herdr --session=") or (termName starts with "herdr session attach ")"#
+    } else {
+        ""
+    };
     format!(
         r#"tell application "Ghostty"
-	set targetCwd to "{escaped_cwd}"
-	repeat with term in terminals
-	if working directory of term is targetCwd then
-	focus term
-	return true
-	end if
-	end repeat
-	return false
-	end tell"#
+set targetCwd to "{escaped_cwd}"{session_match}
+set cwdMatchCount to 0
+repeat with term in terminals
+set termName to name of term
+{herdr_client_check}
+{cwd_match_condition}
+set cwdMatchCount to cwdMatchCount + 1
+end if
+end repeat
+if cwdMatchCount is 1 then
+repeat with term in terminals
+set termName to name of term
+{herdr_client_check}
+{cwd_match_condition}
+focus term
+return true
+end if
+end repeat
+end if
+return false
+end tell"#
     )
 }
 
@@ -449,6 +517,39 @@ mod tests {
         assert!(script.contains("repeat with term in terminals"));
         assert!(script.contains("focus term"));
         assert!(!script.contains("select tab t of w"));
+    }
+
+    #[test]
+    fn ghostty_script_does_not_choose_first_terminal_when_cwd_is_ambiguous() {
+        let script = ghostty_script("/Users/demo/project");
+
+        assert!(script.contains("cwdMatchCount"));
+        assert!(script.contains("if cwdMatchCount is 1 then"));
+    }
+
+    #[test]
+    fn ghostty_script_for_regular_session_excludes_herdr_clients() {
+        let script = ghostty_script("/Users/demo/project");
+
+        assert!(script.contains("set isHerdrClient to"));
+        assert!(script.contains("termName starts with \"herdr --session \""));
+        assert!(script.contains("and (not isHerdrClient)"));
+    }
+
+    #[test]
+    fn ghostty_script_prefers_herdr_session_title_before_cwd_fallback() {
+        let script = ghostty_script_with_session("/Users/demo/project", Some("cloudhub"));
+
+        let session_match = script
+            .find("set targetSessionName")
+            .expect("应先生成 herdr session title 匹配");
+        let cwd_fallback = script
+            .find("set cwdMatchCount")
+            .expect("应生成 cwd 唯一匹配兜底");
+        assert!(session_match < cwd_fallback);
+        assert!(script.contains("herdr --session "));
+        assert!(script.contains("herdr --session="));
+        assert!(script.contains("herdr session attach "));
     }
 
     #[test]

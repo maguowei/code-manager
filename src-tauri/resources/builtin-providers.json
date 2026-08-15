@@ -19,11 +19,12 @@
       "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1m]",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
       "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-flash",
+      "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "786432",
       "CLAUDE_CODE_EFFORT_LEVEL": "max"
     },
     "models": [
       { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
-      { "id": "deepseek-v4-flash", "name": "DeepSeek V4 Flash" }
+      { "id": "deepseek-v4-flash[1m]", "name": "DeepSeek V4 Flash" }
     ]
   },
   {
@@ -36,15 +37,15 @@
     "baseUrl": "https://open.bigmodel.cn/api/anthropic",
     "docUrl": "https://docs.bigmodel.cn/cn/coding-plan/overview",
     "env": {
-      "ANTHROPIC_MODEL": "glm-5.2[1m]",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2[1m]",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2[1m]",
+      "ANTHROPIC_MODEL": "glm-5.3[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1m]",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7",
       "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
       "CLAUDE_CODE_EFFORT_LEVEL": "max"
     },
     "models": [
-      { "id": "glm-5.2[1m]", "name": "GLM-5.2" },
+      { "id": "glm-5.3[1m]", "name": "GLM-5.3" },
       { "id": "glm-4.7", "name": "GLM-4.7" }
     ]
   },
@@ -98,11 +99,11 @@
       "ANTHROPIC_MODEL": "mimo-v2.5-pro[1m]",
       "ANTHROPIC_DEFAULT_OPUS_MODEL": "mimo-v2.5-pro[1m]",
       "ANTHROPIC_DEFAULT_SONNET_MODEL": "mimo-v2.5-pro[1m]",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "mimo-v2.5"
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "mimo-v2.5[1m]"
     },
     "models": [
       { "id": "mimo-v2.5-pro[1m]", "name": "MiMo-V2.5-Pro" },
-      { "id": "mimo-v2.5", "name": "MiMo-V2.5" }
+      { "id": "mimo-v2.5[1m]", "name": "MiMo-V2.5" }
     ]
   },
   {
@@ -143,41 +144,17 @@
     "baseUrl": "https://ark.cn-beijing.volces.com/api/coding",
     "docUrl": "https://www.volcengine.com/docs/82379/1925114",
     "env": {
-      "ANTHROPIC_MODEL": "glm-5.2",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash"
+      "ANTHROPIC_MODEL": "glm-5.3[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1m]",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash[1m]"
     },
     "models": [
-      { "id": "doubao-seed-2.0-code", "name": "豆包 Seed 2.0 Code" },
-      { "id": "doubao-seed-2.0-pro", "name": "豆包 Seed 2.0 Pro" },
       { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code" },
-      { "id": "glm-5.2", "name": "GLM-5.2" },
+      { "id": "glm-5.3[1m]", "name": "GLM-5.3" },
       { "id": "minimax-m3", "name": "MiniMax M3" },
-      { "id": "deepseek-v4-pro", "name": "DeepSeek V4 Pro" },
-      { "id": "deepseek-v4-flash", "name": "DeepSeek V4 Flash" }
-    ]
-  },
-  {
-    "name": "阿里云百炼 Coding Plan",
-    "localizedName": {
-      "zh": "阿里云百炼 Coding Plan",
-      "en": "阿里云百炼 Coding Plan"
-    },
-    "slug": "dashscope",
-    "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
-    "docUrl": "https://help.aliyun.com/zh/model-studio/coding-plan",
-    "env": {
-      "ANTHROPIC_MODEL": "qwen3.7-plus",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.7-plus",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.7-plus"
-    },
-    "models": [
-      { "id": "qwen3.7-plus", "name": "Qwen 3.7 Plus" },
-      { "id": "glm-5", "name": "GLM-5" },
-      { "id": "kimi-k2.5", "name": "Kimi K2.5" },
-      { "id": "MiniMax-M2.5", "name": "MiniMax M2.5" }
+      { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
+      { "id": "deepseek-v4-flash[1m]", "name": "DeepSeek V4 Flash" }
     ]
   },
   {
@@ -187,14 +164,14 @@
     "baseUrl": "https://maas-openapi.wanjiedata.com/api/anthropic",
     "docUrl": "https://docs.wjark.com/maas/scenarios/Development/Claudecode.html",
     "env": {
-      "ANTHROPIC_MODEL": "claude-opus-4-8[1m]",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1m]",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
+      "ANTHROPIC_MODEL": "claude-opus-5[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1m]",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001"
     },
     "models": [
-      { "id": "claude-opus-4-8[1m]", "name": "Claude Opus 4.8" },
-      { "id": "claude-sonnet-5", "name": "Claude Sonnet 5" },
+      { "id": "claude-opus-5[1m]", "name": "Claude Opus 5" },
+      { "id": "claude-sonnet-5[1m]", "name": "Claude Sonnet 5" },
       { "id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5" }
     ]
   }
