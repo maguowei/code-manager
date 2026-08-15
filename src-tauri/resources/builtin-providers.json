@@ -36,15 +36,15 @@
     "baseUrl": "https://open.bigmodel.cn/api/anthropic",
     "docUrl": "https://docs.bigmodel.cn/cn/coding-plan/overview",
     "env": {
-      "ANTHROPIC_MODEL": "glm-5.2[1m]",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2[1m]",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2[1m]",
+      "ANTHROPIC_MODEL": "glm-5.3[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1m]",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7",
       "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
       "CLAUDE_CODE_EFFORT_LEVEL": "max"
     },
     "models": [
-      { "id": "glm-5.2[1m]", "name": "GLM-5.2" },
+      { "id": "glm-5.3[1m]", "name": "GLM-5.3" },
       { "id": "glm-4.7", "name": "GLM-4.7" }
     ]
   },
@@ -143,16 +143,16 @@
     "baseUrl": "https://ark.cn-beijing.volces.com/api/coding",
     "docUrl": "https://www.volcengine.com/docs/82379/1925114",
     "env": {
-      "ANTHROPIC_MODEL": "glm-5.2",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2",
+      "ANTHROPIC_MODEL": "glm-5.3",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash"
     },
     "models": [
       { "id": "doubao-seed-2.0-code", "name": "豆包 Seed 2.0 Code" },
       { "id": "doubao-seed-2.0-pro", "name": "豆包 Seed 2.0 Pro" },
       { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code" },
-      { "id": "glm-5.2", "name": "GLM-5.2" },
+      { "id": "glm-5.3", "name": "GLM-5.3" },
       { "id": "minimax-m3", "name": "MiniMax M3" },
       { "id": "deepseek-v4-pro", "name": "DeepSeek V4 Pro" },
       { "id": "deepseek-v4-flash", "name": "DeepSeek V4 Flash" }

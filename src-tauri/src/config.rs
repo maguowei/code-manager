@@ -1544,7 +1544,7 @@ fn blank_auth_secrets(value: &mut Value) {
 }
 
 /// 剥离模型名结尾的 `[1m]` 上下文标记后缀。Claude Code 自身会在请求前剥离该后缀，
-/// 测试请求需与之对齐，避免把 `glm-5.2[1m]` 这类带后缀的模型名原样发给端点导致模型不存在。
+/// 测试请求需与之对齐，避免把 `glm-5.3[1m]` 这类带后缀的模型名原样发给端点导致模型不存在。
 fn strip_model_context_suffix(model: &str) -> &str {
     model.strip_suffix("[1m]").map_or(model, str::trim_end)
 }
@@ -4258,8 +4258,8 @@ mod tests {
 
     #[test]
     fn strip_model_context_suffix_removes_one_million_marker() {
-        assert_eq!(strip_model_context_suffix("glm-5.2[1m]"), "glm-5.2");
-        assert_eq!(strip_model_context_suffix("glm-5.2 [1m]"), "glm-5.2");
+        assert_eq!(strip_model_context_suffix("glm-5.3[1m]"), "glm-5.3");
+        assert_eq!(strip_model_context_suffix("glm-5.3 [1m]"), "glm-5.3");
         assert_eq!(
             strip_model_context_suffix("claude-opus-4-8"),
             "claude-opus-4-8"
@@ -4272,14 +4272,14 @@ mod tests {
             &serde_json::json!({
                 "env": {
                     "ANTHROPIC_AUTH_TOKEN": "token",
-                    "ANTHROPIC_MODEL": "glm-5.2[1m]"
+                    "ANTHROPIC_MODEL": "glm-5.3[1m]"
                 }
             }),
             None,
         )
         .unwrap();
 
-        assert_eq!(request.resolved_model, "glm-5.2");
+        assert_eq!(request.resolved_model, "glm-5.3");
     }
 
     #[test]
