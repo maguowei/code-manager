@@ -366,7 +366,8 @@ pub(crate) fn focus_tty(
 
 /// 普通 Ghostty 会话：身份校验通过后，tty 精确匹配优先（上游 #11592 起支持），没有
 /// tty 或未命中时落到会话记录 cwd 的唯一匹配；cwd 匹配先排除 herdr client，避免误激活
-/// 同目录的 herdr 宿主 tab。身份校验失败时不会进入 cwd 兜底。
+/// 同目录的 herdr 宿主 tab。仍 miss 且 tty 在手时用 tty 标题标记法精确定位
+/// （Ghostty <1.4 无 `tty` 属性、同目录多 tab 时的降级方案）。身份校验失败时不会进入兜底。
 pub(crate) fn focus_ghostty_regular_session(
     tty: Option<&str>,
     cwd: &str,
@@ -382,6 +383,9 @@ pub(crate) fn focus_ghostty_regular_session(
     if focus_ghostty_attempt_with(&spec, run_script)? {
         return Ok(());
     }
+    if focus_ghostty_via_title_marker(tty, run_script)? {
+        return Ok(());
+    }
     log::warn!(
         "event=tray.session_focus status=miss reason=tab_not_found app=Ghostty kind=regular tty={} cwd={}",
         tty.unwrap_or("none"),
@@ -390,8 +394,9 @@ pub(crate) fn focus_ghostty_regular_session(
     Err(FocusFailure::TabNotFound)
 }
 
-/// 聚焦 herdr 宿主 Ghostty terminal：命名会话 title 与 client tty 精确匹配优先，
-/// 都未命中才解析 client cwd（lsof）做唯一兜底。tty 来自 herdr client 进程
+/// 聚焦 herdr 宿主 Ghostty terminal：title 与 client tty 精确匹配优先（默认会话的
+/// 宿主 tab 标题稳定为 "herdr"，同样按 title 命中），都未命中才解析 client cwd
+/// （lsof）做唯一兜底，最后落到 tty 标题标记法。tty 来自 herdr client 进程
 /// （宿主 tab 的 tty），发现 client 时必有值（tty 是过滤条件）。
 pub(crate) fn focus_ghostty_herdr_host(
     tty: &str,
@@ -400,7 +405,7 @@ pub(crate) fn focus_ghostty_herdr_host(
     run_script: &impl Fn(&str) -> Result<bool, String>,
 ) -> Result<(), FocusFailure> {
     // 第一段只做精确匹配（title/tty），不解析 cwd——lsof 是宿主跳里最贵的 spawn，
-    // Ghostty ≥1.4 时 tty 通常直接命中，不应白付。
+    // Ghostty ≥1.4 时 tty 通常直接命中，1.3.x 默认会话 title 也能命中，不应白付。
     let mut spec = GhosttyFocusSpec::herdr_host(tty, "", session_name);
     if focus_ghostty_attempt_with(&spec, run_script)? {
         return Ok(());
@@ -413,6 +418,9 @@ pub(crate) fn focus_ghostty_herdr_host(
         if focus_ghostty_attempt_with(&spec, run_script)? {
             return Ok(());
         }
+    }
+    if focus_ghostty_via_title_marker(Some(tty), run_script)? {
+        return Ok(());
     }
     log::warn!(
         "event=tray.session_focus status=miss reason=tab_not_found app=Ghostty kind=herdr_host session={} tty={} cwd={}",
@@ -429,7 +437,15 @@ fn focus_ghostty_attempt_with(
     spec: &GhosttyFocusSpec,
     run_script: &impl Fn(&str) -> Result<bool, String>,
 ) -> Result<bool, FocusFailure> {
-    match run_script(&ghostty_script(spec)) {
+    run_ghostty_script(&ghostty_script(spec), run_script)
+}
+
+/// 跑一段 Ghostty AppleScript 并统一错误口径。
+fn run_ghostty_script(
+    script: &str,
+    run_script: &impl Fn(&str) -> Result<bool, String>,
+) -> Result<bool, FocusFailure> {
+    match run_script(script) {
         Ok(hit) => Ok(hit),
         Err(e) => {
             log::warn!("event=tray.session_focus status=err app=Ghostty error={e}");
@@ -438,9 +454,86 @@ fn focus_ghostty_attempt_with(
     }
 }
 
+/// 标记标题的全局序号：并发点击多个会话时保证各自标记不同，避免互相误命中。
+static TITLE_MARKER_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// 生成一次性标记标题：只含 ASCII 字母数字、连字符与下划线，可安全嵌入
+/// AppleScript 字面量，且不会与真实 tab 标题冲突。
+fn title_marker() -> String {
+    format!(
+        "code-manager-focus-{}-{}",
+        std::process::id(),
+        TITLE_MARKER_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
+}
+
+/// Ghostty <1.4 没有 `tty` 属性，同目录多 tab 时 cwd 唯一匹配也无法区分；
+/// 此时向会话 tty 写一条 OSC 标题标记（终端只解析该序列、不显示字符、不影响
+/// 前台程序输入），AppleScript 按标记标题命中 tab 后聚焦并 activate，
+/// 最后清回空标题（shell / Claude Code 下次更新标题时自然恢复）。
+/// 这是 tty 精确匹配在旧版 Ghostty 上的降级实现；tty 打不开或一直查不到
+/// 标记都视为未命中，交由调用方继续兜底。
+fn focus_ghostty_via_title_marker(
+    tty: Option<&str>,
+    run_script: &impl Fn(&str) -> Result<bool, String>,
+) -> Result<bool, FocusFailure> {
+    let Some(tty) = tty else {
+        return Ok(false);
+    };
+    let marker = title_marker();
+    if write_osc_title_to_tty(tty, &marker).is_err() {
+        return Ok(false);
+    }
+    let script = ghostty_title_marker_script(&escape_applescript_string(&marker));
+    let hit = run_ghostty_script(&script, run_script);
+    // 无论命中与否都清掉标记，避免标题残留。
+    if let Err(e) = write_osc_title_to_tty(tty, "") {
+        log::warn!("event=tray.session_focus status=degraded reason=marker_clear_failed error={e}");
+    }
+    hit
+}
+
+/// 构造 OSC 0 标题序列（`\x1b]0;<title>\x07`）；title 为空即清空标题。
+/// 抽成纯函数便于单测。
+fn osc_title_sequence(title: &str) -> Vec<u8> {
+    let mut seq = b"\x1b]0;".to_vec();
+    seq.extend_from_slice(title.as_bytes());
+    seq.push(0x07);
+    seq
+}
+
+/// 向会话 tty 设备写入 OSC 标题序列。写设备输出流等价于终端程序自己输出该序列，
+/// 终端只解析不显示；不会向会话前台程序的 stdin 注入任何输入。
+fn write_osc_title_to_tty(tty: &str, title: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut device = std::fs::OpenOptions::new().write(true).open(tty)?;
+    device.write_all(&osc_title_sequence(title))
+}
+
+/// 生成按标记标题定位的脚本：轮询若干轮消化 Ghostty 处理 OSC 的微小延迟，
+/// 命中即 focus + activate（跨桌面/非前台场景必须 activate 才可见）。
+fn ghostty_title_marker_script(escaped_marker: &str) -> String {
+    format!(
+        r#"tell application "Ghostty"
+repeat 8 times
+repeat with term in terminals
+set termName to name of term
+if termName is "{escaped_marker}" then
+focus term
+activate
+return true
+end if
+end repeat
+delay 0.05
+end repeat
+return false
+end tell"#
+    )
+}
+
 /// Ghostty 聚焦脚本参数：title/tty 精确匹配与 cwd 兜底的组合由调用场景显式决定，
-/// `exclude_herdr_clients` 不做隐式推导——普通会话要排除 herdr client；
-/// herdr 宿主跳的目标 tab 本身就是 herdr client，必须关闭排除（含默认会话，
+/// `kind` 不做隐式推导——普通会话无 title 匹配且 cwd 兜底要排除 herdr client；
+/// herdr 宿主跳的目标 tab 本身就是 herdr client，永不排除（含默认会话，
 /// 否则 cwd 兜底会跳过标题为 "herdr" 的目标 tab）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct GhosttyFocusSpec<'a> {
@@ -448,10 +541,18 @@ struct GhosttyFocusSpec<'a> {
     tty: Option<&'a str>,
     /// cwd 唯一兜底；空串表示不生成兜底分支（空 cwd 会误命中无工作目录的 tab）。
     cwd: &'a str,
-    /// herdr 命名会话名（client title 匹配用）；仅 herdr 宿主跳有值。
-    session_name: Option<&'a str>,
-    /// cwd 兜底是否排除 herdr client。
-    exclude_herdr_clients: bool,
+    /// 会话角色，决定 title 匹配形态与 cwd 兜底是否排除 herdr client。
+    kind: GhosttyFocusKind<'a>,
+}
+
+/// Ghostty 聚焦的会话角色。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GhosttyFocusKind<'a> {
+    /// 普通会话：无 title 匹配；cwd 兜底排除 herdr client。
+    Regular,
+    /// herdr 宿主跳：永不排除 herdr client；命名会话按 client title 三形态匹配，
+    /// 默认会话宿主 tab 的标题稳定为 "herdr"，按该标题匹配。
+    HerdrHost { session_name: Option<&'a str> },
 }
 
 impl<'a> GhosttyFocusSpec<'a> {
@@ -460,8 +561,7 @@ impl<'a> GhosttyFocusSpec<'a> {
         Self {
             tty,
             cwd,
-            session_name: None,
-            exclude_herdr_clients: true,
+            kind: GhosttyFocusKind::Regular,
         }
     }
 
@@ -470,8 +570,7 @@ impl<'a> GhosttyFocusSpec<'a> {
         Self {
             tty: Some(tty),
             cwd,
-            session_name,
-            exclude_herdr_clients: false,
+            kind: GhosttyFocusKind::HerdrHost { session_name },
         }
     }
 }
@@ -572,14 +671,19 @@ end tell"#
 /// 之后是 cwd 计数 + 唯一命中才聚焦的兜底段；空 cwd 时兜底段整体不生成。
 fn ghostty_script(spec: &GhosttyFocusSpec) -> String {
     let escaped_cwd = escape_applescript_string(spec.cwd);
-    let escaped_session_name = spec.session_name.map(escape_applescript_string);
+    let session_name = match spec.kind {
+        GhosttyFocusKind::HerdrHost {
+            session_name: Some(name),
+        } => Some(escape_applescript_string(name)),
+        _ => None,
+    };
     let escaped_tty = spec.tty.map(escape_applescript_string);
     // 变量声明：只声明本形态会用到的目标值，避免引用未定义变量。
     let mut prelude = String::new();
     if !spec.cwd.is_empty() {
         prelude.push_str(&format!(r#"set targetCwd to "{escaped_cwd}""#));
     }
-    if let Some(session_name) = escaped_session_name.as_deref() {
+    if let Some(session_name) = session_name.as_deref() {
         if !prelude.is_empty() {
             prelude.push('\n');
         }
@@ -598,16 +702,37 @@ set termTty to """#
     // 精确匹配段：title 与 tty 共享一次 terminals 遍历，减少重复的 Apple 事件往返。
     // tty 探测只 try 包住 `tty of term` 属性读取（1.3.x 的 sdef 没有该属性，会抛错）：
     // 失败置 ttyProbeFailed 跳过后续比较，focus/return 留在 try 外，聚焦错误不会被吞掉。
+    // 命中后必须 activate：`focus term` 只把窗口在其所在桌面内置前，不切换 Space、
+    // 也不会激活非前台应用；activate 才让系统切到该应用窗口所在桌面并取得键盘焦点。
     let mut exact_body = String::new();
-    if escaped_session_name.is_some() {
-        exact_body.push_str(
-            r#"set termName to name of term
+    match spec.kind {
+        GhosttyFocusKind::HerdrHost {
+            session_name: Some(_),
+        } => {
+            exact_body.push_str(
+                r#"set termName to name of term
 if termName is ("herdr --session " & targetSessionName) or termName is ("herdr --session=" & targetSessionName) or termName is ("herdr session attach " & targetSessionName) then
 focus term
+activate
 return true
 end if
 "#,
-        );
+            );
+        }
+        GhosttyFocusKind::HerdrHost { session_name: None } => {
+            // herdr 默认会话的宿主 tab 标题稳定为 "herdr"，直接按标题命中；
+            // 命名会话的标题形态不同，不会误配。
+            exact_body.push_str(
+                r#"set termName to name of term
+if termName is "herdr" then
+focus term
+activate
+return true
+end if
+"#,
+            );
+        }
+        GhosttyFocusKind::Regular => {}
     }
     if escaped_tty.is_some() {
         exact_body.push_str(
@@ -619,6 +744,7 @@ set ttyProbeFailed to true
 end try
 if (not ttyProbeFailed) and (termTty is targetTty) then
 focus term
+activate
 return true
 end if
 end if
@@ -636,13 +762,13 @@ end if
         String::new()
     } else {
         // herdr client 的 termName 读取与判定只在排除分支需要，避免多余 Apple 事件。
-        let herdr_client_check = if spec.exclude_herdr_clients {
+        let herdr_client_check = if matches!(spec.kind, GhosttyFocusKind::Regular) {
             r#"set termName to name of term
 set isHerdrClient to (termName is "herdr") or (termName starts with "herdr --session ") or (termName starts with "herdr --session=") or (termName starts with "herdr session attach ")"#
         } else {
             ""
         };
-        let cwd_match_condition = if spec.exclude_herdr_clients {
+        let cwd_match_condition = if matches!(spec.kind, GhosttyFocusKind::Regular) {
             r#"if (working directory of term is targetCwd) and (not isHerdrClient) then"#
         } else {
             r#"if working directory of term is targetCwd then"#
@@ -661,6 +787,7 @@ repeat with term in terminals
 {herdr_client_check}
 {cwd_match_condition}
 focus term
+activate
 return true
 end if
 end repeat
@@ -877,24 +1004,27 @@ mod tests {
     fn ghostty_focus_entrypoints_pin_production_composition() {
         use std::cell::RefCell;
 
+        // 测试 tty 用确定不存在的设备名：标记法兜底在写 tty 失败时直接放弃，
+        // 既避免单测向真实终端写控制序列，也让脚本捕获数量确定。
+        let ghost_tty = "/dev/ttysGHOST";
         let scripts = RefCell::new(Vec::<String>::new());
         let run_script = |script: &str| {
             scripts.borrow_mut().push(script.to_string());
             Ok(false)
         };
 
-        let err = focus_ghostty_regular_session(Some("/dev/ttys016"), "/Users/demo", &run_script)
+        let err = focus_ghostty_regular_session(Some(ghost_tty), "/Users/demo", &run_script)
             .expect_err("runner 返回 false 时普通会话应报告未命中");
         assert_eq!(err, FocusFailure::TabNotFound);
         let regular = scripts.borrow().first().cloned().expect("应生成普通脚本");
-        assert!(regular.contains(r#"set targetTty to "/dev/ttys016""#));
+        assert!(regular.contains(r#"set targetTty to "/dev/ttysGHOST""#));
         assert!(
             regular.contains("isHerdrClient"),
             "普通会话必须排除 herdr client"
         );
 
         scripts.borrow_mut().clear();
-        let err = focus_ghostty_herdr_host("/dev/ttys016", Some("work"), || None, &run_script)
+        let err = focus_ghostty_herdr_host(ghost_tty, Some("work"), || None, &run_script)
             .expect_err("runner 返回 false 时命名宿主应报告未命中");
         assert_eq!(err, FocusFailure::TabNotFound);
         let named_host = scripts
@@ -907,7 +1037,7 @@ mod tests {
 
         scripts.borrow_mut().clear();
         let err = focus_ghostty_herdr_host(
-            "/dev/ttys016",
+            ghost_tty,
             None,
             || Some("/Users/demo".to_string()),
             &run_script,
@@ -916,10 +1046,71 @@ mod tests {
         assert_eq!(err, FocusFailure::TabNotFound);
         let captured = scripts.borrow();
         assert_eq!(captured.len(), 2, "默认宿主应先精确匹配再 cwd 兜底");
+        // 默认会话第一段带 "herdr" 标题匹配：宿主 tab 标题稳定为 "herdr"
+        assert!(captured[0].contains(r#"termName is "herdr""#));
         assert!(!captured[0].contains("targetSessionName"));
         assert!(!captured[0].contains("isHerdrClient"));
         assert!(captured[1].contains("working directory of term is targetCwd"));
         assert!(!captured[1].contains("isHerdrClient"));
+    }
+
+    /// tty 标题标记法：tty 打不开（进程已退出 / 设备不存在）时视为未命中，
+    /// 不生成任何脚本、不报错。
+    #[test]
+    fn title_marker_gives_up_when_tty_unwritable() {
+        use std::cell::RefCell;
+        let scripts = RefCell::new(Vec::<String>::new());
+        let run_script = |script: &str| {
+            scripts.borrow_mut().push(script.to_string());
+            Ok(false)
+        };
+        assert_eq!(
+            focus_ghostty_via_title_marker(Some("/dev/ttysGHOST"), &run_script),
+            Ok(false)
+        );
+        assert!(scripts.borrow().is_empty(), "不应执行任何脚本");
+    }
+
+    /// 标记标题序列：设置与清空的 OSC 0 载荷。
+    #[test]
+    fn osc_title_sequence_sets_and_clears_title() {
+        assert_eq!(
+            osc_title_sequence("code-manager-focus-1"),
+            b"\x1b]0;code-manager-focus-1\x07".to_vec()
+        );
+        // 空标题 = 清空
+        assert_eq!(osc_title_sequence(""), b"\x1b]0;\x07".to_vec());
+    }
+
+    /// 标记标题必须每次唯一（并发点击互不误命中）且只含安全字符。
+    #[test]
+    fn title_marker_is_unique_and_shell_safe() {
+        let first = title_marker();
+        let second = title_marker();
+        assert_ne!(first, second);
+        for marker in [first, second] {
+            assert!(marker.starts_with("code-manager-focus-"));
+            assert!(
+                marker
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_')),
+                "标记不得含 AppleScript 特殊字符: {marker}"
+            );
+        }
+    }
+
+    /// 标记定位脚本：按标记标题轮询命中，focus 后必须 activate，轮询消化 OSC 处理延迟。
+    #[test]
+    fn title_marker_script_polls_and_activates_on_hit() {
+        let marker = escape_applescript_string(&title_marker());
+        let script = ghostty_title_marker_script(&marker);
+
+        assert!(script.contains(&format!(r#"if termName is "{marker}" then"#)));
+        assert!(script.contains("focus term"));
+        assert!(script.contains("activate"));
+        assert!(script.contains("repeat 8 times"), "应轮询消化 OSC 延迟");
+        assert!(script.contains("delay 0.05"));
+        assert!(script.contains("return false"));
     }
 
     /// herdr 默认会话宿主跳（Ghostty <1.4 时 tty 分支探测失败降级到 cwd 兜底）：
@@ -965,6 +1156,31 @@ mod tests {
         assert!(script.contains("repeat with term in terminals"));
         assert!(script.contains("focus term"));
         assert!(!script.contains("select tab t of w"));
+    }
+
+    /// 每个命中分支都必须在 `focus term` 后 `activate`：focus 只把窗口在其所在
+    /// 桌面内置前，终端在其它 Space 或非前台时用户看不到跳转；activate 才触发
+    /// 系统切换桌面并取得键盘焦点（与 Terminal/iTerm 模板同款模式）。
+    #[test]
+    fn ghostty_script_activates_app_on_every_hit_branch() {
+        // 普通会话：tty 分支 + cwd 聚焦分支
+        let script = ghostty_script(&GhosttyFocusSpec::regular(
+            Some("/dev/ttys016"),
+            "/Users/demo/project",
+        ));
+        assert_eq!(
+            script.matches("focus term\nactivate").count(),
+            2,
+            "每个命中分支都要紧跟 activate"
+        );
+
+        // herdr 命名会话宿主跳：title + tty + cwd 聚焦三个分支
+        let script = ghostty_script(&GhosttyFocusSpec::herdr_host(
+            "/dev/ttys016",
+            "/Users/demo/project",
+            Some("cloudhub"),
+        ));
+        assert_eq!(script.matches("focus term\nactivate").count(), 3);
     }
 
     #[test]
