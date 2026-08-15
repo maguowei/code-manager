@@ -3153,7 +3153,7 @@ mod tests {
             deepseek.model_suggestions,
             vec![
                 "deepseek-v4-pro[1m]".to_string(),
-                "deepseek-v4-flash".to_string()
+                "deepseek-v4-flash[1m]".to_string()
             ]
         );
         assert_eq!(
