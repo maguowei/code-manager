@@ -152,7 +152,7 @@
     "models": [
       { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code" },
       { "id": "glm-5.3[1m]", "name": "GLM-5.3" },
-      { "id": "minimax-m3[1m]", "name": "MiniMax M3" },
+      { "id": "minimax-m3", "name": "MiniMax M3" },
       { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
       { "id": "deepseek-v4-flash[1m]", "name": "DeepSeek V4 Flash" }
     ]
