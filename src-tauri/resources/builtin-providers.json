@@ -159,28 +159,6 @@
     ]
   },
   {
-    "name": "阿里云百炼 Coding Plan",
-    "localizedName": {
-      "zh": "阿里云百炼 Coding Plan",
-      "en": "阿里云百炼 Coding Plan"
-    },
-    "slug": "dashscope",
-    "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
-    "docUrl": "https://help.aliyun.com/zh/model-studio/coding-plan",
-    "env": {
-      "ANTHROPIC_MODEL": "qwen3.7-plus",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.7-plus",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.7-plus"
-    },
-    "models": [
-      { "id": "qwen3.7-plus", "name": "Qwen 3.7 Plus" },
-      { "id": "glm-5", "name": "GLM-5" },
-      { "id": "kimi-k2.5", "name": "Kimi K2.5" },
-      { "id": "MiniMax-M2.5", "name": "MiniMax M2.5" }
-    ]
-  },
-  {
     "name": "万界方舟",
     "localizedName": { "zh": "万界方舟", "en": "万界方舟" },
     "slug": "wanjie",
