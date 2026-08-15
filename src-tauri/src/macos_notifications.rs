@@ -21,6 +21,7 @@ const PAYLOAD_SESSION_ID: &str = "session_id";
 const PAYLOAD_PID: &str = "pid";
 const PAYLOAD_CWD: &str = "cwd";
 const PAYLOAD_TERMINAL_APP: &str = "terminal_app";
+const PAYLOAD_PROC_START: &str = "proc_start";
 const NOTIFICATION_THREAD: &str = "pending-session-focus";
 
 static NOTIFICATION_DELEGATE_SETUP: Once = Once::new();
@@ -190,12 +191,14 @@ pub(crate) fn parse_pending_session_payload(
     let session_id = non_empty_payload_value(fields, PAYLOAD_SESSION_ID)?;
     let cwd = non_empty_payload_value(fields, PAYLOAD_CWD)?;
     let terminal_app = non_empty_payload_value(fields, PAYLOAD_TERMINAL_APP)?;
+    let proc_start = non_empty_payload_value(fields, PAYLOAD_PROC_START)?;
 
     Some(PendingSessionFocusTarget {
         pid,
         cwd,
         session_id,
         terminal_app,
+        proc_start,
     })
 }
 
@@ -216,6 +219,7 @@ fn build_pending_session_user_info(
         NSString::from_str(PAYLOAD_PID),
         NSString::from_str(PAYLOAD_CWD),
         NSString::from_str(PAYLOAD_TERMINAL_APP),
+        NSString::from_str(PAYLOAD_PROC_START),
     ];
     let values = [
         NSString::from_str(PENDING_SESSION_FOCUS_KIND),
@@ -223,6 +227,7 @@ fn build_pending_session_user_info(
         NSString::from_str(&target.pid.to_string()),
         NSString::from_str(&target.cwd),
         NSString::from_str(&target.terminal_app),
+        NSString::from_str(&target.proc_start),
     ];
     let key_refs = keys.iter().map(|key| &**key).collect::<Vec<_>>();
     let value_refs = values.iter().map(|value| &**value).collect::<Vec<_>>();
@@ -260,6 +265,7 @@ fn payload_fields_from_user_info(
         PAYLOAD_PID,
         PAYLOAD_CWD,
         PAYLOAD_TERMINAL_APP,
+        PAYLOAD_PROC_START,
     ]
     .into_iter()
     .filter_map(|key| {
@@ -306,6 +312,7 @@ fn focus_pending_session_from_notification(
                 target.pid,
                 &target.cwd,
                 &target.terminal_app,
+                Some(&target.proc_start),
             ) {
                 let prefs = crate::config::load_registry_or_default().app;
                 crate::tray::notify_session_focus_failure(
@@ -345,6 +352,7 @@ mod tests {
             (PAYLOAD_PID, "4242"),
             (PAYLOAD_CWD, "/Users/demo/work/code-manager"),
             (PAYLOAD_TERMINAL_APP, "ghostty"),
+            (PAYLOAD_PROC_START, "Wed Aug 12 15:27:23 2026"),
         ]);
 
         let target = parse_pending_session_payload(&fields).expect("payload should parse");
@@ -356,6 +364,7 @@ mod tests {
                 cwd: "/Users/demo/work/code-manager".to_string(),
                 session_id: "session-123".to_string(),
                 terminal_app: "ghostty".to_string(),
+                proc_start: "Wed Aug 12 15:27:23 2026".to_string(),
             }
         );
     }

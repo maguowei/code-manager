@@ -71,7 +71,7 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 
 - **支持度最高**。所有功能均可用，包括终端会话聚焦、可点击通知和 Dock 激活策略切换。
 - 应用数据目录刻意放在 `~/.config/code-manager/` 而非系统标准的 `~/Library/Application Support/`，便于跨平台备份与脚本访问（详见下节）。
-- 终端会话聚焦走 `pid → tty → AppleScript`，支持 Terminal.app / iTerm2；Ghostty 因为 AppleScript 还没暴露 pid/tty（Ghostty Issue #11592），只能按 `cwd` 近似匹配；Warp 没有官方 AppleScript，托盘菜单项会被置为 disabled。
+- 终端会话聚焦走 `pid → tty → AppleScript`，支持 Terminal.app / iTerm2 / Ghostty；Ghostty 按 `tty` 属性精确匹配（上游 #11592 引入，随 PR #11922 合入 main，尚未发布），旧版降级为按 `cwd` 唯一匹配；Warp 没有官方 AppleScript，托盘菜单项会被置为 disabled。
 - 首次打开如果被 Gatekeeper 拦截，可移除隔离属性：
   ```bash
   xattr -rd com.apple.quarantine /Applications/code-manager.app
