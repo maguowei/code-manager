@@ -109,6 +109,9 @@ struct RawTraySession {
     updated_at: u64,
     #[serde(default)]
     waiting_for: Option<String>,
+    /// 会话进程启动时间（`ps -o lstart=` 格式，UTC）；聚焦时校验 pid 未被回收。
+    #[serde(default)]
+    proc_start: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,6 +122,8 @@ struct TraySession {
     status: String,
     updated_at: u64,
     waiting_for: Option<String>,
+    /// 会话进程启动时间；缺失或非法时不允许异步聚焦。
+    proc_start: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,6 +132,8 @@ pub(crate) struct PendingSessionFocusTarget {
     pub(crate) cwd: String,
     pub(crate) session_id: String,
     pub(crate) terminal_app: String,
+    /// 创建通知时捕获的进程启动时间，点击时不得按 pid 重读会话文件。
+    pub(crate) proc_start: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -216,6 +223,10 @@ impl From<RawTraySession> for TraySession {
             updated_at: raw.updated_at,
             waiting_for: raw
                 .waiting_for
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
+            proc_start: raw
+                .proc_start
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty()),
         }
@@ -510,7 +521,11 @@ fn pending_session_notification_interaction(
     session: &TraySession,
     default_terminal_app: &str,
 ) -> PendingSessionNotificationInteraction {
-    if session_focus_available(session.pid, default_terminal_app) {
+    if session_focus_available(
+        session.pid,
+        default_terminal_app,
+        session.proc_start.as_deref(),
+    ) {
         PendingSessionNotificationInteraction::FocusTerminal
     } else {
         PendingSessionNotificationInteraction::Plain
@@ -520,16 +535,22 @@ fn pending_session_notification_interaction(
 /// 单个会话是否可聚焦：macOS 且（默认终端支持聚焦，或 pid 自身宿主终端支持，
 /// 或会话跑在 herdr pane 里）。herdr 检测与 pid 宿主检测各会发起一次 ps，
 /// 只在菜单构建 / 通知决策时调用；点击时 `focus_session_in_terminal` 会重新检测。
-fn session_focus_available(pid: u32, default_terminal_app: &str) -> bool {
-    session_focus_available_for_platform(pid, default_terminal_app, cfg!(target_os = "macos"))
+fn session_focus_available(pid: u32, default_terminal_app: &str, proc_start: Option<&str>) -> bool {
+    session_focus_available_for_platform(
+        pid,
+        default_terminal_app,
+        proc_start,
+        cfg!(target_os = "macos"),
+    )
 }
 
 fn session_focus_available_for_platform(
     pid: u32,
     default_terminal_app: &str,
+    proc_start: Option<&str>,
     is_macos: bool,
 ) -> bool {
-    if !is_macos {
+    if !is_macos || !proc_start.is_some_and(crate::terminal_focus::proc_start_is_valid) {
         return false;
     }
     crate::terminal_focus::terminal_supports_focus(default_terminal_app)
@@ -564,14 +585,16 @@ fn build_pending_session_notification(
         ),
         (false, None) => format!("{} 需要处理", crate::utils::truncate(&project_name, 48)),
     };
-    let focus_target =
-        (interaction == PendingSessionNotificationInteraction::FocusTerminal).then(|| {
-            PendingSessionFocusTarget {
-                pid: session.pid,
-                cwd: session.cwd.clone(),
-                session_id: session.session_id.clone(),
-                terminal_app: default_terminal_app.to_string(),
-            }
+    let focus_target = (interaction == PendingSessionNotificationInteraction::FocusTerminal)
+        .then(|| session.proc_start.clone())
+        .flatten()
+        .filter(|proc_start| crate::terminal_focus::proc_start_is_valid(proc_start))
+        .map(|proc_start| PendingSessionFocusTarget {
+            pid: session.pid,
+            cwd: session.cwd.clone(),
+            session_id: session.session_id.clone(),
+            terminal_app: default_terminal_app.to_string(),
+            proc_start,
         });
 
     PendingSessionNotification {
@@ -637,25 +660,42 @@ fn session_menu_item_label(session: &TraySession, language: &str) -> String {
     )
 }
 
-/// 编码会话菜单项 id，格式 `session_<pid>::<hex(cwd)>`。
+/// 编码会话菜单项 id，格式 `session_<pid>::<hex(cwd)>::<hex(procStart)>`。
 /// 用 hex 是为了让 cwd 中的中文 / 空格 / 引号 / `::` 都不会破坏 menu id 解析，
-/// 同时省去引入 base64 依赖。
+/// 同时省去引入 base64 依赖。procStart 也放入 id，确保点击时使用创建菜单时的
+/// 进程身份快照，不按 pid 回读可能已经被替换的会话文件。
 fn session_menu_item_id(session: &TraySession) -> String {
     format!(
-        "session_{}::{}",
+        "session_{}::{}::{}",
         session.pid,
-        hex_encode(session.cwd.as_bytes())
+        hex_encode(session.cwd.as_bytes()),
+        session
+            .proc_start
+            .as_deref()
+            .map_or_else(String::new, |proc_start| hex_encode(proc_start.as_bytes()))
     )
 }
 
 /// 反向解析 `session_menu_item_id`。任一段不合法都返回 None，让 handler 静默忽略。
-fn parse_session_menu_item_id(id: &str) -> Option<(u32, String)> {
+/// 旧版只有两段时返回 `None` procStart；handler 会拒绝执行聚焦。
+fn parse_session_menu_item_id(id: &str) -> Option<(u32, String, Option<String>)> {
     let payload = id.strip_prefix("session_")?;
-    let (pid_str, hex_cwd) = payload.split_once("::")?;
+    let mut parts = payload.split("::");
+    let pid_str = parts.next()?;
+    let hex_cwd = parts.next()?;
+    let hex_proc_start = parts.next().unwrap_or_default();
+    if parts.next().is_some() {
+        return None;
+    }
     let pid = pid_str.parse::<u32>().ok()?;
     let bytes = hex_decode(hex_cwd)?;
     let cwd = String::from_utf8(bytes).ok()?;
-    Some((pid, cwd))
+    let proc_start = if hex_proc_start.is_empty() {
+        None
+    } else {
+        String::from_utf8(hex_decode(hex_proc_start)?).ok()
+    };
+    Some((pid, cwd, proc_start))
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
@@ -846,7 +886,13 @@ fn build_sessions_tray_menu(
     // 各扫描一遍。
     let focusable: Vec<bool> = sessions
         .iter()
-        .map(|session| session_focus_available(session.pid, &state.app.default_terminal_app))
+        .map(|session| {
+            session_focus_available(
+                session.pid,
+                &state.app.default_terminal_app,
+                session.proc_start.as_deref(),
+            )
+        })
         .collect();
     let any_focusable = focusable.iter().any(|&b| b);
     for (session, &enabled) in sessions.iter().zip(&focusable) {
@@ -1081,7 +1127,9 @@ pub fn focus_most_urgent_session(app: &AppHandle) {
     // 全部不可聚焦（非 macOS / 默认终端不支持且无 herdr）时静默跳过。
     let focusable: Vec<TraySession> = sessions
         .iter()
-        .filter(|session| session_focus_available(session.pid, &slug))
+        .filter(|session| {
+            session_focus_available(session.pid, &slug, session.proc_start.as_deref())
+        })
         .cloned()
         .collect();
     let Some(target) = pick_focus_target_session(&focusable) else {
@@ -1090,12 +1138,23 @@ pub fn focus_most_urgent_session(app: &AppHandle) {
     };
     let pid = target.pid;
     let cwd = target.cwd.clone();
+    let Some(proc_start) = target.proc_start.clone() else {
+        log::warn!(
+            "event=tray.focus_shortcut status=skip reason=process_identity_unavailable pid={pid}"
+        );
+        return;
+    };
     let notifications_enabled = session_focus_failure_notification_enabled(&prefs);
     let language = prefs.ui_language;
     // osascript 可能耗数百毫秒，丢线程避免阻塞快捷键回调线程。
     let app_handle = app.clone();
     std::thread::spawn(move || {
-        if let Err(failure) = crate::terminal_focus::focus_session_in_terminal(pid, &cwd, &slug) {
+        if let Err(failure) = crate::terminal_focus::focus_session_in_terminal(
+            pid,
+            &cwd,
+            &slug,
+            Some(proc_start.as_str()),
+        ) {
             notify_session_focus_failure(&app_handle, &language, notifications_enabled, &failure);
         }
     });
@@ -1299,7 +1358,13 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
-            let Some((pid, cwd)) = parse_session_menu_item_id(id) else {
+            let Some((pid, cwd, proc_start)) = parse_session_menu_item_id(id) else {
+                return;
+            };
+            let Some(proc_start) = proc_start else {
+                log::warn!(
+                    "event=tray.session_focus status=skip reason=process_identity_unavailable pid={pid}"
+                );
                 return;
             };
             let prefs = load_registry_or_default().app;
@@ -1307,15 +1372,18 @@ pub fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
             let slug = prefs.default_terminal_app;
             let language = prefs.ui_language;
             // 菜单项 enabled 已按会话判定过，这里再按同一口径兜底一次。
-            if !session_focus_available(pid, &slug) {
+            if !session_focus_available(pid, &slug, Some(&proc_start)) {
                 return;
             }
             // osascript 可能耗数百毫秒，丢线程避免阻塞 UI 事件循环。
             let app_handle = app.clone();
             std::thread::spawn(move || {
-                if let Err(failure) =
-                    crate::terminal_focus::focus_session_in_terminal(pid, &cwd, &slug)
-                {
+                if let Err(failure) = crate::terminal_focus::focus_session_in_terminal(
+                    pid,
+                    &cwd,
+                    &slug,
+                    Some(&proc_start),
+                ) {
                     notify_session_focus_failure(
                         &app_handle,
                         &language,
@@ -1467,6 +1535,7 @@ mod tests {
     /// 进程树检测（herdr / TERM_PROGRAM），固定小 pid（如 123）在装有 herdr 的
     /// 机器上可能命中真实进程，导致单测依赖宿主环境而偶发失败。
     const GHOST_PID: u32 = u32::MAX;
+    const VALID_PROC_START: &str = "Wed Aug 12 15:27:23 2026";
 
     fn test_session(cwd: &str, status: &str, updated_at: u64) -> TraySession {
         TraySession {
@@ -1476,6 +1545,7 @@ mod tests {
             status: status.to_string(),
             updated_at,
             waiting_for: None,
+            proc_start: Some(VALID_PROC_START.to_string()),
         }
     }
 
@@ -2172,6 +2242,7 @@ mod tests {
             status: "waiting".to_string(),
             updated_at: 2000,
             waiting_for: None,
+            proc_start: Some(VALID_PROC_START.to_string()),
         };
 
         let notification = build_pending_session_notification(
@@ -2188,6 +2259,7 @@ mod tests {
                 cwd: "/Users/demo/work/code-manager".to_string(),
                 session_id: "session-focus".to_string(),
                 terminal_app: "terminal".to_string(),
+                proc_start: VALID_PROC_START.to_string(),
             })
         );
     }
@@ -2230,24 +2302,45 @@ mod tests {
     fn session_focus_availability_requires_macos_or_herdr_or_focusable_terminal() {
         // 默认终端支持聚焦：与 pid 无关，短路径直接放行
         assert!(session_focus_available_for_platform(
-            GHOST_PID, "terminal", true
+            GHOST_PID,
+            "terminal",
+            Some(VALID_PROC_START),
+            true
         ));
         assert!(session_focus_available_for_platform(
-            GHOST_PID, "ghostty", true
+            GHOST_PID,
+            "ghostty",
+            Some(VALID_PROC_START),
+            true
         ));
         // 默认终端不支持：pid 检测与 herdr 检测都失败（测试进程不存在）
         assert!(!session_focus_available_for_platform(
-            GHOST_PID, "warp", true
+            GHOST_PID,
+            "warp",
+            Some(VALID_PROC_START),
+            true
         ));
         // 非 macOS 恒不可聚焦
         assert!(!session_focus_available_for_platform(
-            GHOST_PID, "terminal", false
+            GHOST_PID,
+            "terminal",
+            Some(VALID_PROC_START),
+            false
         ));
         assert!(!session_focus_available_for_platform(
-            GHOST_PID, "ghostty", false
+            GHOST_PID,
+            "ghostty",
+            Some(VALID_PROC_START),
+            false
         ));
         assert!(!session_focus_available_for_platform(
-            GHOST_PID, "warp", false
+            GHOST_PID,
+            "warp",
+            Some(VALID_PROC_START),
+            false
+        ));
+        assert!(!session_focus_available_for_platform(
+            GHOST_PID, "terminal", None, true
         ));
     }
 
@@ -2268,7 +2361,7 @@ mod tests {
         );
     }
 
-    /// 回归测试：菜单项 id 必须能 round-trip 出原始 pid 与 cwd，
+    /// 回归测试：菜单项 id 必须能 round-trip 出原始 pid、cwd 与 procStart，
     /// 否则点击 handler 无法恢复 cwd 去聚焦终端。覆盖中文、空格、引号、`::` 等易错字符。
     #[test]
     fn session_menu_item_id_round_trip() {
@@ -2288,13 +2381,22 @@ mod tests {
                 status: "idle".into(),
                 updated_at: 0,
                 waiting_for: None,
+                proc_start: Some(VALID_PROC_START.to_string()),
             };
             let id = session_menu_item_id(&session);
             assert!(id.starts_with("session_4242::"), "id 缺前缀: {id}");
-            let (pid, decoded_cwd) = parse_session_menu_item_id(&id).expect("应能反解");
+            let (pid, decoded_cwd, decoded_proc_start) =
+                parse_session_menu_item_id(&id).expect("应能反解");
             assert_eq!(pid, 4242);
             assert_eq!(decoded_cwd, cwd);
+            assert_eq!(decoded_proc_start.as_deref(), Some(VALID_PROC_START));
         }
+
+        // 缺少身份快照的旧菜单项仍可解析，但点击 handler 会拒绝聚焦。
+        assert_eq!(
+            parse_session_menu_item_id("session_4242::2f::"),
+            Some((4242, "/".to_string(), None))
+        );
     }
 
     /// 回归测试：解析非会话 id（profile_*、nav_*、未知字符串）必须返回 None，
@@ -2418,7 +2520,7 @@ mod tests {
     }
 
     /// `From<RawTraySession>` 必须 trim 所有字符串字段，且把空白 / 空字符串的 `waiting_for`
-    /// 规约为 None；否则下游菜单项会显示 ` · ` 这样的空段。
+    /// 与 `proc_start` 规约为 None；否则下游菜单项会显示 ` · ` 这样的空段。
     #[test]
     fn from_raw_tray_session_trims_whitespace_and_filters_empty_waiting_for() {
         // 全 trim
@@ -2429,14 +2531,19 @@ mod tests {
             status: "  waiting  ".to_string(),
             updated_at: 100,
             waiting_for: Some("   approve Bash   ".to_string()),
+            proc_start: Some("  Wed Aug 12 15:27:23 2026  ".to_string()),
         };
         let session = TraySession::from(raw);
         assert_eq!(session.session_id, "s1");
         assert_eq!(session.cwd, "/tmp/demo");
         assert_eq!(session.status, "waiting");
         assert_eq!(session.waiting_for.as_deref(), Some("approve Bash"));
+        assert_eq!(
+            session.proc_start.as_deref(),
+            Some("Wed Aug 12 15:27:23 2026")
+        );
 
-        // 纯空白 waiting_for 视为缺省
+        // 纯空白 waiting_for / proc_start 视为缺省
         let raw = RawTraySession {
             pid: 42,
             session_id: "s1".to_string(),
@@ -2444,10 +2551,13 @@ mod tests {
             status: "idle".to_string(),
             updated_at: 0,
             waiting_for: Some("   ".to_string()),
+            proc_start: Some("   ".to_string()),
         };
-        assert_eq!(TraySession::from(raw).waiting_for, None);
+        let session = TraySession::from(raw);
+        assert_eq!(session.waiting_for, None);
+        assert_eq!(session.proc_start, None);
 
-        // None waiting_for 直接保留为 None
+        // None waiting_for / proc_start 直接保留为 None
         let raw = RawTraySession {
             pid: 42,
             session_id: "s1".to_string(),
@@ -2455,8 +2565,11 @@ mod tests {
             status: "idle".to_string(),
             updated_at: 0,
             waiting_for: None,
+            proc_start: None,
         };
-        assert_eq!(TraySession::from(raw).waiting_for, None);
+        let session = TraySession::from(raw);
+        assert_eq!(session.waiting_for, None);
+        assert_eq!(session.proc_start, None);
     }
 
     /// status 比对必须大小写不敏感、忽略前后空白；

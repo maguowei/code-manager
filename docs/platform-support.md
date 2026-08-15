@@ -71,7 +71,7 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 
 - **Highest level of support.** All features are available, including terminal session focus, clickable notifications, and Dock activation policy switching.
 - The application data directory is intentionally placed at `~/.config/code-manager/` rather than the system-standard `~/Library/Application Support/`, to ease cross-platform backup and script access (see the section below).
-- Terminal session focus follows `pid → tty → AppleScript`, supporting Terminal.app / iTerm2; because Ghostty does not yet expose pid/tty via AppleScript (Ghostty Issue #11592), it can only be approximately matched by `cwd`; Warp has no official AppleScript, so its tray menu item is set to disabled.
+- Terminal session focus follows `pid → tty → AppleScript`, supporting Terminal.app / iTerm2 / Ghostty; Ghostty matches the tab by its `tty` property (upstream #11592, merged to main via PR #11922 but not yet in a stable release), falling back to unique-`cwd` matching on older versions; Warp has no official AppleScript, so its tray menu item is set to disabled.
 - If Gatekeeper blocks the first open, you can remove the quarantine attribute:
   ```bash
   xattr -rd com.apple.quarantine /Applications/code-manager.app

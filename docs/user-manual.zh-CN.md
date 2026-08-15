@@ -276,7 +276,7 @@ Code Manager 常驻系统托盘(菜单栏),菜单分两部分:
 - 主托盘:切换当前配置、快速跳转到各页面、退出应用。切换配置等价于在配置页启用对应配置。
 - 会话托盘:读取 `~/.claude/sessions/*.json`,按状态汇总当前 Claude 会话(等待输入 / 工作中 / 空闲)。是否显示、字符限制、会话计数样式和待处理呼吸灯都在设置中调整(见下文)。
 
-**会话聚焦**:在支持的平台点击会话条目,或使用会话聚焦快捷键,可回到对应终端 tab。该能力**仅 macOS** 可用,通过 `pid → tty → AppleScript` 精确聚焦 Terminal.app 与 iTerm2,Ghostty 按工作目录近似匹配,Warp 因缺少官方 AppleScript 暂不支持。Linux 与 Windows 不支持自动聚焦,点击会话不会切换终端。详见 [平台支持差异](./platform-support.zh-CN.md)。
+**会话聚焦**:在支持的平台点击会话条目,或使用会话聚焦快捷键,可回到对应终端 tab。该能力**仅 macOS** 可用,Terminal.app 与 iTerm2 走 `pid → tty → AppleScript` 精确聚焦,Ghostty 优先按 `tty` 属性匹配,旧版本或 tty 未命中时再按工作目录做唯一兜底。Warp 因缺少官方 AppleScript 暂不支持。Linux 与 Windows 不支持自动聚焦,点击会话不会切换终端。详见 [平台支持差异](./platform-support.zh-CN.md)。
 
 **LED 灯效联动(仅 macOS)**:启用后,会话托盘的红绿状态会镜像到外接 ANTICATER USB 设备灯效,适合不盯着菜单栏时用硬件灯提示会话状态。配置入口在设置的设备联动区。
 

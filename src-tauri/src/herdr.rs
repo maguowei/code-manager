@@ -62,7 +62,16 @@ pub struct HerdrSessionContext {
 /// 都没有再沿 ppid 链找名为 `herdr` 的祖先（覆盖默认会话）。
 pub fn detect_herdr_session(pid: u32) -> Option<HerdrSessionContext> {
     let env_output = ps_env_output(pid)?;
-    let ctx = herdr_context_from_ps_output(&env_output);
+    detect_herdr_session_from_env(pid, &env_output)
+}
+
+/// 基于调用方已获取的进程环境做 herdr 检测（复用同一次 `ps` 输出，避免重复 spawn）。
+/// 环境为空（进程已退出）时按非 herdr 处理。
+pub(crate) fn detect_herdr_session_from_env(
+    pid: u32,
+    env_output: &str,
+) -> Option<HerdrSessionContext> {
+    let ctx = herdr_context_from_ps_output(env_output);
     if ctx.session_name.is_some() || ctx.socket_override.is_some() {
         return Some(ctx);
     }
@@ -123,15 +132,20 @@ pub fn focus_herdr_session(
         .or(ctx.host_terminal)
         .unwrap_or(fallback_slug);
     let host_result = match host_slug {
-        // Ghostty 没有 tty API：命名会话优先按 client title 匹配，cwd 只做唯一兜底；
-        // cwd 必须是 client 进程的 cwd（用户敲 `herdr` 的目录），而不是 pane 的 cwd。
-        "ghostty" => match process_cwd(client.pid) {
-            Some(client_cwd) => crate::terminal_focus::focus_ghostty_via_herdr_session(
-                &client_cwd,
+        // Ghostty 没有 pid API，但上游 #11592 起有 tty 属性：client.tty 就是宿主 tab 的 tty
+        // （tty 是发现 client 的过滤条件，必有值）。title/tty 精确匹配不依赖 cwd；
+        // client cwd（用户敲 `herdr` 的目录，不是 pane 的 cwd）由 lsof 延迟解析，
+        // 只在精确匹配未命中后才做唯一兜底。
+        "ghostty" => {
+            let run_script =
+                |script: &str| crate::terminal_focus::run_osascript_returning_bool(script);
+            crate::terminal_focus::focus_ghostty_herdr_host(
+                client.tty.as_str(),
                 ctx.session_name.as_deref(),
-            ),
-            None => Err(FocusFailure::EmptyCwd),
-        },
+                || process_cwd(client.pid),
+                &run_script,
+            )
+        }
         // tty 类终端复用 terminal_focus 的单点映射，client.tty 直接聚焦，不重复 pid 反查。
         slug => match crate::terminal_focus::tty_terminal_script(slug) {
             Some((label, build_script)) => {
@@ -448,15 +462,15 @@ fn focus_pane(socket_path: &Path, pane_id: &str) -> Result<(), SocketError> {
 fn find_attached_client(ctx: &HerdrSessionContext) -> Option<HerdrClientInfo> {
     let processes = list_herdr_processes()?;
     processes.into_iter().find_map(|(pid, argv)| {
-        let env = ps_env_output(pid)?;
-        if !client_matches_session(&env, &argv, ctx) {
+        // 一次 ps 同时取环境与 tty，替代 ps_env_output + pid_to_tty 两次 spawn。
+        let info = crate::terminal_focus::ps_tty_and_env(pid)?;
+        if !client_matches_session(&info.env_output, &argv, ctx) {
             return None;
         }
-        let tty = crate::terminal_focus::pid_to_tty(pid)?;
         Some(HerdrClientInfo {
             pid,
-            tty,
-            host_terminal: crate::terminal_focus::terminal_app_from_ps_output(&env),
+            tty: info.tty?,
+            host_terminal: crate::terminal_focus::terminal_app_from_ps_output(&info.env_output),
         })
     })
 }

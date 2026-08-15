@@ -74,16 +74,17 @@ paths:
 - 主托盘负责配置切换和页面导航；会话托盘负责 `~/.claude/sessions/*.json` 的状态摘要。
 - 设置抽屉负责 UI 语言、主题、本机自启动、默认终端、默认编辑器、托盘展示和诊断入口；主题仍由前端 localStorage 偏好控制，不属于后端 `AppPreferences`。
 - 会话文件只读取普通 `.json` 文件，缺少 `pid`、`sessionId`、`cwd`、`status` 或字段为空时应跳过。
-- 会话菜单项 id 需要能安全携带 `pid` 和 `cwd`；`cwd` 可能包含中文、空格、引号和 `::`。
+- 会话菜单项 id 需要能安全携带 `pid`、`cwd` 和创建时的 `procStart` 快照；`cwd` 可能包含中文、空格、引号和 `::`。
 - Terminal.app 与 iTerm2 通过 `pid -> tty -> AppleScript` 精确聚焦已有 tab。
-- Ghostty 的 AppleScript 没有 pid/tty API；普通会话按 client title 排除 herdr terminal 后，再按 `working directory` 唯一匹配；herdr 命名会话优先按 client title 匹配，cwd 仅在唯一时兜底；不要使用 `select tab t of w` 这类循环变量 specifier，容易触发 `-1700` 类型错误。
+- 聚焦链路用一次 `ps eww -o tty=,etime=,command=` 同时取 TERM_PROGRAM、控制终端与运行时长，不要拆成多次 spawn；pid 按会话文件 `procStart`（UTC）与 etime 推算的启动时间校验身份，`procStart` 缺失、非法或不一致（pid 已被回收）时拒绝整个聚焦请求，不得回退到 Ghostty cwd 或 herdr 的 pid 匹配。菜单项与可点击通知必须携带创建时的 `procStart` 快照，点击时不得按 pid 重读会话文件。
+- Ghostty 的 `tty` 属性由上游 #11592 引入（随 PR #11922 合入 main、尚未发布；1.3.x 的 sdef 没有，属性读取会抛 `-1700`）：`try` 只包住 `tty of term` 属性读取，探测失败置标志跳过后续比较，`focus`/`return` 必须留在 try 外——新版按 tty 精确命中，旧版自然落到兜底。空 cwd 不生成 cwd 兜底分支（AppleScript 的 `"" is ""` 为 true，会误命中无 shell 集成的 tab）。普通会话按 client title 排除 herdr terminal 后再按 `working directory` 唯一匹配；herdr 宿主跳（含默认会话）永不排除 herdr client；不要使用 `select tab t of w` 这类循环变量 specifier，容易触发 `-1700` 类型错误。
 - herdr 会话（跑在 herdr pane 里的 Claude Code）走"两跳聚焦"：先连 herdr unix socket API 按 pid 定位 pane 并 `pane.focus`，再找到附着的 herdr client 进程（其 tty 即宿主 tab 的 tty）复用宿主终端 AppleScript。逻辑集中在 `src-tauri/src/herdr.rs`，`terminal_focus.rs` 只做编排。
 - herdr 检测：先读会话进程 env（`HERDR_SESSION` / `HERDR_SOCKET_PATH` 标记，命名会话才有），无标记时沿 ppid 链找名为 `herdr` 的祖先进程（默认会话没有 env 标记，只能靠进程树）。
 - herdr socket 路径：`HERDR_SOCKET_PATH` > `<config>/herdr/sessions/<name>/herdr.sock`（命名会话）> `<config>/herdr/herdr.sock`；`HERDR_SESSION` 必须按 herdr 命名规则白名单校验，防路径穿越。
 - herdr pane 匹配：pid 精确匹配优先（`pane.list` + 逐 pane `pane.process_info`，命中 foreground pid / shell_pid / 进程组 id），失配或歧义时用 `agent.list` 按 cwd 兜底；兜底也只允许唯一匹配。
-- herdr 宿主跳：扫描 `herdr` 进程（comm 可能带完整路径，如 `/opt/homebrew/bin/herdr`，需同时匹配）+ 会话一致性（env 的 `HERDR_SESSION`/`HERDR_SOCKET_PATH`，或 argv 的 `--session <name>` / `session attach <name>`——herdr 0.7.x 的 client env 不带标记，会话名只在 argv）+ 真实 tty 过滤（daemon 无 tty 天然排除）；Ghostty 宿主优先按命名会话的 client title 匹配，cwd（`lsof`）仅作唯一结果兜底，不要用 pane 的 cwd。
+- herdr 宿主跳：扫描 `herdr` 进程（comm 可能带完整路径，如 `/opt/homebrew/bin/herdr`，需同时匹配）+ 会话一致性（env 的 `HERDR_SESSION`/`HERDR_SOCKET_PATH`，或 argv 的 `--session <name>` / `session attach <name>`——herdr 0.7.x 的 client env 不带标记，会话名只在 argv）+ 真实 tty 过滤（daemon 无 tty 天然排除）；Ghostty 宿主优先按命名会话的 client title 匹配，client tty 次之，cwd（`lsof`，仅在 title/tty 都未命中后才解析）作唯一结果兜底，不要用 pane 的 cwd。
 - herdr 降级语义：socket 跳失败（`HerdrNotRunning` / `HerdrPaneNotFound`）才向用户报错；宿主跳失败或找不到 client（detach / ssh 远程附着）按"部分成功"只记 warn，不弹通知。
-- 聚焦可用性门禁按会话判定（`session_focus_available`）：macOS 且（默认终端支持聚焦，或 pid 自身宿主终端支持，或会话在 herdr 里）；全局快捷键只挑可聚焦会话。
+- 聚焦可用性门禁按会话判定（`session_focus_available`）：macOS、会话 `procStart` 可验证，且（默认终端支持聚焦，或 pid 自身宿主终端支持，或会话在 herdr 里）；全局快捷键只挑可聚焦会话。
 - 未命中或聚焦失败只记录 warn 日志，不要自动新开窗口或 tab。
 - `osascript` 可能较慢，托盘点击 handler 不应阻塞 UI 事件循环。
 
