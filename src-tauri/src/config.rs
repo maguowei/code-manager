@@ -930,7 +930,7 @@ pub fn render_codex_config(
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .or_else(|| provider.default_model.as_deref());
+        .or(provider.default_model.as_deref());
     if let Some(model_name) = target_model {
         doc["model"] = toml_edit::value(model_name);
     }
@@ -941,7 +941,7 @@ pub fn render_codex_config(
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .or_else(|| provider.default_reasoning_effort.as_deref());
+        .or(provider.default_reasoning_effort.as_deref());
     if let Some(effort) = target_effort {
         doc["model_reasoning_effort"] = toml_edit::value(effort);
     }
