@@ -74,6 +74,7 @@ paths:
 - 主托盘负责配置切换和页面导航；会话托盘负责 `~/.claude/sessions/*.json` 的状态摘要。
 - 设置抽屉负责 UI 语言、主题、本机自启动、默认终端、默认编辑器、托盘展示和诊断入口；主题仍由前端 localStorage 偏好控制，不属于后端 `AppPreferences`。
 - 会话文件只读取普通 `.json` 文件，缺少 `pid`、`sessionId`、`cwd`、`status` 或字段为空时应跳过。
+- 会话菜单项与待处理通知展示格式统一为 `{emoji} {project_name} #{short_id} [· {custom_name}] · {status} [· {waiting_for}]`；其中 `short_id` 为 UUID 的前 8 位前缀（对齐 statusline 的 `${session_id:0:8}`，如 `#7dd0ffff`），用于同目录多会话消歧；仅当 `nameSource == "user"` 时展示用户自定义名称。
 - 会话菜单项 id 需要能安全携带 `pid`、`cwd` 和创建时的 `procStart` 快照；`cwd` 可能包含中文、空格、引号和 `::`。
 - Terminal.app 与 iTerm2 通过 `pid -> tty -> AppleScript` 精确聚焦已有 tab。
 - 聚焦链路用一次 `ps eww -o tty=,etime=,command=` 同时取 TERM_PROGRAM、控制终端与运行时长，不要拆成多次 spawn；pid 按会话文件 `procStart`（UTC）与 etime 推算的启动时间校验身份，`procStart` 缺失、非法或不一致（pid 已被回收）时拒绝整个聚焦请求，不得回退到 Ghostty cwd 或 herdr 的 pid 匹配。菜单项与可点击通知必须携带创建时的 `procStart` 快照，点击时不得按 pid 重读会话文件。
