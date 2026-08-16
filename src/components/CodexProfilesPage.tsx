@@ -1004,9 +1004,11 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                     <p className="text-body text-muted-foreground">
                       {applyPreview.preview.authMode === "chatGptLogin"
                         ? t("codex.applyPreviewAuthChatgpt")
-                        : applyPreview.preview.willInlineBearerToken
-                          ? t("codex.applyPreviewAuthInline")
-                          : t("codex.applyPreviewAuthUnset")}
+                        : applyPreview.preview.usesEnvKey
+                          ? t("codex.applyPreviewAuthEnvKey")
+                          : applyPreview.preview.willInlineBearerToken
+                            ? t("codex.applyPreviewAuthInline")
+                            : t("codex.applyPreviewAuthUnset")}
                     </p>
                   </FieldContent>
                 </Field>

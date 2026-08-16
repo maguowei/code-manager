@@ -313,7 +313,9 @@ export type CodexApplyPreview = {
 	providerWireApi: string,
 	/**  认证模式:内置 openai 为 ChatGPT 登录,自定义第三方为 API key(ADR 0005)。 */
 	authMode: CodexAuthMode,
-	/**  API key 模式下是否内联 `experimental_bearer_token`(chatgpt-login 模式恒 false)。 */
+	/**  自定义第三方是否配置了 `env_key`(走环境变量认证,不内联 token)。 */
+	usesEnvKey: boolean,
+	/**  是否内联 `experimental_bearer_token`(无 env_key 且 profile 有 key 时为 true)。 */
 	willInlineBearerToken: boolean,
 };
 
@@ -341,8 +343,9 @@ export type CodexBindingState_Serialize = {
 };
 
 /**
- *  Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + key 覆盖」,
- *  认证仅 ApiKey,不是完整设置单元。Apply 时做外科补丁,只改 `config.toml` 的 provider 相关键。
+ *  Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」,
+ *  认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),自定义第三方用一个 API key。
+ *  不是完整设置单元。Apply 时做外科补丁,只改 `config.toml` 的 provider 相关键,不写 auth.json。
  */
 export type CodexProfile = {
 	id: string,

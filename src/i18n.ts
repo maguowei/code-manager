@@ -1798,6 +1798,7 @@ const translations = {
     "codex.applyPreviewNext": "切换到",
     "codex.applyPreviewAuth": "认证",
     "codex.applyPreviewAuthChatgpt": "使用 ChatGPT 登录（~/.codex/auth.json 不受影响）",
+    "codex.applyPreviewAuthEnvKey": "将使用环境变量（env_key）认证，不内联 key",
     "codex.applyPreviewAuthInline": "将把 API key 内联进 config.toml（experimental_bearer_token）",
     "codex.applyPreviewAuthUnset": "未设置 API key",
     "codex.applyPreviewNone": "（无 / 首次）",
@@ -3670,6 +3671,7 @@ const translations = {
     "codex.applyPreviewNext": "Switch to",
     "codex.applyPreviewAuth": "Auth",
     "codex.applyPreviewAuthChatgpt": "Uses ChatGPT login (~/.codex/auth.json untouched)",
+    "codex.applyPreviewAuthEnvKey": "Uses the env var (env_key) for auth, no key inlined",
     "codex.applyPreviewAuthInline":
       "Inlines the API key into config.toml (experimental_bearer_token)",
     "codex.applyPreviewAuthUnset": "No API key set",

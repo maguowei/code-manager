@@ -256,8 +256,9 @@ pub struct CodexProvider {
     pub doc_url: Option<String>,
 }
 
-/// Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + key 覆盖」,
-/// 认证仅 ApiKey,不是完整设置单元。Apply 时做外科补丁,只改 `config.toml` 的 provider 相关键。
+/// Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」,
+/// 认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),自定义第三方用一个 API key。
+/// 不是完整设置单元。Apply 时做外科补丁,只改 `config.toml` 的 provider 相关键,不写 auth.json。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CodexProfile {
@@ -573,7 +574,9 @@ pub struct CodexApplyPreview {
     pub provider_wire_api: String,
     /// 认证模式:内置 openai 为 ChatGPT 登录,自定义第三方为 API key(ADR 0005)。
     pub auth_mode: CodexAuthMode,
-    /// API key 模式下是否内联 `experimental_bearer_token`(chatgpt-login 模式恒 false)。
+    /// 自定义第三方是否配置了 `env_key`(走环境变量认证,不内联 token)。
+    pub uses_env_key: bool,
+    /// 是否内联 `experimental_bearer_token`(无 env_key 且 profile 有 key 时为 true)。
     pub will_inline_bearer_token: bool,
 }
 
@@ -718,9 +721,9 @@ fn get_user_settings_path() -> Result<PathBuf, String> {
         .join("settings.json"))
 }
 
-// ===== Codex 配置(Codex Config System,ADR 0004)=====
-// 与 Claude 侧概念平行但类型独立。落盘目标是 ~/.codex/config.toml(TOML,外科补丁)
-// 加 ~/.codex/auth.json(仅 ApiKey)。本段为核心 Apply 逻辑,纯函数、不吃 AppHandle。
+// ===== Codex 配置(Codex Config System,ADR 0004/0005)=====
+// 与 Claude 侧概念平行但类型独立。落盘目标是 ~/.codex/config.toml(TOML,外科补丁),
+// 不写 ~/.codex/auth.json(ADR 0005)。本段为核心 Apply 逻辑,纯函数、不吃 AppHandle。
 
 /// 内置只读 Codex Provider 的 id 前缀与已知项。
 const CODEX_BUILTIN_PREFIX: &str = "codex-builtin:";
@@ -821,7 +824,7 @@ pub fn codex_apply_patch(
 }
 
 /// Codex Apply 的入口（纯函数，不吃 AppHandle）：按 profile_id 解析 provider 与 ApiKey，
-/// 外科补丁写 `config.toml` + `auth.json`，并更新 `codex.bindings` 激活态。
+/// 外科补丁写 `config.toml`（不写 `auth.json`，ADR 0005），并更新 `codex.bindings` 激活态。
 pub fn codex_apply_inner(profile_id: String) -> Result<(), String> {
     let _lock = crate::utils::lock_config()?;
     let mut registry = load_registry()?;
@@ -843,9 +846,15 @@ fn codex_apply_to_registry(registry: &mut ConfigRegistry, profile_id: &str) -> R
     let provider = resolve_codex_provider(registry, &profile.provider_id)?;
     let slug = codex_provider_slug(&provider);
 
-    // api-key 模式空 key 拒绝（避免内联空白 token 落盘）；chatgpt-login（内置 openai）免 key（ADR 0005）
+    // api-key 模式空 key 拒绝（除非配了 env_key——key 由环境变量提供、不内联）；chatgpt-login 免 key（ADR 0005）
     let api_key = profile.api_key.trim();
-    if codex_auth_mode(&provider) == CodexAuthMode::ApiKey && api_key.is_empty() {
+    let uses_env_key = provider
+        .env_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+        .is_some();
+    if codex_auth_mode(&provider) == CodexAuthMode::ApiKey && !uses_env_key && api_key.is_empty() {
         return Err(format!(
             "Codex Profile '{}' 缺少 API key,无法应用",
             profile.name
@@ -3297,6 +3306,12 @@ fn preview_codex_apply_inner(
     // 复用补丁计算(验证可渲染,但不写盘),确保 preview 与 apply 一致
     let _ = render_codex_config(&config_path, &slug, &provider, profile.api_key.trim())?;
 
+    let uses_env_key = provider
+        .env_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+        .is_some();
     Ok(CodexApplyPreview {
         current_model_provider: read_current_codex_model_provider(&config_path),
         next_model_provider: slug,
@@ -3304,7 +3319,8 @@ fn preview_codex_apply_inner(
         provider_base_url: provider.base_url.clone(),
         provider_wire_api: provider.wire_api.clone(),
         auth_mode: codex_auth_mode(&provider),
-        will_inline_bearer_token: !profile.api_key.trim().is_empty(),
+        uses_env_key,
+        will_inline_bearer_token: !uses_env_key && !profile.api_key.trim().is_empty(),
     })
 }
 
@@ -5390,15 +5406,15 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         assert!(registry.codex.providers.is_empty());
     }
 
-    // 空 key 的 profile 拒绝 apply:切到 api_key 模式后 codex 会以空 key 发起请求。
+    // 空 key 的 api-key profile 拒绝 apply:未配 env_key 时内联空白 token 会让 Codex 请求报错不明。
     #[test]
-    fn codex_apply_rejects_empty_api_key() {
+    fn codex_apply_rejects_empty_api_key_without_env_key() {
         let mut registry = ConfigRegistry::default();
         registry.codex.providers.push(CodexProvider {
             id: "custom:relay".to_string(),
             name: "Relay".to_string(),
             base_url: "https://relay.example.com/v1".to_string(),
-            env_key: Some("RELAY_KEY".to_string()),
+            env_key: None,
             model_catalog: None,
             wire_api: "responses".to_string(),
             doc_url: None,
@@ -5414,6 +5430,43 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
 
         let err = codex_apply_to_registry(&mut registry, "codex-empty").unwrap_err();
         assert!(err.contains("API key"), "空 key 报错应指明缺 key: {}", err);
+    }
+
+    // env_key provider 空 key 允许 apply:key 由环境变量提供、不内联(ADR 0005 放宽)。
+    #[test]
+    fn codex_apply_allows_empty_key_when_provider_uses_env_key() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-env-key-no-key");
+        set_test_env(&root);
+        let mut registry = ConfigRegistry::default();
+        registry.codex.providers.push(CodexProvider {
+            id: "custom:relay".to_string(),
+            name: "Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: Some("RELAY_KEY".to_string()),
+            model_catalog: None,
+            wire_api: "responses".to_string(),
+            doc_url: None,
+        });
+        registry.codex.profiles.push(CodexProfile {
+            id: "codex-1".to_string(),
+            name: "EnvKey".to_string(),
+            provider_id: "custom:relay".to_string(),
+            api_key: "".to_string(),
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
+        });
+
+        // env_key 模式空 key 不拒绝,落盘写 env_key、不内联 token
+        codex_apply_to_registry(&mut registry, "codex-1").unwrap();
+        let config = fs::read_to_string(codex_config_path().unwrap()).unwrap();
+        assert!(config.contains("env_key = \"RELAY_KEY\""), "写 env_key");
+        assert!(
+            !config.contains("experimental_bearer_token"),
+            "env_key 模式不内联 token"
+        );
+
+        clear_test_env();
     }
 
     // 点号 slug(手改 registry 的 custom:my.relay 一类)的同名段被替换,其他旧段原样保留。

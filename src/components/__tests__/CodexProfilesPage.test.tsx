@@ -72,6 +72,7 @@ function stubInvoke(workspace: CodexWorkspace) {
         providerBaseUrl: "https://api.openai.com/v1",
         providerWireApi: "responses",
         authMode: "chatGptLogin",
+        usesEnvKey: false,
         willInlineBearerToken: false,
       };
     }

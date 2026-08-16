@@ -13,7 +13,7 @@ Codex 配置切换 v1（ADR 0004）把认证锁死为 ApiKey-only：每次 apply
 3. **内置官方 Profile 即恢复点（候选 A）**：apply 内置 openai profile = 一键复原官方配置，不引入独立「恢复」概念/按钮；不清理残留 provider 段（外科补丁不删除）。
 4. **不写全局认证字段**：否决 `preferred_auth_method` / `forced_login_method`——它们是全局顶层键，apply 第三方写入后会在切回官方时残留、强制 apikey 路径，破坏 ChatGPT 登录。纯靠 provider 段内联 token 区分认证。
 5. **不做 apply 前快照备份**：外科补丁只动 provider 相关键 + `write_pair_atomic` 已有失败回滚，「一键复原官方」即兜底；官方 DeepSeek 脚本的备份针对首次整体初始化，不适用本场景。
-6. **模型目录（a+c）**：可选生成 `~/.codex/models.json`，来源 = 内置静态清单 + 用户自定义覆盖；原子边界扩到第三文件。
+6. **模型目录（机制就绪）**：`CodexProvider.model_catalog` 字段 + apply 生成 `~/.codex/models.json` + 原子边界扩到第三文件；内置静态清单与前端 UI 编辑**延后**，第一版仅程序化 / registry 直写，无输入入口。
 7. **`env_key` 降级为可选**：自定义 Provider 可选用环境变量键名，默认内联 key。
 
 ## Consequences

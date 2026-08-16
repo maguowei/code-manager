@@ -13,7 +13,7 @@ Codex 配置切换 v1（ADR 0004）把认证锁死为 ApiKey-only：apply 写 `~
 3. **内置官方 Profile 即恢复点**：apply 它 = 一键复原官方，无独立「恢复」概念。
 4. **不写全局认证字段**（否决 `preferred_auth_method`/`forced_login_method`）。
 5. **不做 apply 前快照备份**（外科补丁 + 原子回滚 + 一键复原兜底）。
-6. **模型目录 a+c**：内置静态清单 + 用户自定义覆盖，`~/.codex/models.json`。
+6. **模型目录（机制就绪）**：`CodexProvider.model_catalog` 字段 + apply 生成 `~/.codex/models.json` + 原子边界扩到第三文件；内置静态清单与前端 UI 编辑**延后**（第一版无输入入口，仅程序化 / registry 直写）。
 7. **`env_key` 降级为可选**，默认内联 key。
 
 ## 落盘契约
@@ -52,10 +52,11 @@ model_provider = "openai"
 
 任何场景都不写入。`render_codex_auth` 整体移除。
 
-### 模型目录（可选）
+### 模型目录（机制就绪）
 
-- apply 时若 provider 带模型目录，生成 `~/.codex/models.json` 并在 config.toml 顶层写 `model_catalog_json = "~/.codex/models.json"`。
-- 原子边界：config.toml + models.json 两文件，复用/扩展 `write_pair_atomic`。
+- apply 时若 provider 带 `model_catalog`，生成 `~/.codex/models.json` 并在 config.toml 顶层写 `model_catalog_json = "~/.codex/models.json"`。
+- 原子边界：config.toml + models.json 两文件，复用 `write_pair_atomic`。
+- **第一版边界**：无前端输入入口（`ProviderDraft` 不携带该字段），内置 openai 与新建 provider 均无 model_catalog；内置静态清单（resources 文件）与 UI 编辑延后。经 `upsert_codex_provider` 直写 registry 的程序化路径可填。
 
 ## 数据模型变更（`src-tauri/src/config.rs`）
 

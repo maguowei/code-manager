@@ -194,7 +194,7 @@ export interface CodexProvider {
 /** Codex 认证模式(ADR 0005):从 Provider 推导,不是用户可选项。 */
 export type CodexAuthMode = "chatGptLogin" | "apiKey";
 
-/** Codex Profile:引用一个 Codex Provider + 一个 ApiKey(仅 ApiKey,无 OAuth)。 */
+/** Codex Profile:引用一个 Codex Provider + 认证(ADR 0005);内置官方用 ChatGPT 登录(免 key),自定义第三方用一个 API key。 */
 export interface CodexProfile {
   id: string;
   name: string;
@@ -229,7 +229,9 @@ export interface CodexApplyPreview {
   providerWireApi: string;
   /** 认证模式(ADR 0005):内置 openai 为 ChatGPT 登录,自定义第三方为 API key */
   authMode: CodexAuthMode;
-  /** API key 模式下是否内联 experimental_bearer_token(chatgpt-login 模式恒 false) */
+  /** 自定义第三方是否配置了 env_key(走环境变量认证,不内联 token) */
+  usesEnvKey: boolean;
+  /** 是否内联 experimental_bearer_token(无 env_key 且 profile 有 key 时为 true) */
   willInlineBearerToken: boolean;
 }
 
