@@ -144,14 +144,14 @@ describe("CodexProfilesPage", () => {
     cleanup();
   });
 
-  it("渲染 Profile 列表与已激活状态", async () => {
+  it("渲染 Profile 列表与使用中状态", async () => {
     stubInvoke(MOCK_WORKSPACE);
     renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
-    expect(screen.getByText("当前激活")).toBeInTheDocument();
+    expect(screen.getByText("使用中")).toBeInTheDocument();
     expect(screen.getByText("deepseek-v4-flash")).toBeInTheDocument();
   });
 
@@ -177,8 +177,8 @@ describe("CodexProfilesPage", () => {
       expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
 
-    const addButtons = screen.getAllByRole("button", { name: /新增配置/i });
-    fireEvent.click(addButtons[0]);
+    const addButton = screen.getByRole("button", { name: /新增配置/i });
+    fireEvent.click(addButton);
 
     await waitFor(() => {
       expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
@@ -212,8 +212,8 @@ describe("CodexProfilesPage", () => {
       expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
 
-    const addButtons = screen.getAllByRole("button", { name: /新增配置/i });
-    fireEvent.click(addButtons[0]);
+    const addButton = screen.getByRole("button", { name: /新增配置/i });
+    fireEvent.click(addButton);
 
     await waitFor(() => {
       expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
@@ -285,6 +285,47 @@ describe("CodexProfilesPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("编辑 Codex 配置")).toBeInTheDocument();
+    });
+  });
+
+  it("点击终端图标打开快捷启动命令弹窗并可复制命令", async () => {
+    stubInvoke(MOCK_WORKSPACE);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
+    });
+
+    const terminalBtn = screen.getByTitle("复制启动命令");
+    fireEvent.click(terminalBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Codex 启动命令").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/codex -m deepseek-v4-flash/i)).toBeInTheDocument();
+    });
+  });
+
+  it("点击复制按钮触发配置副本创建", async () => {
+    stubInvoke(MOCK_WORKSPACE);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
+    });
+
+    const copyBtn = screen.getByTitle("复制配置");
+    fireEvent.click(copyBtn);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "upsert_codex_profile",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            name: "DeepSeek 快速起步 (副本)",
+            providerId: "codex-builtin:deepseek",
+          }),
+        }),
+      );
     });
   });
 
