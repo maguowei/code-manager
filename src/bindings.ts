@@ -311,9 +311,19 @@ export type CodexApplyPreview = {
 	providerBaseUrl: string,
 	/**  将写入的 wire_api。 */
 	providerWireApi: string,
-	/**  auth.json 是否会写入 api key(仅 ApiKey 模式,始终 true)。 */
-	apiKeyWillSet: boolean,
+	/**  认证模式:内置 openai 为 ChatGPT 登录,自定义第三方为 API key(ADR 0005)。 */
+	authMode: CodexAuthMode,
+	/**  API key 模式下是否内联 `experimental_bearer_token`(chatgpt-login 模式恒 false)。 */
+	willInlineBearerToken: boolean,
 };
+
+/**
+ *  Codex 认证模式(ADR 0005):从 Provider 推导,不是用户可选项。
+ *  内置 OpenAI 官方 = ChatGPT 登录(免 key,apply 只写 `model_provider="openai"`,
+ *  认证走 `~/.codex/auth.json` 里 `codex login` 维护的登录态);
+ *  自定义第三方 = API key(apply 内联进 `[model_providers.SLUG].experimental_bearer_token`)。
+ */
+export type CodexAuthMode = "chatGptLogin" | "apiKey";
 
 /**  Codex 侧的绑定态,记录当前激活(已 apply)的 Codex Profile。 */
 export type CodexBindingState = CodexBindingState_Serialize | CodexBindingState_Deserialize;
@@ -359,7 +369,7 @@ export type CodexProfileInput = {
 
 /**
  *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
- *  Codex Provider 可由用户自定义,承载 `base_url` / 环境变量键名 / `wire_api`;
+ *  Codex Provider 可由用户自定义,承载 `base_url` / 可选环境变量键名 / `wire_api`;
  *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
  */
 export type CodexProvider = CodexProvider_Serialize | CodexProvider_Deserialize;
@@ -370,16 +380,18 @@ export type CodexProviderInput = {
 	id: string | null,
 	name: string,
 	baseUrl: string,
-	/**  读取 API key 的环境变量名。 */
-	envKey: string,
+	/**  读取 API key 的环境变量名;留空则 apply 内联 `experimental_bearer_token`(ADR 0005)。 */
+	envKey?: string | null,
 	/**  `responses` 或 `chat`。 */
 	wireApi: string,
+	/**  可选模型目录,apply 时生成 `~/.codex/models.json`(ADR 0005)。 */
+	modelCatalog?: unknown,
 	docUrl?: string | null,
 };
 
 /**
  *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
- *  Codex Provider 可由用户自定义,承载 `base_url` / 环境变量键名 / `wire_api`;
+ *  Codex Provider 可由用户自定义,承载 `base_url` / 可选环境变量键名 / `wire_api`;
  *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
  */
 export type CodexProvider_Deserialize = {
@@ -387,16 +399,18 @@ export type CodexProvider_Deserialize = {
 	name: string,
 	/**  对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url` */
 	baseUrl: string,
-	/**  读取 API key 的环境变量名(`env_key`) */
-	envKey: string,
+	/**  读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 `experimental_bearer_token`(ADR 0005) */
+	envKey?: string | null,
 	/**  写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`) */
 	wireApi: string,
+	/**  可选模型目录:存在时 apply 生成 `~/.codex/models.json` 并写顶层 `model_catalog_json`(ADR 0005) */
+	modelCatalog?: unknown,
 	docUrl: string | null,
 };
 
 /**
  *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
- *  Codex Provider 可由用户自定义,承载 `base_url` / 环境变量键名 / `wire_api`;
+ *  Codex Provider 可由用户自定义,承载 `base_url` / 可选环境变量键名 / `wire_api`;
  *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
  */
 export type CodexProvider_Serialize = {
@@ -404,10 +418,12 @@ export type CodexProvider_Serialize = {
 	name: string,
 	/**  对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url` */
 	baseUrl: string,
-	/**  读取 API key 的环境变量名(`env_key`) */
-	envKey: string,
+	/**  读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 `experimental_bearer_token`(ADR 0005) */
+	envKey?: string | null,
 	/**  写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`) */
 	wireApi: string,
+	/**  可选模型目录:存在时 apply 生成 `~/.codex/models.json` 并写顶层 `model_catalog_json`(ADR 0005) */
+	modelCatalog?: unknown,
 	docUrl?: string | null,
 };
 

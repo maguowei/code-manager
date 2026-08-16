@@ -1729,7 +1729,8 @@ const translations = {
     "codex.providerSectionHint": "内置 Provider 只读，自定义 Provider 可编辑与删除。",
     "codex.createProvider": "新增 Codex Provider",
     "codex.editProvider": "编辑 Codex Provider",
-    "codex.editorDescription": "Codex Provider 只承载连接信息（base_url、env_key），不含 API key。",
+    "codex.editorDescription":
+      "Codex Provider 只承载连接信息（base_url、可选 env_key），不含 API key。",
     "codex.deleteProviderTitle": "删除 Codex Provider",
     "codex.deleteProviderDescription":
       "确认删除该自定义 Codex Provider？被 Codex 配置引用时，删除将被阻止。",
@@ -1737,9 +1738,9 @@ const translations = {
     "codex.field.namePlaceholder": "例如：我的中转",
     "codex.field.baseUrl": "Base URL",
     "codex.field.baseUrlHint": "OpenAI 兼容 API 地址，写入 [model_providers.NAME].base_url。",
-    "codex.field.envKey": "环境变量键名",
+    "codex.field.envKey": "环境变量键名（可选）",
     "codex.field.envKeyHint":
-      "环境变量键名，写入 [model_providers.NAME].env_key；Apply 时 API key 写入 ~/.codex/auth.json。",
+      "环境变量键名，写入 [model_providers.NAME].env_key；留空则把 API key 内联进 config.toml 的 experimental_bearer_token。不写入 ~/.codex/auth.json。",
     "codex.field.docUrl": "文档链接（可选）",
     "codex.toast.loadFailed": "加载 Codex 配置失败",
     "codex.toast.providerCreated": "Codex Provider 已创建",
@@ -1750,17 +1751,18 @@ const translations = {
     "codex.providerSectionTitle": "Provider",
     "codex.profileSectionTitle": "配置",
     "codex.profileSectionHint":
-      "每份配置引用一个 Provider 并叠加一个 API key；Apply 时以外科补丁方式写入 ~/.codex。",
+      "每份配置引用一个 Provider 并叠加认证；内置官方用 ChatGPT 登录，自定义第三方用一个 API key。",
     "codex.addProfile": "新增配置",
     "codex.profileCreateDisabledHint": "请先添加一个 Provider",
     "codex.profileNeedsProviderTitle": "尚无可用 Provider",
     "codex.profileNeedsProviderHint": "新增配置前，请先添加至少一个 Codex Provider。",
     "codex.emptyProfileTitle": "尚无 Codex 配置",
-    "codex.emptyProfileHint": "新增一份配置：选择一个 Provider 并填入 API key。",
+    "codex.emptyProfileHint":
+      "新增一份配置：选择 Provider；内置 OpenAI 官方无需 key，第三方填入 API key。",
     "codex.createProfile": "新增 Codex 配置",
     "codex.editProfile": "编辑 Codex 配置",
     "codex.profileEditorDescription":
-      "配置 = 一个 Provider + 一个 API key（仅 ApiKey，不含 OAuth）。",
+      "配置 = 一个 Provider + 认证：内置 OpenAI 官方用 ChatGPT 登录（免 key），自定义第三方用一个 API key。",
     "codex.deleteProfileTitle": "删除 Codex 配置",
     "codex.deleteProfileDescription": "确认删除该 Codex 配置？",
     "codex.field.profileName": "名称",
@@ -1769,12 +1771,15 @@ const translations = {
     "codex.field.providerPlaceholder": "选择一个 Provider",
     "codex.field.apiKey": "API key",
     "codex.field.apiKeyHint":
-      "仅 ApiKey 模式；Apply 时把 API key 写入 ~/.codex/auth.json 的 OPENAI_API_KEY。",
+      "仅自定义第三方使用；Apply 时把 API key 内联进 config.toml 的 experimental_bearer_token，不写入 ~/.codex/auth.json。",
+    "codex.field.chatgptLoginHint":
+      "内置 OpenAI 官方使用 ChatGPT 登录（codex login），无需 API key；Apply 不会改写 ~/.codex/auth.json。",
     "codex.field.apiKeyKeepHint": "留空保留已有 key",
     "codex.field.showApiKey": "显示 API key",
     "codex.field.hideApiKey": "隐藏 API key",
     "codex.summary.baseUrl": "Base URL",
     "codex.summary.apiKey": "API key",
+    "codex.summary.chatgptLogin": "ChatGPT 登录",
     "codex.summary.apiKeyUnset": "未配置",
     "codex.toast.profileCreated": "Codex 配置已创建",
     "codex.toast.profileUpdated": "Codex 配置已更新",
@@ -1788,11 +1793,12 @@ const translations = {
     "codex.toast.profileApplyFailed": "应用 Codex 配置失败",
     "codex.applyPreviewTitle": "确认应用 Codex 配置",
     "codex.applyPreviewDescription":
-      "将以外科补丁方式改写 ~/.codex/config.toml 的 provider 段，并把 API key 写入 ~/.codex/auth.json；其余键与旧 provider 段原样保留。",
+      "将以外科补丁方式改写 ~/.codex/config.toml 的 provider 段，不写入 ~/.codex/auth.json；其余键与旧 provider 段原样保留。",
     "codex.applyPreviewCurrent": "当前已激活的 provider",
     "codex.applyPreviewNext": "切换到",
     "codex.applyPreviewAuth": "认证",
-    "codex.applyPreviewAuthSet": "将把 API key 写入 ~/.codex/auth.json",
+    "codex.applyPreviewAuthChatgpt": "使用 ChatGPT 登录（~/.codex/auth.json 不受影响）",
+    "codex.applyPreviewAuthInline": "将把 API key 内联进 config.toml（experimental_bearer_token）",
     "codex.applyPreviewAuthUnset": "未设置 API key",
     "codex.applyPreviewNone": "（无 / 首次）",
   },
@@ -3595,7 +3601,7 @@ const translations = {
     "codex.createProvider": "New Codex Provider",
     "codex.editProvider": "Edit Codex Provider",
     "codex.editorDescription":
-      "A Codex Provider only holds connection info (base_url, env_key), not the API key.",
+      "A Codex Provider only holds connection info (base_url, optional env_key), not the API key.",
     "codex.deleteProviderTitle": "Delete Codex Provider",
     "codex.deleteProviderDescription":
       "Delete this custom Codex provider? Deletion is blocked while a profile references it.",
@@ -3604,9 +3610,9 @@ const translations = {
     "codex.field.baseUrl": "Base URL",
     "codex.field.baseUrlHint":
       "OpenAI-compatible API URL, written to [model_providers.NAME].base_url.",
-    "codex.field.envKey": "Env var key",
+    "codex.field.envKey": "Env var key (optional)",
     "codex.field.envKeyHint":
-      "Env var key name, written to [model_providers.NAME].env_key; on Apply the API key is stored in ~/.codex/auth.json.",
+      "Env var key name, written to [model_providers.NAME].env_key; leave blank to inline the API key as experimental_bearer_token in config.toml. Never writes ~/.codex/auth.json.",
     "codex.field.docUrl": "Docs link (optional)",
     "codex.toast.loadFailed": "Failed to load Codex config",
     "codex.toast.providerCreated": "Codex provider created",
@@ -3617,17 +3623,18 @@ const translations = {
     "codex.providerSectionTitle": "Providers",
     "codex.profileSectionTitle": "Profiles",
     "codex.profileSectionHint":
-      "Each profile references a Provider plus an API key; Apply writes a surgical patch to ~/.codex.",
+      "Each profile references a Provider plus auth: built-in official uses ChatGPT login, custom third-party uses one API key.",
     "codex.addProfile": "Add Profile",
     "codex.profileCreateDisabledHint": "Add a Provider first",
     "codex.profileNeedsProviderTitle": "No provider available",
     "codex.profileNeedsProviderHint": "Add at least one Codex Provider before creating a profile.",
     "codex.emptyProfileTitle": "No Codex profile yet",
-    "codex.emptyProfileHint": "Add a profile: pick a Provider and enter an API key.",
+    "codex.emptyProfileHint":
+      "Add a profile: pick a Provider; the built-in OpenAI one needs no key, third-party ones take an API key.",
     "codex.createProfile": "New Codex Profile",
     "codex.editProfile": "Edit Codex Profile",
     "codex.profileEditorDescription":
-      "A Profile = one Provider + one API key (ApiKey only, no OAuth).",
+      "A Profile = one Provider + auth: built-in OpenAI uses ChatGPT login (no key), custom third-party uses one API key.",
     "codex.deleteProfileTitle": "Delete Codex Profile",
     "codex.deleteProfileDescription": "Delete this Codex profile?",
     "codex.field.profileName": "Name",
@@ -3636,12 +3643,15 @@ const translations = {
     "codex.field.providerPlaceholder": "Select a provider",
     "codex.field.apiKey": "API key",
     "codex.field.apiKeyHint":
-      "ApiKey mode only; on Apply the key is written to OPENAI_API_KEY in ~/.codex/auth.json.",
+      "For custom third-party providers only; on Apply the key is inlined as experimental_bearer_token in config.toml, never written to ~/.codex/auth.json.",
+    "codex.field.chatgptLoginHint":
+      "The built-in OpenAI provider uses ChatGPT login (codex login); no API key needed and Apply never touches ~/.codex/auth.json.",
     "codex.field.apiKeyKeepHint": "Leave blank to keep existing key",
     "codex.field.showApiKey": "Show API key",
     "codex.field.hideApiKey": "Hide API key",
     "codex.summary.baseUrl": "Base URL",
     "codex.summary.apiKey": "API key",
+    "codex.summary.chatgptLogin": "ChatGPT login",
     "codex.summary.apiKeyUnset": "Not set",
     "codex.toast.profileCreated": "Codex profile created",
     "codex.toast.profileUpdated": "Codex profile updated",
@@ -3655,11 +3665,13 @@ const translations = {
     "codex.toast.profileApplyFailed": "Failed to apply Codex profile",
     "codex.applyPreviewTitle": "Confirm Codex profile apply",
     "codex.applyPreviewDescription":
-      "This surgically patches the provider section of ~/.codex/config.toml and writes the API key to ~/.codex/auth.json; all other keys and old provider sections are preserved.",
+      "This surgically patches the provider section of ~/.codex/config.toml and does not write ~/.codex/auth.json; all other keys and old provider sections are preserved.",
     "codex.applyPreviewCurrent": "Current active provider",
     "codex.applyPreviewNext": "Switch to",
     "codex.applyPreviewAuth": "Auth",
-    "codex.applyPreviewAuthSet": "Writes the API key to ~/.codex/auth.json",
+    "codex.applyPreviewAuthChatgpt": "Uses ChatGPT login (~/.codex/auth.json untouched)",
+    "codex.applyPreviewAuthInline":
+      "Inlines the API key into config.toml (experimental_bearer_token)",
     "codex.applyPreviewAuthUnset": "No API key set",
     "codex.applyPreviewNone": "(none / first time)",
   },

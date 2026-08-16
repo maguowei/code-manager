@@ -55,6 +55,10 @@ import {
 // wire_api 恒为 responses(Codex 已移除 chat);与后端 CODEX_WIRE_API_RESPONSES 对齐
 const WIRE_API_RESPONSES = "responses";
 
+// 内置 OpenAI 官方 provider id(ADR 0005:chatgpt-login 模式,免 key、认证走 ChatGPT 登录)
+const CODEX_BUILTIN_OPENAI_ID = "codex-builtin:openai";
+const isChatGptLogin = (provider?: CodexProvider) => provider?.id === CODEX_BUILTIN_OPENAI_ID;
+
 // 卡片与 chip 样式对齐 ProvidersPage 的 preset-card / preset-chip 体系
 const PROVIDER_CARD_CLASS =
   "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel";
@@ -81,7 +85,8 @@ function emptyProviderDraft(): ProviderDraft {
     id: null,
     name: "",
     baseUrl: "",
-    envKey: "OPENAI_API_KEY",
+    // envKey 可选(ADR 0005):留空则 apply 内联 experimental_bearer_token
+    envKey: "",
     docUrl: "",
   };
 }
@@ -91,7 +96,7 @@ function providerDraftFrom(p: CodexProvider): ProviderDraft {
     id: p.id,
     name: p.name,
     baseUrl: p.baseUrl,
-    envKey: p.envKey,
+    envKey: p.envKey ?? "",
     docUrl: p.docUrl ?? "",
   };
 }
@@ -194,7 +199,8 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
       id: providerDraft.id,
       name: providerDraft.name.trim(),
       baseUrl: providerDraft.baseUrl.trim(),
-      envKey: providerDraft.envKey.trim(),
+      // envKey 可选(ADR 0005):留空则 apply 内联 experimental_bearer_token
+      envKey: providerDraft.envKey.trim() ? providerDraft.envKey.trim() : undefined,
       // wire_api 恒为 responses(Codex 已移除 chat),后端负责落盘
       wireApi: WIRE_API_RESPONSES,
       docUrl: providerDraft.docUrl.trim() ? providerDraft.docUrl.trim() : undefined,
@@ -289,15 +295,15 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
   };
 
   const providerDraftValid =
-    providerDraft.name.trim() !== "" &&
-    providerDraft.baseUrl.trim() !== "" &&
-    providerDraft.envKey.trim() !== "";
+    providerDraft.name.trim() !== "" && providerDraft.baseUrl.trim() !== "";
   const profileDraftValid =
     profileDraft !== null &&
     profileDraft.name.trim() !== "" &&
     profileDraft.providerId !== "" &&
-    // 新建必须有 key;编辑可空(保留)
-    (profileDraft.id !== null || profileDraft.apiKey.trim() !== "");
+    // 新建:chatgpt-login(内置 openai)免 key;api-key 模式必须有 key;编辑可空(保留)
+    (profileDraft.id !== null ||
+      isChatGptLogin(providerOf(profileDraft.providerId)) ||
+      profileDraft.apiKey.trim() !== "");
 
   // ===== 脏编辑器退出保护(frontend-ui.md:抽屉编辑器必须暴露 EditorExitGuard)=====
   const providerDirty =
@@ -507,7 +513,13 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                               </div>
                             </div>
                             <div className="preset-chip-list flex flex-wrap items-center gap-2">
-                              <span className={PROVIDER_CHIP_CLASS}>{provider.envKey}</span>
+                              {isChatGptLogin(provider) ? (
+                                <span className={PROVIDER_CHIP_CLASS}>
+                                  {t("codex.summary.chatgptLogin")}
+                                </span>
+                              ) : provider.envKey ? (
+                                <span className={PROVIDER_CHIP_CLASS}>{provider.envKey}</span>
+                              ) : null}
                             </div>
                           </div>
                           {builtin ? null : (
@@ -680,7 +692,11 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                             </div>
                             <div className={summaryRowClass}>
                               <span className={summaryLabelClass}>{t("codex.summary.apiKey")}</span>
-                              {profile.apiKey ? (
+                              {isChatGptLogin(provider) ? (
+                                <span className="text-xs leading-none text-muted-foreground">
+                                  {t("codex.summary.chatgptLogin")}
+                                </span>
+                              ) : profile.apiKey ? (
                                 <span className="min-w-0 max-w-full truncate font-mono text-xs leading-none text-foreground [overflow-wrap:anywhere]">
                                   {profile.apiKey}
                                 </span>
@@ -778,7 +794,7 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                   <Input
                     value={providerDraft.envKey}
                     onChange={(e) => setProviderDraft({ ...providerDraft, envKey: e.target.value })}
-                    placeholder="OPENAI_API_KEY"
+                    placeholder="DEEPSEEK_API_KEY"
                   />
                 </FieldContent>
               </Field>
@@ -880,21 +896,28 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                       ) : null}
                     </FieldContent>
                   </Field>
-                  <Field>
-                    <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
-                    <FieldDescription>{t("codex.field.apiKeyHint")}</FieldDescription>
-                    <FieldContent>
-                      <SensitiveTextInput
-                        id="codex-profile-api-key"
-                        value={profileDraft.apiKey}
-                        placeholder={profileDraft.id ? t("codex.field.apiKeyKeepHint") : "sk-..."}
-                        ariaLabel={t("codex.field.apiKey")}
-                        showLabel={t("codex.field.showApiKey")}
-                        hideLabel={t("codex.field.hideApiKey")}
-                        onChange={(value) => setProfileDraft({ ...profileDraft, apiKey: value })}
-                      />
-                    </FieldContent>
-                  </Field>
+                  {isChatGptLogin(providerOf(profileDraft.providerId)) ? (
+                    <Field>
+                      <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
+                      <FieldDescription>{t("codex.field.chatgptLoginHint")}</FieldDescription>
+                    </Field>
+                  ) : (
+                    <Field>
+                      <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
+                      <FieldDescription>{t("codex.field.apiKeyHint")}</FieldDescription>
+                      <FieldContent>
+                        <SensitiveTextInput
+                          id="codex-profile-api-key"
+                          value={profileDraft.apiKey}
+                          placeholder={profileDraft.id ? t("codex.field.apiKeyKeepHint") : "sk-..."}
+                          ariaLabel={t("codex.field.apiKey")}
+                          showLabel={t("codex.field.showApiKey")}
+                          hideLabel={t("codex.field.hideApiKey")}
+                          onChange={(value) => setProfileDraft({ ...profileDraft, apiKey: value })}
+                        />
+                      </FieldContent>
+                    </Field>
+                  )}
                 </FieldGroup>
               </div>
               <SheetFooter className="shrink-0 border-t px-5 py-3.5">
@@ -979,9 +1002,11 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                   <FieldLabel>{t("codex.applyPreviewAuth")}</FieldLabel>
                   <FieldContent>
                     <p className="text-body text-muted-foreground">
-                      {applyPreview.preview.apiKeyWillSet
-                        ? t("codex.applyPreviewAuthSet")
-                        : t("codex.applyPreviewAuthUnset")}
+                      {applyPreview.preview.authMode === "chatGptLogin"
+                        ? t("codex.applyPreviewAuthChatgpt")
+                        : applyPreview.preview.willInlineBearerToken
+                          ? t("codex.applyPreviewAuthInline")
+                          : t("codex.applyPreviewAuthUnset")}
                     </p>
                   </FieldContent>
                 </Field>

@@ -222,8 +222,19 @@ pub struct BindingState {
     pub user_last_applied_at: Option<String>,
 }
 
+/// Codex 认证模式(ADR 0005):从 Provider 推导,不是用户可选项。
+/// 内置 OpenAI 官方 = ChatGPT 登录(免 key,apply 只写 `model_provider="openai"`,
+/// 认证走 `~/.codex/auth.json` 里 `codex login` 维护的登录态);
+/// 自定义第三方 = API key(apply 内联进 `[model_providers.SLUG].experimental_bearer_token`)。
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CodexAuthMode {
+    ChatGptLogin,
+    ApiKey,
+}
+
 /// 自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
-/// Codex Provider 可由用户自定义,承载 `base_url` / 环境变量键名 / `wire_api`;
+/// Codex Provider 可由用户自定义,承载 `base_url` / 可选环境变量键名 / `wire_api`;
 /// 内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -232,10 +243,15 @@ pub struct CodexProvider {
     pub name: String,
     /// 对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url`
     pub base_url: String,
-    /// 读取 API key 的环境变量名(`env_key`)
-    pub env_key: String,
+    /// 读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 `experimental_bearer_token`(ADR 0005)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub env_key: Option<String>,
     /// 写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`)
     pub wire_api: String,
+    /// 可选模型目录:存在时 apply 生成 `~/.codex/models.json` 并写顶层 `model_catalog_json`(ADR 0005)
+    #[specta(type = specta_typescript::Unknown)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_catalog: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub doc_url: Option<String>,
 }
@@ -503,10 +519,15 @@ pub struct CodexProviderInput {
     pub id: Option<String>,
     pub name: String,
     pub base_url: String,
-    /// 读取 API key 的环境变量名。
-    pub env_key: String,
+    /// 读取 API key 的环境变量名;留空则 apply 内联 `experimental_bearer_token`(ADR 0005)。
+    #[serde(default)]
+    pub env_key: Option<String>,
     /// `responses` 或 `chat`。
     pub wire_api: String,
+    /// 可选模型目录,apply 时生成 `~/.codex/models.json`(ADR 0005)。
+    #[specta(type = specta_typescript::Unknown)]
+    #[serde(default)]
+    pub model_catalog: Option<Value>,
     #[serde(default)]
     pub doc_url: Option<String>,
 }
@@ -550,8 +571,10 @@ pub struct CodexApplyPreview {
     pub provider_base_url: String,
     /// 将写入的 wire_api。
     pub provider_wire_api: String,
-    /// auth.json 是否会写入 api key(仅 ApiKey 模式,始终 true)。
-    pub api_key_will_set: bool,
+    /// 认证模式:内置 openai 为 ChatGPT 登录,自定义第三方为 API key(ADR 0005)。
+    pub auth_mode: CodexAuthMode,
+    /// API key 模式下是否内联 `experimental_bearer_token`(chatgpt-login 模式恒 false)。
+    pub will_inline_bearer_token: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -720,23 +743,27 @@ fn codex_config_path() -> Result<PathBuf, String> {
         .join("config.toml"))
 }
 
-/// `~/.codex/auth.json` 路径。
-fn codex_auth_path() -> Result<PathBuf, String> {
-    Ok(crate::utils::get_home_dir()?
-        .join(".codex")
-        .join("auth.json"))
-}
-
 /// 内置只读 Codex Provider 列表（快速起步预设）。自定义 Provider 落 registry，不在此。
 fn builtin_codex_providers() -> Vec<CodexProvider> {
     vec![CodexProvider {
         id: CODEX_BUILTIN_OPENAI_ID.to_string(),
         name: "OpenAI 官方".to_string(),
         base_url: "https://api.openai.com/v1".to_string(),
-        env_key: "OPENAI_API_KEY".to_string(),
+        // chatgpt-login 模式：不写 env_key，认证走 auth.json 的 ChatGPT 登录（ADR 0005）
+        env_key: None,
         wire_api: CODEX_WIRE_API_RESPONSES.to_string(),
+        model_catalog: None,
         doc_url: Some("https://developers.openai.com/codex/".to_string()),
     }]
+}
+
+/// 推导 Codex 认证模式（ADR 0005）：内置 OpenAI 官方 = ChatGPT 登录，其余 = API key。
+fn codex_auth_mode(provider: &CodexProvider) -> CodexAuthMode {
+    if provider.id == CODEX_BUILTIN_OPENAI_ID {
+        CodexAuthMode::ChatGptLogin
+    } else {
+        CodexAuthMode::ApiKey
+    }
 }
 
 /// 把 Provider 解析为落盘用的 slug（写入 `model_provider` 与 `[model_providers.SLUG]`）。
@@ -774,20 +801,23 @@ fn resolve_codex_provider(
     Ok(provider)
 }
 
-/// 外科补丁写入 `config.toml`：只改 `model_provider` 与对应 `[model_providers.SLUG]`，
-/// 写 `auth.json` 的 `OPENAI_API_KEY`；`config.toml` 其余键、注释、顺序原样保留。
-/// 两文件成对原子落盘：先各自在内存算好内容，再成对替换（第二个失败回滚第一个）。
+/// 外科补丁写入 `config.toml`（+ 可选 `models.json`）：只改 `model_provider` 与对应
+/// `[model_providers.SLUG]`；**不写 `auth.json`**（ADR 0005），其余键、注释、顺序原样保留。
+/// 有模型目录时 config.toml + models.json 成对原子落盘（第二个失败回滚第一个）。
 pub fn codex_apply_patch(
     config_path: &Path,
-    auth_path: &Path,
     slug: &str,
     provider: &CodexProvider,
     api_key: &str,
 ) -> Result<(), String> {
-    let config_content = render_codex_config(config_path, slug, provider)?;
-    let auth_content = render_codex_auth(auth_path, api_key)?;
-
-    crate::utils::write_pair_atomic(auth_path, &auth_content, config_path, &config_content)
+    let config_content = render_codex_config(config_path, slug, provider, api_key)?;
+    if let Some(model_catalog) = &provider.model_catalog {
+        let models_path = codex_models_path()?;
+        let models_content = render_codex_models(model_catalog)?;
+        crate::utils::write_pair_atomic(&models_path, &models_content, config_path, &config_content)
+    } else {
+        crate::utils::ensure_dir_and_write_atomic(config_path, &config_content)
+    }
 }
 
 /// Codex Apply 的入口（纯函数，不吃 AppHandle）：按 profile_id 解析 provider 与 ApiKey，
@@ -810,24 +840,19 @@ fn codex_apply_to_registry(registry: &mut ConfigRegistry, profile_id: &str) -> R
         .find(|p| p.id == profile_id)
         .cloned()
         .ok_or_else(|| format!("未找到 Codex Profile '{}'", profile_id))?;
-    // 空 key 拒绝：避免以空白 key 落盘后 Codex 请求报错不明
+    let provider = resolve_codex_provider(registry, &profile.provider_id)?;
+    let slug = codex_provider_slug(&provider);
+
+    // api-key 模式空 key 拒绝（避免内联空白 token 落盘）；chatgpt-login（内置 openai）免 key（ADR 0005）
     let api_key = profile.api_key.trim();
-    if api_key.is_empty() {
+    if codex_auth_mode(&provider) == CodexAuthMode::ApiKey && api_key.is_empty() {
         return Err(format!(
             "Codex Profile '{}' 缺少 API key,无法应用",
             profile.name
         ));
     }
-    let provider = resolve_codex_provider(registry, &profile.provider_id)?;
-    let slug = codex_provider_slug(&provider);
 
-    codex_apply_patch(
-        &codex_config_path()?,
-        &codex_auth_path()?,
-        &slug,
-        &provider,
-        api_key,
-    )?;
+    codex_apply_patch(&codex_config_path()?, &slug, &provider, api_key)?;
 
     // 密钥不进日志：apply 只记稳定标识符，不记 key
     log::info!(
@@ -843,10 +868,13 @@ fn codex_apply_to_registry(registry: &mut ConfigRegistry, profile_id: &str) -> R
 }
 
 /// 计算 apply 后的 config.toml 内容（不写盘）。供 apply 与 preview 复用（#37）。
+/// chatgpt-login 模式只写 `model_provider="openai"`，不建 provider 段、不写认证字段；
+/// api-key 模式写 `[model_providers.SLUG]`（内联 `experimental_bearer_token` 或用户指定的 `env_key`）。
 pub fn render_codex_config(
     config_path: &Path,
     slug: &str,
     provider: &CodexProvider,
+    api_key: &str,
 ) -> Result<String, String> {
     use toml_edit::DocumentMut;
 
@@ -859,58 +887,66 @@ pub fn render_codex_config(
         DocumentMut::new()
     };
 
-    // 1) 根键 model_provider 指向新 slug（外科：只动这一个根键）
+    // 1) 根键 model_provider 指向目标（外科：只动这一个根键）
     doc["model_provider"] = toml_edit::value(slug);
 
-    // 2) 替换/写入 [model_providers.SLUG]：先清掉同名旧段（若有），保证字段最新。
-    // 其余 provider 段（含切换前的旧段）一律原样保留，不做任何删除。
-    let table_name = format!("model_providers.{}", slug);
-    remove_toml_table_by_path(&mut doc, &table_name);
+    match codex_auth_mode(provider) {
+        // 内置 openai：ChatGPT 登录，不建 provider 段，认证走 auth.json 的 codex login 登录态（ADR 0005）
+        CodexAuthMode::ChatGptLogin => {}
+        // 自定义第三方：写/替换 [model_providers.SLUG]，先清同名旧段，其余段原样保留。
+        CodexAuthMode::ApiKey => {
+            let table_name = format!("model_providers.{}", slug);
+            remove_toml_table_by_path(&mut doc, &table_name);
 
-    let mut provider_table = toml_edit::Table::new();
-    provider_table["name"] = toml_edit::value(provider.name.clone());
-    provider_table["base_url"] = toml_edit::value(provider.base_url.clone());
-    // env_key 与 wire_api 按用户定义写入：Codex 据此读取环境变量与选择协议。
-    // wire_api 恒规整为 responses（Codex 已移除 chat）；旧 provider 段按外科补丁契约原样保留。
-    provider_table["env_key"] = toml_edit::value(provider.env_key.clone());
-    provider_table["wire_api"] = toml_edit::value(coerce_codex_wire_api(&provider.wire_api));
-    provider_table.decor_mut().set_prefix("\n");
+            let mut provider_table = toml_edit::Table::new();
+            provider_table["name"] = toml_edit::value(provider.name.clone());
+            provider_table["base_url"] = toml_edit::value(provider.base_url.clone());
+            // 默认内联 experimental_bearer_token（官方第三方做法，不依赖环境变量、不污染 auth.json）；
+            // 用户显式填 env_key 时写 env_key。wire_api 恒规整为 responses（Codex 已移除 chat）。
+            if let Some(env_key) = provider
+                .env_key
+                .as_deref()
+                .map(str::trim)
+                .filter(|k| !k.is_empty())
+            {
+                provider_table["env_key"] = toml_edit::value(env_key);
+            } else {
+                provider_table["experimental_bearer_token"] = toml_edit::value(api_key);
+            }
+            provider_table["wire_api"] =
+                toml_edit::value(coerce_codex_wire_api(&provider.wire_api));
+            provider_table.decor_mut().set_prefix("\n");
 
-    // 插入到 model_providers 表下。若 model_providers 表不存在则创建。
-    if !doc.contains_table("model_providers") && !doc.contains_key("model_providers") {
-        let mut t = toml_edit::Table::new();
-        t.decor_mut().set_prefix("\n");
-        doc["model_providers"] = toml_edit::Item::Table(t);
+            if !doc.contains_table("model_providers") && !doc.contains_key("model_providers") {
+                let mut t = toml_edit::Table::new();
+                t.decor_mut().set_prefix("\n");
+                doc["model_providers"] = toml_edit::Item::Table(t);
+            }
+            let model_providers = doc["model_providers"]
+                .as_table_mut()
+                .ok_or_else(|| "config.toml 的 model_providers 不是表".to_string())?;
+            model_providers.insert(slug, toml_edit::Item::Table(provider_table));
+        }
     }
-    let model_providers = doc["model_providers"]
-        .as_table_mut()
-        .ok_or_else(|| "config.toml 的 model_providers 不是表".to_string())?;
-    model_providers.insert(slug, toml_edit::Item::Table(provider_table));
+
+    // 3) 顶层 model_catalog_json（可选）：存在模型目录时指向 ~/.codex/models.json（Codex 官方命名）
+    if provider.model_catalog.is_some() {
+        doc["model_catalog_json"] = toml_edit::value("~/.codex/models.json");
+    }
 
     Ok(doc.to_string())
 }
 
-/// 计算 apply 后的 auth.json 内容（不写盘）。
-/// 只写入 `OPENAI_API_KEY`（即 spec 所述 `openai_api_key` 的 SCREAMING_SNAKE_CASE 序列化形式），
-/// 不改 `auth_mode`、不触碰 ChatGPT OAuth 状态：OAuth 的登录/退出由 `codex login` 管理，属第一版范围外。
-/// 保留 auth.json 中已有其它键（如 Codex 自己写的 OAuth 字段），便于日后重新 codex login。
-pub fn render_codex_auth(auth_path: &Path, api_key: &str) -> Result<String, String> {
-    let mut value: Value = if auth_path.exists() {
-        let raw =
-            fs::read_to_string(auth_path).map_err(|e| format!("读取 auth.json 失败: {}", e))?;
-        serde_json::from_str(&raw).unwrap_or_else(|_| Value::Object(Map::new()))
-    } else {
-        Value::Object(Map::new())
-    };
-    if !value.is_object() {
-        value = Value::Object(Map::new());
-    }
-    let obj = value.as_object_mut().expect("已保证为 object");
-    obj.insert(
-        "OPENAI_API_KEY".to_string(),
-        Value::String(api_key.to_string()),
-    );
-    serde_json::to_string_pretty(&value).map_err(|e| e.to_string())
+/// `~/.codex/models.json` 路径（`model_catalog_json` 指向，Codex 官方命名；不是 cc-switch 的 model-catalog.json）。
+fn codex_models_path() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?
+        .join(".codex")
+        .join("models.json"))
+}
+
+/// 序列化模型目录为 `~/.codex/models.json` 内容。结构由调用方（内置清单 / 用户自定义）给出。
+pub fn render_codex_models(model_catalog: &Value) -> Result<String, String> {
+    serde_json::to_string_pretty(model_catalog).map_err(|e| e.to_string())
 }
 
 /// 按 `a.b.c` 形态的 dotted key 删除 toml 子表(若存在),支持任意层深。
@@ -3011,7 +3047,13 @@ fn upsert_codex_provider_in_registry(
 ) -> Result<CodexProvider, String> {
     let name = data.name.trim().to_string();
     let base_url = data.base_url.trim().to_string();
-    let env_key = data.env_key.trim().to_string();
+    // env_key 可选（ADR 0005）：留空则 apply 内联 experimental_bearer_token
+    let env_key = data
+        .env_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+        .map(|k| k.to_string());
     // 存量 chat / 空值规整为 responses;Codex 已移除 chat,只写受支持的 wire_api
     let wire_api = coerce_codex_wire_api(data.wire_api.trim());
     if name.is_empty() {
@@ -3019,9 +3061,6 @@ fn upsert_codex_provider_in_registry(
     }
     if base_url.is_empty() {
         return Err("Codex Provider base_url 不能为空".to_string());
-    }
-    if env_key.is_empty() {
-        return Err("Codex Provider env_key 不能为空".to_string());
     }
 
     let provider_id = data
@@ -3048,6 +3087,7 @@ fn upsert_codex_provider_in_registry(
         base_url,
         env_key,
         wire_api,
+        model_catalog: data.model_catalog,
         doc_url: data.doc_url.filter(|s| !s.trim().is_empty()),
     };
     if let Some(existing) = registry
@@ -3141,8 +3181,9 @@ fn upsert_codex_profile_in_registry(
     if name.is_empty() {
         return Err("Codex Profile 名称不能为空".to_string());
     }
-    // provider_id 必须可解析(内置或自定义)
-    resolve_codex_provider(registry, &data.provider_id)?;
+    // provider_id 必须可解析(内置或自定义);认证模式决定新建是否必须 key(ADR 0005)
+    let provider = resolve_codex_provider(registry, &data.provider_id)?;
+    let is_api_key_mode = codex_auth_mode(&provider) == CodexAuthMode::ApiKey;
 
     let now = crate::utils::current_rfc3339_timestamp();
     let profile_id = data
@@ -3165,8 +3206,8 @@ fn upsert_codex_profile_in_registry(
         existing.updated_at = now;
         existing.clone()
     } else {
-        // 新建:api_key 必须非空
-        if data.api_key.trim().is_empty() {
+        // 新建:api-key 模式必须有 key;chatgpt-login(内置 openai)免 key
+        if is_api_key_mode && data.api_key.trim().is_empty() {
             return Err("新建 Codex Profile 必须提供 API key".to_string());
         }
         let profile = CodexProfile {
@@ -3254,7 +3295,7 @@ fn preview_codex_apply_inner(
     let config_path = codex_config_path()?;
 
     // 复用补丁计算(验证可渲染,但不写盘),确保 preview 与 apply 一致
-    let _ = render_codex_config(&config_path, &slug, &provider)?;
+    let _ = render_codex_config(&config_path, &slug, &provider, profile.api_key.trim())?;
 
     Ok(CodexApplyPreview {
         current_model_provider: read_current_codex_model_provider(&config_path),
@@ -3262,7 +3303,8 @@ fn preview_codex_apply_inner(
         provider_name: provider.name.clone(),
         provider_base_url: provider.base_url.clone(),
         provider_wire_api: provider.wire_api.clone(),
-        api_key_will_set: !profile.api_key.trim().is_empty(),
+        auth_mode: codex_auth_mode(&provider),
+        will_inline_bearer_token: !profile.api_key.trim().is_empty(),
     })
 }
 
@@ -4899,7 +4941,8 @@ mod tests {
             id: "custom:my-relay".to_string(),
             name: "My Relay".to_string(),
             base_url: "https://relay.example.com/v1".to_string(),
-            env_key: "MY_RELAY_KEY".to_string(),
+            env_key: Some("MY_RELAY_KEY".to_string()),
+            model_catalog: None,
             wire_api: "responses".to_string(),
             doc_url: None,
         });
@@ -4948,26 +4991,21 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
 ";
         fs::write(&config_path, original).unwrap();
 
-        // 存量 wire_api=chat 在落盘时被规整为 responses(Codex 已移除 chat)
+        // 存量 wire_api=chat 在落盘时被规整为 responses(Codex 已移除 chat);
+        // 自定义第三方 provider 不填 env_key,apply 内联 experimental_bearer_token(ADR 0005)
         let provider = CodexProvider {
             id: "custom:my-relay".to_string(),
             name: "My Relay".to_string(),
             base_url: "https://relay.example.com/v1".to_string(),
-            env_key: "MY_RELAY_KEY".to_string(),
+            env_key: None,
             wire_api: "chat".to_string(),
+            model_catalog: None,
             doc_url: None,
         };
         let provider_slug = codex_provider_slug(&provider);
 
-        // apply：外科补丁写 config.toml + auth.json
-        codex_apply_patch(
-            &config_path,
-            &codex_auth_path().unwrap(),
-            &provider_slug,
-            &provider,
-            "sk-secret-key",
-        )
-        .unwrap();
+        // apply：外科补丁只写 config.toml,不写 auth.json
+        codex_apply_patch(&config_path, &provider_slug, &provider, "sk-secret-key").unwrap();
 
         let patched = fs::read_to_string(&config_path).unwrap();
 
@@ -4987,9 +5025,15 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             patched.contains("wire_api = \"chat\""),
             "旧 provider 段的 chat 应原样保留(外科补丁不删旧段)"
         );
+        // 无 env_key → 内联 experimental_bearer_token(官方第三方做法,不依赖环境变量、不污染 auth.json)
         assert!(
-            patched.contains("env_key = \"MY_RELAY_KEY\""),
-            "env_key 按用户定义写入"
+            patched.contains("experimental_bearer_token = \"sk-secret-key\""),
+            "无 env_key 时应内联 experimental_bearer_token,实际:\n{}",
+            patched
+        );
+        assert!(
+            !patched.contains("env_key"),
+            "未填 env_key 时不得写入 env_key"
         );
         // 旧 provider 段原样保留(外科补丁不删除任何用户维护的段)
         assert!(
@@ -5018,15 +5062,13 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             "mcp_servers 数组参数必须保留"
         );
 
-        // 4) auth.json 只写 API key,不改 auth_mode(不触碰 ChatGPT OAuth 状态)
-        let auth = fs::read_to_string(codex_auth_path().unwrap()).unwrap();
-        let auth_json: Value = serde_json::from_str(&auth).unwrap();
-        assert_eq!(auth_json["OPENAI_API_KEY"], "sk-secret-key");
-        assert!(
-            auth_json.get("auth_mode").is_none(),
-            "不得写入 auth_mode,实际:\n{}",
-            auth
-        );
+        // 4) auth.json 不被触碰(ADR 0005:Code Manager 不拥有 auth.json)
+        let auth_path = codex_config_path()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("auth.json");
+        assert!(!auth_path.exists(), "apply 不得创建/写入 auth.json");
 
         clear_test_env();
     }
@@ -5037,17 +5079,17 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         let _guard = crate::utils::lock_config().unwrap();
         let root = temp_root("codex-pair-atomic");
         set_test_env(&root);
-        let auth_path = codex_auth_path().unwrap();
-        let config_path = codex_config_path().unwrap();
-        fs::create_dir_all(auth_path.parent().unwrap()).unwrap();
-        fs::write(&auth_path, "{\"OPENAI_API_KEY\":\"old-key\"}").unwrap();
+        let first = root.join("auth.json");
+        let second = root.join("config.toml");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&first, "{\"OPENAI_API_KEY\":\"old-key\"}").unwrap();
         // 让第二个目标(config.toml)是一个目录:rename 必然失败
-        fs::create_dir_all(&config_path).unwrap();
+        fs::create_dir_all(&second).unwrap();
 
         let err = crate::utils::write_pair_atomic(
-            &auth_path,
+            &first,
             "{\"OPENAI_API_KEY\":\"new-key\"}",
-            &config_path,
+            &second,
             "model_provider = \"x\"",
         )
         .unwrap_err();
@@ -5058,15 +5100,15 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         );
 
         // 第一个文件已回滚为原内容
-        let auth = fs::read_to_string(&auth_path).unwrap();
+        let first_content = fs::read_to_string(&first).unwrap();
         assert!(
-            auth.contains("old-key"),
+            first_content.contains("old-key"),
             "第一个文件必须回滚,实际: {}",
-            auth
+            first_content
         );
-        assert!(!auth.contains("new-key"));
+        assert!(!first_content.contains("new-key"));
         // 临时文件不残留
-        let leftovers: Vec<_> = fs::read_dir(auth_path.parent().unwrap())
+        let leftovers: Vec<_> = fs::read_dir(first.parent().unwrap())
             .unwrap()
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp-"))
@@ -5083,20 +5125,19 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         let root = temp_root("codex-apply-create");
         set_test_env(&root);
         let config_path = codex_config_path().unwrap();
-        let auth_path = codex_auth_path().unwrap();
         assert!(!config_path.exists());
 
         let provider = CodexProvider {
             id: "custom:r".to_string(),
             name: "R".to_string(),
             base_url: "https://r.example.com/v1".to_string(),
-            env_key: "R_KEY".to_string(),
+            env_key: None,
             wire_api: "responses".to_string(),
+            model_catalog: None,
             doc_url: None,
         };
         codex_apply_patch(
             &config_path,
-            &auth_path,
             &codex_provider_slug(&provider),
             &provider,
             "sk-k",
@@ -5106,9 +5147,13 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         let config = fs::read_to_string(&config_path).unwrap();
         assert!(config.contains("model_provider = \"r\""));
         assert!(config.contains("[model_providers.r]"));
-        let auth: Value = serde_json::from_str(&fs::read_to_string(&auth_path).unwrap()).unwrap();
-        assert_eq!(auth["OPENAI_API_KEY"], "sk-k");
-        assert!(auth.get("auth_mode").is_none(), "不得写入 auth_mode");
+        assert!(
+            config.contains("experimental_bearer_token = \"sk-k\""),
+            "内联 bearer token"
+        );
+        // auth.json 不被创建(ADR 0005)
+        let auth_path = config_path.parent().unwrap().join("auth.json");
+        assert!(!auth_path.exists(), "apply 不得创建 auth.json");
 
         clear_test_env();
     }
@@ -5127,8 +5172,9 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             id: "custom:relay".to_string(),
             name: "Relay".to_string(),
             base_url: "https://relay.example.com/v1".to_string(),
-            env_key: "RELAY_KEY".to_string(),
+            env_key: None,
             wire_api: "responses".to_string(),
+            model_catalog: None,
             doc_url: None,
         });
         registry.codex.profiles.push(CodexProfile {
@@ -5151,13 +5197,19 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             Some("codex-1")
         );
 
-        // 落盘正确
+        // 落盘正确:内联 bearer token,auth.json 不被创建(ADR 0005)
         let config = fs::read_to_string(codex_config_path().unwrap()).unwrap();
         assert!(config.contains("model_provider = \"relay\""));
-        let auth: Value =
-            serde_json::from_str(&fs::read_to_string(codex_auth_path().unwrap()).unwrap()).unwrap();
-        assert_eq!(auth["OPENAI_API_KEY"], "sk-inner");
-        assert!(auth.get("auth_mode").is_none(), "不得写入 auth_mode");
+        assert!(
+            config.contains("experimental_bearer_token = \"sk-inner\""),
+            "内联 bearer token"
+        );
+        let auth_path = codex_config_path()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("auth.json");
+        assert!(!auth_path.exists(), "apply 不得创建 auth.json");
 
         // 不存在的 profile 报错
         codex_apply_to_registry(&mut registry, "missing").unwrap_err();
@@ -5177,8 +5229,9 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             id: "custom:relay".to_string(),
             name: "Relay".to_string(),
             base_url: "https://relay.example.com/v1".to_string(),
-            env_key: "RELAY_KEY".to_string(),
+            env_key: None,
             wire_api: "responses".to_string(),
+            model_catalog: None,
             doc_url: None,
         });
         registry.codex.profiles.push(CodexProfile {
@@ -5207,7 +5260,8 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         assert_eq!(preview.current_model_provider.as_deref(), Some("old"));
         assert_eq!(preview.next_model_provider, "relay");
         assert_eq!(preview.provider_base_url, "https://relay.example.com/v1");
-        assert!(preview.api_key_will_set);
+        assert_eq!(preview.auth_mode, CodexAuthMode::ApiKey);
+        assert!(preview.will_inline_bearer_token);
 
         // 不写盘:mtime 不变
         let mtime_after = fs::metadata(&config_path).unwrap().modified().unwrap();
@@ -5218,37 +5272,88 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         clear_test_env();
     }
 
-    // render_codex_auth 必须保留 Codex 已有的 OAuth/刷新字段,只写 key、不改 auth_mode。
-    // 这是「不触碰 ChatGPT OAuth 状态(第一版范围外)」的关键行为。
+    // 内置 openai(chatgpt-login 模式,ADR 0005):apply 只写 model_provider="openai",
+    // 不建 provider 段、不写 auth.json——认证走 codex login 的 ChatGPT 登录态。
     #[test]
-    fn render_codex_auth_preserves_oauth_keys_without_switching_mode() {
+    fn codex_apply_builtin_openai_writes_only_model_provider_without_auth() {
         let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("codex-auth-preserve");
+        let root = temp_root("codex-openai-chatgpt-login");
         set_test_env(&root);
-        let auth_path = codex_auth_path().unwrap();
-        fs::create_dir_all(auth_path.parent().unwrap()).unwrap();
-        // 一份真实的 chatgpt 登录态 auth.json
+        let config_path = codex_config_path().unwrap();
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        // 一份带着旧第三方段的 config.toml(模拟用户刚切过 DeepSeek 中转)
         fs::write(
-            &auth_path,
-            serde_json::json!({
-                "auth_mode": "chatgpt",
-                "OPENAI_API_KEY": null,
-                "tokens": { "access_token": "tok-a", "refresh_token": "tok-r" },
-                "last_refresh": "2026-07-01T00:00:00Z"
-            })
-            .to_string(),
+            &config_path,
+            "model_provider = \"deepseek\"\nmodel = \"deepseek-chat\"\n\n[model_providers.deepseek]\nname = \"DeepSeek\"\nbase_url = \"https://api.deepseek.com\"\nwire_api = \"responses\"\n",
         )
         .unwrap();
 
-        let rendered = render_codex_auth(&auth_path, "sk-new-key").unwrap();
-        let value: Value = serde_json::from_str(&rendered).unwrap();
+        let provider = builtin_codex_providers()
+            .into_iter()
+            .find(|p| p.id == CODEX_BUILTIN_OPENAI_ID)
+            .unwrap();
+        assert_eq!(codex_auth_mode(&provider), CodexAuthMode::ChatGptLogin);
+        let slug = codex_provider_slug(&provider);
 
-        // key 写入;auth_mode 原样保留,不强制切换
-        assert_eq!(value["OPENAI_API_KEY"], "sk-new-key");
-        assert_eq!(value["auth_mode"], "chatgpt", "auth_mode 不得被改写");
-        // OAuth 字段原样保留(登录态不受影响)
-        assert_eq!(value["tokens"]["access_token"], "tok-a");
-        assert_eq!(value["last_refresh"], "2026-07-01T00:00:00Z");
+        // chatgpt-login 模式 apply:profile 免 key
+        codex_apply_patch(&config_path, &slug, &provider, "").unwrap();
+
+        let patched = fs::read_to_string(&config_path).unwrap();
+        assert!(patched.contains("model_provider = \"openai\""));
+        assert!(
+            !patched.contains("[model_providers.openai]"),
+            "内置 openai 不得建 provider 段,实际:\n{}",
+            patched
+        );
+        // 旧第三方段与用户手改键原样保留(外科补丁不删)
+        assert!(patched.contains("[model_providers.deepseek]"));
+        assert!(patched.contains("model = \"deepseek-chat\""));
+        // auth.json 不被创建(Code Manager 不拥有 auth.json)
+        let auth_path = config_path.parent().unwrap().join("auth.json");
+        assert!(!auth_path.exists(), "apply 不得创建 auth.json");
+
+        clear_test_env();
+    }
+
+    // 带 model_catalog 的 provider:apply 生成 ~/.codex/models.json 并写顶层 model_catalog_json(ADR 0005)。
+    #[test]
+    fn codex_apply_writes_model_catalog_when_provider_has_one() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-model-catalog");
+        set_test_env(&root);
+        let config_path = codex_config_path().unwrap();
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+
+        let provider = CodexProvider {
+            id: "custom:relay".to_string(),
+            name: "Relay".to_string(),
+            base_url: "https://relay.example.com/v1".to_string(),
+            env_key: None,
+            wire_api: "responses".to_string(),
+            model_catalog: Some(serde_json::json!({
+                "deepseek-chat": { "context_window": 128000, "display_name": "DeepSeek Chat" }
+            })),
+            doc_url: None,
+        };
+        codex_apply_patch(
+            &config_path,
+            &codex_provider_slug(&provider),
+            &provider,
+            "sk-k",
+        )
+        .unwrap();
+
+        let config = fs::read_to_string(&config_path).unwrap();
+        assert!(
+            config.contains("model_catalog_json = \"~/.codex/models.json\""),
+            "应写顶层 model_catalog_json,实际:\n{}",
+            config
+        );
+        // models.json 生成且含模型(Codex 官方命名,非 cc-switch 的 model-catalog.json)
+        let models_path = codex_models_path().unwrap();
+        let models: Value =
+            serde_json::from_str(&fs::read_to_string(&models_path).unwrap()).unwrap();
+        assert_eq!(models["deepseek-chat"]["context_window"], 128000);
 
         clear_test_env();
     }
@@ -5261,7 +5366,8 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             id: "custom:relay".to_string(),
             name: "Relay".to_string(),
             base_url: "https://relay.example.com/v1".to_string(),
-            env_key: "RELAY_KEY".to_string(),
+            env_key: Some("RELAY_KEY".to_string()),
+            model_catalog: None,
             wire_api: "responses".to_string(),
             doc_url: None,
         });
@@ -5292,7 +5398,8 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             id: "custom:relay".to_string(),
             name: "Relay".to_string(),
             base_url: "https://relay.example.com/v1".to_string(),
-            env_key: "RELAY_KEY".to_string(),
+            env_key: Some("RELAY_KEY".to_string()),
+            model_catalog: None,
             wire_api: "responses".to_string(),
             doc_url: None,
         });
@@ -5327,13 +5434,13 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             id: "custom:other".to_string(),
             name: "Other".to_string(),
             base_url: "https://o.example.com/v1".to_string(),
-            env_key: "O_KEY".to_string(),
+            env_key: Some("O_KEY".to_string()),
+            model_catalog: None,
             wire_api: "responses".to_string(),
             doc_url: None,
         };
         codex_apply_patch(
             &config_path,
-            &codex_auth_path().unwrap(),
             &codex_provider_slug(&provider),
             &provider,
             "sk-k",
@@ -5367,8 +5474,9 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
                 id: None,
                 name: "My Relay".to_string(),
                 base_url: "https://relay.example.com/v1".to_string(),
-                env_key: "MY_RELAY_KEY".to_string(),
+                env_key: Some("MY_RELAY_KEY".to_string()),
                 wire_api: "responses".to_string(),
+                model_catalog: None,
                 doc_url: None,
             },
         )
@@ -5383,8 +5491,9 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
                 id: Some(created.id.clone()),
                 name: "My Relay v2".to_string(),
                 base_url: "https://relay2.example.com/v1".to_string(),
-                env_key: "MY_RELAY_KEY".to_string(),
+                env_key: Some("MY_RELAY_KEY".to_string()),
                 wire_api: "responses".to_string(),
+                model_catalog: None,
                 doc_url: Some("https://docs.example.com".to_string()),
             },
         )
@@ -5403,8 +5512,9 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
                 id: None,
                 name: "Legacy Chat".to_string(),
                 base_url: "https://x.example.com/v1".to_string(),
-                env_key: "K".to_string(),
+                env_key: Some("K".to_string()),
                 wire_api: "chat".to_string(),
+                model_catalog: None,
                 doc_url: None,
             },
         )
@@ -5445,7 +5555,8 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             id: "custom:relay".to_string(),
             name: "Relay".to_string(),
             base_url: "https://relay.example.com/v1".to_string(),
-            env_key: "RELAY_KEY".to_string(),
+            env_key: Some("RELAY_KEY".to_string()),
+            model_catalog: None,
             wire_api: "responses".to_string(),
             doc_url: None,
         });
@@ -5548,7 +5659,8 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
                     id: "custom:relay".to_string(),
                     name: "Relay".to_string(),
                     base_url: "https://relay.example.com/v1".to_string(),
-                    env_key: "RELAY_KEY".to_string(),
+                    env_key: Some("RELAY_KEY".to_string()),
+                    model_catalog: None,
                     wire_api: "responses".to_string(),
                     doc_url: None,
                 }],
@@ -5559,7 +5671,7 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
 
         let resolved = resolve_codex_provider(&registry, "custom:relay").unwrap();
         assert_eq!(resolved.base_url, "https://relay.example.com/v1");
-        assert_eq!(resolved.env_key, "RELAY_KEY");
+        assert_eq!(resolved.env_key.as_deref(), Some("RELAY_KEY"));
         assert_eq!(resolved.wire_api, "responses");
 
         // 不存在的 provider 报错

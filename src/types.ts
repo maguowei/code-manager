@@ -182,12 +182,17 @@ export interface CodexProvider {
   id: string;
   name: string;
   baseUrl: string;
-  /** 读取 API key 的环境变量名(`env_key`) */
-  envKey: string;
+  /** 读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 experimental_bearer_token(ADR 0005) */
+  envKey?: string;
   /** `responses` 或 `chat` */
   wireApi: string;
+  /** 可选模型目录,apply 时生成 ~/.codex/models.json(ADR 0005) */
+  modelCatalog?: unknown;
   docUrl?: string;
 }
+
+/** Codex 认证模式(ADR 0005):从 Provider 推导,不是用户可选项。 */
+export type CodexAuthMode = "chatGptLogin" | "apiKey";
 
 /** Codex Profile:引用一个 Codex Provider + 一个 ApiKey(仅 ApiKey,无 OAuth)。 */
 export interface CodexProfile {
@@ -222,7 +227,10 @@ export interface CodexApplyPreview {
   providerName: string;
   providerBaseUrl: string;
   providerWireApi: string;
-  apiKeyWillSet: boolean;
+  /** 认证模式(ADR 0005):内置 openai 为 ChatGPT 登录,自定义第三方为 API key */
+  authMode: CodexAuthMode;
+  /** API key 模式下是否内联 experimental_bearer_token(chatgpt-login 模式恒 false) */
+  willInlineBearerToken: boolean;
 }
 
 /** 新建/编辑自定义 Codex Provider 的输入。 */
@@ -230,8 +238,11 @@ export interface CodexProviderInput {
   id?: string | null;
   name: string;
   baseUrl: string;
-  envKey: string;
+  /** 可选;留空则 apply 内联 experimental_bearer_token(ADR 0005) */
+  envKey?: string;
   wireApi: string;
+  /** 可选模型目录,apply 时生成 ~/.codex/models.json(ADR 0005) */
+  modelCatalog?: unknown;
   docUrl?: string;
 }
 

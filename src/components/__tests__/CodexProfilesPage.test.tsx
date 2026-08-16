@@ -33,7 +33,7 @@ const BUILTIN_OPENAI = {
   id: "codex-builtin:openai",
   name: "OpenAI 官方",
   baseUrl: "https://api.openai.com/v1",
-  envKey: "OPENAI_API_KEY",
+  // chatgpt-login 模式:无 envKey,认证走 ChatGPT 登录(ADR 0005)
   wireApi: "responses",
   docUrl: "https://developers.openai.com/codex/",
 };
@@ -45,6 +45,13 @@ const BUILTIN_WORKSPACE: CodexWorkspace = {
   builtinProviderIds: ["codex-builtin:openai"],
 };
 
+const CUSTOM_RELAY = {
+  id: "custom:relay",
+  name: "我的中转",
+  baseUrl: "https://r.example.com/v1",
+  wireApi: "responses",
+};
+
 function stubInvoke(workspace: CodexWorkspace) {
   invokeMock.mockImplementation(async (command: string, args?: unknown) => {
     if (command === "get_codex_workspace") return workspace;
@@ -54,7 +61,6 @@ function stubInvoke(workspace: CodexWorkspace) {
         id: "custom:new",
         name: data?.name ?? "x",
         baseUrl: "https://r.example.com/v1",
-        envKey: "OPENAI_API_KEY",
         wireApi: "responses",
       };
     }
@@ -65,7 +71,8 @@ function stubInvoke(workspace: CodexWorkspace) {
         providerName: "OpenAI 官方",
         providerBaseUrl: "https://api.openai.com/v1",
         providerWireApi: "responses",
-        apiKeyWillSet: true,
+        authMode: "chatGptLogin",
+        willInlineBearerToken: false,
       };
     }
     if (command === "delete_codex_provider" || command === "apply_codex_profile") return null;
@@ -102,7 +109,7 @@ describe("CodexProfilesPage", () => {
     expect(screen.queryAllByLabelText("删除")).toHaveLength(0);
   });
 
-  it("Provider 卡片展示 base_url 摘要块与 env_key chip", async () => {
+  it("Provider 卡片展示 base_url 摘要块,内置 OpenAI 显示 ChatGPT 登录 chip", async () => {
     stubInvoke(BUILTIN_WORKSPACE);
     renderPage();
 
@@ -111,8 +118,8 @@ describe("CodexProfilesPage", () => {
     });
     // base_url 摘要块
     expect(screen.getByText("https://api.openai.com/v1")).toBeInTheDocument();
-    // env_key chip(wire_api 不再展示,恒为 responses)
-    expect(screen.getByText("OPENAI_API_KEY")).toBeInTheDocument();
+    // 内置 openai(chatgpt-login)显示 ChatGPT 登录 chip,而非 env_key(ADR 0005)
+    expect(screen.getByText("ChatGPT 登录")).toBeInTheDocument();
   });
 
   it("自定义 Provider 可删除,删除调用后端", async () => {
@@ -198,12 +205,12 @@ describe("CodexProfilesPage", () => {
 
   it("Profile 列表展示脱敏 api key,删除调用后端", async () => {
     const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers],
+      providers: [...BUILTIN_WORKSPACE.providers, CUSTOM_RELAY],
       profiles: [
         {
           id: "codex-1",
           name: "工作中转",
-          providerId: "codex-builtin:openai",
+          providerId: "custom:relay",
           apiKey: "test••••ey", // 后端已脱敏
           createdAt: "2026-01-01T00:00:00+08:00",
           updatedAt: "2026-01-01T00:00:00+08:00",
@@ -215,11 +222,11 @@ describe("CodexProfilesPage", () => {
     stubInvoke(ws);
     renderPage();
     await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
-    // 脱敏 key 展示(不含明文)
+    // 自定义第三方 profile 展示脱敏 key(不含明文)
     expect(screen.getByText(/test••••ey/)).toBeInTheDocument();
 
-    // 删除 profile:两段式确认
-    fireEvent.click(screen.getAllByLabelText("删除")[0]);
+    // 删除 profile:两段式确认。删除按钮顺序:自定义 Provider 卡片在前,Profile 卡片在后
+    fireEvent.click(screen.getAllByLabelText("删除")[1]);
     await waitFor(() => {
       expect(screen.getByText("删除 Codex 配置")).toBeInTheDocument();
     });
@@ -232,12 +239,12 @@ describe("CodexProfilesPage", () => {
 
   it("Profile 卡片展示 provider Badge 与 summary 行(base_url / key)", async () => {
     const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers],
+      providers: [...BUILTIN_WORKSPACE.providers, CUSTOM_RELAY],
       profiles: [
         {
           id: "codex-1",
           name: "工作中转",
-          providerId: "codex-builtin:openai",
+          providerId: "custom:relay",
           apiKey: "test••••ey",
           createdAt: "2026-01-01T00:00:00+08:00",
           updatedAt: "2026-01-01T00:00:00+08:00",
@@ -250,21 +257,21 @@ describe("CodexProfilesPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
     // 卡片内 provider Badge(Provider 区卡片与 Profile 卡片各一处名称)
-    expect(screen.getAllByText("OpenAI 官方")).toHaveLength(2);
+    expect(screen.getAllByText("我的中转")).toHaveLength(2);
     // summary 行:base_url(Provider 卡片与 Profile 卡片各一处)与 key 状态
-    expect(screen.getAllByText("https://api.openai.com/v1")).toHaveLength(2);
-    // key 状态行:脱敏 key 或「未配置」
+    expect(screen.getAllByText("https://r.example.com/v1")).toHaveLength(2);
+    // key 状态行:脱敏 key
     expect(screen.getByText(/test••••ey/)).toBeInTheDocument();
   });
 
-  it("Profile 卡片对无 key 的配置展示「未配置」", async () => {
+  it("Profile 卡片对无 key 的第三方配置展示「未配置」", async () => {
     const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers],
+      providers: [...BUILTIN_WORKSPACE.providers, CUSTOM_RELAY],
       profiles: [
         {
           id: "codex-1",
           name: "工作中转",
-          providerId: "codex-builtin:openai",
+          providerId: "custom:relay",
           apiKey: "",
           createdAt: "2026-01-01T00:00:00+08:00",
           updatedAt: "2026-01-01T00:00:00+08:00",
@@ -371,7 +378,8 @@ describe("CodexProfilesPage", () => {
           id: null,
           name: "Azure 中转",
           baseUrl: "https://azure.example.com/v1",
-          envKey: "OPENAI_API_KEY",
+          // envKey 留空则不上送(内联 bearer token,ADR 0005)
+          envKey: undefined,
           wireApi: "responses",
           docUrl: undefined,
         },
@@ -380,7 +388,13 @@ describe("CodexProfilesPage", () => {
   });
 
   it("Profile 编辑器展示引用 provider 摘要行,API key 支持明文切换", async () => {
-    stubInvoke(BUILTIN_WORKSPACE);
+    const ws: CodexWorkspace = {
+      providers: [CUSTOM_RELAY],
+      profiles: [],
+      bindings: {},
+      builtinProviderIds: [],
+    };
+    stubInvoke(ws);
     renderPage();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "新增配置" })).toBeInTheDocument();
@@ -391,10 +405,10 @@ describe("CodexProfilesPage", () => {
       expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
     });
     // 引用 provider 的 base_url 摘要行(与 Provider 区卡片各一处)
-    expect(screen.getAllByText("https://api.openai.com/v1")).toHaveLength(2);
+    expect(screen.getAllByText("https://r.example.com/v1")).toHaveLength(2);
     // wire_api 不再在摘要行展示
 
-    // API key 输入框默认密文,可切换明文
+    // API key 输入框默认密文,可切换明文(自定义第三方为 api-key 模式)
     const keyInput = screen.getByPlaceholderText("sk-...");
     expect(keyInput).toHaveAttribute("type", "password");
     fireEvent.click(screen.getByRole("button", { name: "显示 API key" }));
@@ -436,10 +450,10 @@ describe("CodexProfilesPage", () => {
 
   it("脏 Profile 编辑器从未保存确认中保存并退出", async () => {
     const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers],
+      providers: [CUSTOM_RELAY],
       profiles: [],
       bindings: {},
-      builtinProviderIds: ["codex-builtin:openai"],
+      builtinProviderIds: [],
     };
     stubInvoke(ws);
     renderPage();
