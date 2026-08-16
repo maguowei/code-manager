@@ -3190,6 +3190,46 @@ mod tests {
     }
 
     #[test]
+    fn builtin_providers_include_opencode_go_claude_code_env() {
+        let opencode_go = builtin_providers()
+            .iter()
+            .find(|provider| provider.id == "builtin:opencode-go")
+            .unwrap();
+        let env = &opencode_go.env;
+
+        assert_eq!(opencode_go.name, "OpenCode Go");
+        assert_eq!(
+            opencode_go.doc_url,
+            Some("https://opencode.ai/docs/zh-cn/go".to_string())
+        );
+        assert_eq!(
+            opencode_go.model_suggestions,
+            vec![
+                "deepseek-v4-pro[1m]".to_string(),
+                "deepseek-v4-flash[1m]".to_string(),
+                "minimax-m3".to_string(),
+                "qwen3.8-max".to_string()
+            ]
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_BASE_URL"),
+            Some(&Value::String("https://opencode.ai/zen/go".to_string()))
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_MODEL"),
+            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
+            Some(&Value::String("deepseek-v4-flash".to_string()))
+        );
+        assert_eq!(
+            env.get("CLAUDE_CODE_SUBAGENT_MODEL"),
+            Some(&Value::String("deepseek-v4-flash".to_string()))
+        );
+    }
+
+    #[test]
     fn resolve_profile_settings_merges_provider_env_then_profile_overrides() {
         // 供应商只提供 env（地址 + 模型映射），无继承；这里用内置 DeepSeek 供应商
         let profile = sample_profile(

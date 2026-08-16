@@ -143,7 +143,7 @@ The scheme is registered for packaged installs on macOS / Windows / Linux; Linux
 
 ## Providers
 
-Providers are all built-in and read-only. They carry only objective provider information (the connection endpoint `ANTHROPIC_BASE_URL`, the model mapping, and optional additional environment variables) and contain no authentication keys. They currently cover Anthropic, DeepSeek, Zhipu GLM Coding Plan, Kimi Code Plan, MiniMax Token Plan, Xiaomi MiMo Token Plan, OpenRouter, Volcengine Ark Coding Plan, Alibaba Cloud Bailian Coding Plan, Wanjie Ark, and Ollama.
+Providers are all built-in and read-only. They carry only objective provider information (the connection endpoint `ANTHROPIC_BASE_URL`, the model mapping, and optional additional environment variables) and contain no authentication keys. They currently cover Anthropic, DeepSeek, Zhipu GLM Coding Plan, Kimi Code Plan, MiniMax Token Plan, Xiaomi MiMo Token Plan, OpenRouter, Volcengine Ark Coding Plan, Wanjie Ark, OpenCode Go, and Ollama.
 
 Custom providers are not supported. After you select a built-in provider under the "Provider" option in the configuration editor, its connection endpoint and model mapping are filled in automatically; you only need to add the authentication key and behavior settings. Clicking "View built-in providers" below that option opens a read-only overview where you can see each provider's name, ID, API endpoint, official documentation link, and recommended models.
 
