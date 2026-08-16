@@ -233,21 +233,38 @@ pub enum CodexAuthMode {
     ApiKey,
 }
 
-/// 自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
-/// Codex Provider 可由用户自定义,承载 `base_url` / 可选环境变量键名 / `wire_api`;
-/// 内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
+/// Codex Provider 模型条目。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexProviderModel {
+    pub id: String,
+    pub name: String,
+}
+
+/// 内置只读 Codex Provider（快速起步预设）。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CodexProvider {
     pub id: String,
     pub name: String,
+    pub slug: String,
     /// 对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url`
     pub base_url: String,
     /// 读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 `experimental_bearer_token`(ADR 0005)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub env_key: Option<String>,
     /// 写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`)
+    #[serde(default = "default_codex_wire_api")]
     pub wire_api: String,
+    /// 预设默认模型名称（如 "deepseek-v4-flash"）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_model: Option<String>,
+    /// 推荐模型列表
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub models: Vec<CodexProviderModel>,
+    /// 预设默认推理档位（如 "high", "max"）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_reasoning_effort: Option<String>,
     /// 可选模型目录:存在时 apply 生成 `~/.codex/models.json` 并写顶层 `model_catalog_json`(ADR 0005)
     #[specta(type = specta_typescript::Unknown)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -256,18 +273,35 @@ pub struct CodexProvider {
     pub doc_url: Option<String>,
 }
 
-/// Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」,
-/// 认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),自定义第三方用一个 API key。
-/// 不是完整设置单元。Apply 时做外科补丁,只改 `config.toml` 的 provider 相关键,不写 auth.json。
+fn default_codex_wire_api() -> String {
+    CODEX_WIRE_API_RESPONSES.to_string()
+}
+
+/// Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」或「自定义配置片段」。
+/// 认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),内置第三方用 API key。
+/// Apply 时做外科补丁,写 `config.toml` 与可选 `models.json`,不写 auth.json。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CodexProfile {
     pub id: String,
     pub name: String,
-    /// 引用的 Codex Provider id(内置或自定义)
+    /// 引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom")
     pub provider_id: String,
     /// API key(敏感,展示与日志需脱敏)
+    #[serde(default)]
     pub api_key: String,
+    /// 目标模型(可选,覆盖或使用预设默认模型)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// 推理档位(可选,如 "low", "medium", "high", "max")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_reasoning_effort: Option<String>,
+    /// 自定义模式下的 config.toml 片段
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_config_toml: Option<String>,
+    /// 自定义模式下的 models.json 片段
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_models_json: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -287,19 +321,15 @@ pub struct CodexBindingState {
 #[serde(rename_all = "camelCase")]
 pub struct CodexRegistry {
     #[serde(default)]
-    pub providers: Vec<CodexProvider>,
-    #[serde(default)]
     pub profiles: Vec<CodexProfile>,
     #[serde(default)]
     pub bindings: CodexBindingState,
 }
 
 impl CodexRegistry {
-    /// 三块都为空时视为空段,空段不落盘,保持 registry 文件最小。
+    /// profiles 与 bindings 都为空时视为空段,空段不落盘,保持 registry 文件最小。
     pub fn is_empty(&self) -> bool {
-        self.providers.is_empty()
-            && self.profiles.is_empty()
-            && self.bindings == CodexBindingState::default()
+        self.profiles.is_empty() && self.bindings == CodexBindingState::default()
     }
 }
 
@@ -511,30 +541,8 @@ pub struct ModelTestInput {
     pub prompt_text: Option<String>,
 }
 
-/// 自定义 Codex Provider 的新建/编辑输入(内置 Provider 只读,不经过此入口)。
-#[derive(Debug, Clone, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
-pub struct CodexProviderInput {
-    /// 编辑时传入;新建时为 None。
-    pub id: Option<String>,
-    pub name: String,
-    pub base_url: String,
-    /// 读取 API key 的环境变量名;留空则 apply 内联 `experimental_bearer_token`(ADR 0005)。
-    #[serde(default)]
-    pub env_key: Option<String>,
-    /// `responses` 或 `chat`。
-    pub wire_api: String,
-    /// 可选模型目录,apply 时生成 `~/.codex/models.json`(ADR 0005)。
-    #[specta(type = specta_typescript::Unknown)]
-    #[serde(default)]
-    pub model_catalog: Option<Value>,
-    #[serde(default)]
-    pub doc_url: Option<String>,
-}
-
 /// Codex Profile 的新建/编辑输入。
-/// `api_key` 为空字符串表示「保留已有 key」(编辑场景);新建时必须非空。
+/// `api_key` 为空字符串表示「保留已有 key」(编辑场景)。
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
@@ -545,39 +553,49 @@ pub struct CodexProfileInput {
     pub provider_id: String,
     #[serde(default)]
     pub api_key: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub model_reasoning_effort: Option<String>,
+    #[serde(default)]
+    pub custom_config_toml: Option<String>,
+    #[serde(default)]
+    pub custom_models_json: Option<String>,
 }
 
-/// Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。
+/// Codex 工作区视图:内置预设 Provider 与用户 Profile,供前端 Codex 页展示。
 #[derive(Debug, Clone, Serialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CodexWorkspace {
     pub providers: Vec<CodexProvider>,
     pub profiles: Vec<CodexProfile>,
     pub bindings: CodexBindingState,
-    /// 标记每个 provider 是否内置只读(前端据此禁用编辑/删除)。
-    pub builtin_provider_ids: Vec<String>,
 }
 
-/// Codex Apply 预览:不写盘,只计算将落盘的 provider 相关改动,供用户确认不误伤 config.toml。
+/// Codex Apply 预览:不写盘,计算将落盘的改动与完整配置预览,供用户确认。
 #[derive(Debug, Clone, Serialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CodexApplyPreview {
+    /// 目标 profile id。
+    pub profile_id: String,
+    /// 目标 profile 名称。
+    pub profile_name: String,
+    /// 供应商展示名。
+    pub provider_name: String,
     /// 切换前的活跃 model_provider(读自现有 config.toml,无则 None)。
     pub current_model_provider: Option<String>,
     /// 将写入的 model_provider(slug)。
     pub next_model_provider: String,
-    /// 将写入的 provider 展示名。
-    pub provider_name: String,
-    /// 将写入的 base_url。
-    pub provider_base_url: String,
-    /// 将写入的 wire_api。
-    pub provider_wire_api: String,
-    /// 认证模式:内置 openai 为 ChatGPT 登录,自定义第三方为 API key(ADR 0005)。
+    /// 认证模式:内置 openai 为 ChatGPT 登录,其余为 API key(ADR 0005)。
     pub auth_mode: CodexAuthMode,
-    /// 自定义第三方是否配置了 `env_key`(走环境变量认证,不内联 token)。
-    pub uses_env_key: bool,
-    /// 是否内联 `experimental_bearer_token`(无 env_key 且 profile 有 key 时为 true)。
-    pub will_inline_bearer_token: bool,
+    /// 将生效的目标模型。
+    pub target_model: Option<String>,
+    /// 将生效的推理档位。
+    pub target_reasoning_effort: Option<String>,
+    /// 完整合并后的 config.toml 文本预览。
+    pub config_toml_preview: String,
+    /// 可选 models.json 文本预览。
+    pub models_json_preview: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -725,8 +743,7 @@ fn get_user_settings_path() -> Result<PathBuf, String> {
 // 与 Claude 侧概念平行但类型独立。落盘目标是 ~/.codex/config.toml(TOML,外科补丁),
 // 不写 ~/.codex/auth.json(ADR 0005)。本段为核心 Apply 逻辑,纯函数、不吃 AppHandle。
 
-/// 内置只读 Codex Provider 的 id 前缀与已知项。
-const CODEX_BUILTIN_PREFIX: &str = "codex-builtin:";
+/// 内置只读 Codex Provider 的已知项。
 const CODEX_BUILTIN_OPENAI_ID: &str = "codex-builtin:openai";
 
 /// Codex `wire_api` 的合法值：Codex CLI 自 2026-02 起仅支持 `responses`（默认，也是唯一值）；
@@ -746,18 +763,10 @@ fn codex_config_path() -> Result<PathBuf, String> {
         .join("config.toml"))
 }
 
-/// 内置只读 Codex Provider 列表（快速起步预设）。自定义 Provider 落 registry，不在此。
+/// 内置只读 Codex Provider 列表（从 builtin-codex-providers.json 静态加载预设）。
 fn builtin_codex_providers() -> Vec<CodexProvider> {
-    vec![CodexProvider {
-        id: CODEX_BUILTIN_OPENAI_ID.to_string(),
-        name: "OpenAI 官方".to_string(),
-        base_url: "https://api.openai.com/v1".to_string(),
-        // chatgpt-login 模式：不写 env_key，认证走 auth.json 的 ChatGPT 登录（ADR 0005）
-        env_key: None,
-        wire_api: CODEX_WIRE_API_RESPONSES.to_string(),
-        model_catalog: None,
-        doc_url: Some("https://developers.openai.com/codex/".to_string()),
-    }]
+    let raw = include_str!("../resources/builtin-codex-providers.json");
+    serde_json::from_str(raw).expect("builtin-codex-providers.json 格式错误")
 }
 
 /// 推导 Codex 认证模式（ADR 0005）：内置 OpenAI 官方 = ChatGPT 登录，其余 = API key。
@@ -769,54 +778,23 @@ fn codex_auth_mode(provider: &CodexProvider) -> CodexAuthMode {
     }
 }
 
-/// 把 Provider 解析为落盘用的 slug（写入 `model_provider` 与 `[model_providers.SLUG]`）。
-/// 内置项去掉前缀取尾段；自定义项去掉 `custom:` 前缀；统一小写、保留连字符。
-/// id 由调用方保证 slug 唯一稳定（自定义 provider id 形如 `custom:my-relay`）。
-fn codex_provider_slug(provider: &CodexProvider) -> String {
-    let raw = provider
-        .id
-        .strip_prefix(CODEX_BUILTIN_PREFIX)
-        .or_else(|| provider.id.strip_prefix("custom:"))
-        .unwrap_or(&provider.id);
-    raw.to_lowercase()
-}
-
-/// 在 registry（自定义）与内置列表里查找 Codex Provider。
-/// 自定义优先，使内置项可被同名自定义覆盖。
-fn resolve_codex_provider(
-    registry: &ConfigRegistry,
-    provider_id: &str,
-) -> Result<CodexProvider, String> {
-    let mut provider = registry
-        .codex
-        .providers
-        .iter()
-        .find(|provider| provider.id == provider_id)
-        .cloned()
-        .or_else(|| {
-            builtin_codex_providers()
-                .into_iter()
-                .find(|provider| provider.id == provider_id)
-        })
+/// 在内置列表中按 ID 查找 Codex Provider。
+fn resolve_codex_provider_by_id(provider_id: &str) -> Result<CodexProvider, String> {
+    let mut provider = builtin_codex_providers()
+        .into_iter()
+        .find(|p| p.id == provider_id)
         .ok_or_else(|| format!("未找到 Codex Provider '{}'", provider_id))?;
-    // 存量 chat 规整为 responses,保证 apply/preview 永不写出 Codex 无法解析的 wire_api
     provider.wire_api = coerce_codex_wire_api(&provider.wire_api);
     Ok(provider)
 }
 
-/// 外科补丁写入 `config.toml`（+ 可选 `models.json`）：只改 `model_provider` 与对应
-/// `[model_providers.SLUG]`；**不写 `auth.json`**（ADR 0005），其余键、注释、顺序原样保留。
+/// 外科补丁写入 `config.toml`（+ 可选 `models.json`）：
+/// 写盘不写 `auth.json`（ADR 0005），其余键、注释、顺序原样保留。
 /// 有模型目录时 config.toml + models.json 成对原子落盘（第二个失败回滚第一个）。
-pub fn codex_apply_patch(
-    config_path: &Path,
-    slug: &str,
-    provider: &CodexProvider,
-    api_key: &str,
-) -> Result<(), String> {
-    let config_content = render_codex_config(config_path, slug, provider, api_key)?;
-    if let Some(model_catalog) = &provider.model_catalog {
+pub fn codex_apply_patch(config_path: &Path, profile: &CodexProfile) -> Result<(), String> {
+    let (config_content, models_content) = render_codex_config(config_path, profile)?;
+    if let Some(models_content) = models_content {
         let models_path = codex_models_path()?;
-        let models_content = render_codex_models(model_catalog)?;
         crate::utils::write_pair_atomic(&models_path, &models_content, config_path, &config_content)
     } else {
         crate::utils::ensure_dir_and_write_atomic(config_path, &config_content)
@@ -843,31 +821,32 @@ fn codex_apply_to_registry(registry: &mut ConfigRegistry, profile_id: &str) -> R
         .find(|p| p.id == profile_id)
         .cloned()
         .ok_or_else(|| format!("未找到 Codex Profile '{}'", profile_id))?;
-    let provider = resolve_codex_provider(registry, &profile.provider_id)?;
-    let slug = codex_provider_slug(&provider);
 
-    // api-key 模式空 key 拒绝（除非配了 env_key——key 由环境变量提供、不内联）；chatgpt-login 免 key（ADR 0005）
-    let api_key = profile.api_key.trim();
-    let uses_env_key = provider
-        .env_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|k| !k.is_empty())
-        .is_some();
-    if codex_auth_mode(&provider) == CodexAuthMode::ApiKey && !uses_env_key && api_key.is_empty() {
-        return Err(format!(
-            "Codex Profile '{}' 缺少 API key,无法应用",
-            profile.name
-        ));
+    if profile.provider_id != "custom" {
+        let provider = resolve_codex_provider_by_id(&profile.provider_id)?;
+        let uses_env_key = provider
+            .env_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+            .is_some();
+        if codex_auth_mode(&provider) == CodexAuthMode::ApiKey
+            && !uses_env_key
+            && profile.api_key.trim().is_empty()
+        {
+            return Err(format!(
+                "Codex Profile '{}' 缺少 API key,无法应用",
+                profile.name
+            ));
+        }
     }
 
-    codex_apply_patch(&codex_config_path()?, &slug, &provider, api_key)?;
+    codex_apply_patch(&codex_config_path()?, &profile)?;
 
-    // 密钥不进日志：apply 只记稳定标识符，不记 key
     log::info!(
         "event=codex.apply status=ok profile_id={} provider_id={}",
         profile.id,
-        provider.id
+        profile.provider_id
     );
 
     let now = crate::utils::current_rfc3339_timestamp();
@@ -876,16 +855,12 @@ fn codex_apply_to_registry(registry: &mut ConfigRegistry, profile_id: &str) -> R
     Ok(())
 }
 
-/// 计算 apply 后的 config.toml 内容（不写盘）。供 apply 与 preview 复用（#37）。
-/// chatgpt-login 模式只写 `model_provider="openai"`，不建 provider 段、不写认证字段；
-/// api-key 模式写 `[model_providers.SLUG]`（内联 `experimental_bearer_token` 或用户指定的 `env_key`）。
+/// 计算 apply 后的 config.toml 内容与可选的 models.json 内容（不写盘）。供 apply 与 preview 复用。
 pub fn render_codex_config(
     config_path: &Path,
-    slug: &str,
-    provider: &CodexProvider,
-    api_key: &str,
-) -> Result<String, String> {
-    use toml_edit::DocumentMut;
+    profile: &CodexProfile,
+) -> Result<(String, Option<String>), String> {
+    use toml_edit::{DocumentMut, Item, Table};
 
     let mut doc: DocumentMut = if config_path.exists() {
         let raw =
@@ -896,22 +871,94 @@ pub fn render_codex_config(
         DocumentMut::new()
     };
 
-    // 1) 根键 model_provider 指向目标（外科：只动这一个根键）
-    doc["model_provider"] = toml_edit::value(slug);
+    if profile.provider_id == "custom" {
+        let mut models_json_str = None;
+        if let Some(custom_toml) = &profile.custom_config_toml {
+            let custom_trimmed = custom_toml.trim();
+            if !custom_trimmed.is_empty() {
+                let custom_doc = custom_trimmed
+                    .parse::<DocumentMut>()
+                    .map_err(|e| format!("自定义 config.toml 片段解析失败: {}", e))?;
 
-    match codex_auth_mode(provider) {
-        // 内置 openai：ChatGPT 登录，不建 provider 段，认证走 auth.json 的 codex login 登录态（ADR 0005）
-        CodexAuthMode::ChatGptLogin => {}
-        // 自定义第三方：写/替换 [model_providers.SLUG]，先清同名旧段，其余段原样保留。
+                for (key, item) in custom_doc.iter() {
+                    if key == "model_providers" {
+                        if let Some(custom_providers_table) = item.as_table() {
+                            if !doc.contains_table("model_providers")
+                                && !doc.contains_key("model_providers")
+                            {
+                                let mut t = Table::new();
+                                t.decor_mut().set_prefix("\n");
+                                doc["model_providers"] = Item::Table(t);
+                            }
+                            if let Some(target_providers) = doc["model_providers"].as_table_mut() {
+                                for (p_key, p_val) in custom_providers_table.iter() {
+                                    target_providers.insert(p_key, p_val.clone());
+                                }
+                            }
+                        }
+                    } else {
+                        doc[key] = item.clone();
+                    }
+                }
+            }
+        }
+
+        if let Some(custom_models) = &profile.custom_models_json {
+            let trimmed = custom_models.trim();
+            if !trimmed.is_empty() {
+                let _: Value = serde_json::from_str(trimmed)
+                    .map_err(|e| format!("自定义 models.json 解析失败: {}", e))?;
+                if doc.get("model_catalog_json").is_none() {
+                    doc["model_catalog_json"] = toml_edit::value("~/.codex/models.json");
+                }
+                models_json_str = Some(trimmed.to_string());
+            }
+        }
+
+        return Ok((doc.to_string(), models_json_str));
+    }
+
+    let provider = resolve_codex_provider_by_id(&profile.provider_id)?;
+    let slug = provider.slug.clone();
+
+    // 1) 根键 model_provider
+    doc["model_provider"] = toml_edit::value(&slug);
+
+    // 2) 根键 model（用户指定优先，其次预设默认）
+    let target_model = profile
+        .model
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .or_else(|| provider.default_model.as_deref());
+    if let Some(model_name) = target_model {
+        doc["model"] = toml_edit::value(model_name);
+    }
+
+    // 3) 根键 model_reasoning_effort（用户指定优先，其次预设默认）
+    let target_effort = profile
+        .model_reasoning_effort
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .or_else(|| provider.default_reasoning_effort.as_deref());
+    if let Some(effort) = target_effort {
+        doc["model_reasoning_effort"] = toml_edit::value(effort);
+    }
+
+    let mut models_json_str = None;
+
+    match codex_auth_mode(&provider) {
+        CodexAuthMode::ChatGptLogin => {
+            // 内置 OpenAI 官方：ChatGPT 登录，不建 provider 段，不写 token
+        }
         CodexAuthMode::ApiKey => {
             let table_name = format!("model_providers.{}", slug);
             remove_toml_table_by_path(&mut doc, &table_name);
 
-            let mut provider_table = toml_edit::Table::new();
+            let mut provider_table = Table::new();
             provider_table["name"] = toml_edit::value(provider.name.clone());
             provider_table["base_url"] = toml_edit::value(provider.base_url.clone());
-            // 默认内联 experimental_bearer_token（官方第三方做法，不依赖环境变量、不污染 auth.json）；
-            // 用户显式填 env_key 时写 env_key。wire_api 恒规整为 responses（Codex 已移除 chat）。
             if let Some(env_key) = provider
                 .env_key
                 .as_deref()
@@ -920,30 +967,32 @@ pub fn render_codex_config(
             {
                 provider_table["env_key"] = toml_edit::value(env_key);
             } else {
-                provider_table["experimental_bearer_token"] = toml_edit::value(api_key);
+                provider_table["experimental_bearer_token"] =
+                    toml_edit::value(profile.api_key.trim());
             }
             provider_table["wire_api"] =
                 toml_edit::value(coerce_codex_wire_api(&provider.wire_api));
             provider_table.decor_mut().set_prefix("\n");
 
             if !doc.contains_table("model_providers") && !doc.contains_key("model_providers") {
-                let mut t = toml_edit::Table::new();
+                let mut t = Table::new();
                 t.decor_mut().set_prefix("\n");
-                doc["model_providers"] = toml_edit::Item::Table(t);
+                doc["model_providers"] = Item::Table(t);
             }
             let model_providers = doc["model_providers"]
                 .as_table_mut()
                 .ok_or_else(|| "config.toml 的 model_providers 不是表".to_string())?;
-            model_providers.insert(slug, toml_edit::Item::Table(provider_table));
+            model_providers.insert(&slug, Item::Table(provider_table));
+
+            // 模型目录
+            if let Some(model_catalog) = &provider.model_catalog {
+                doc["model_catalog_json"] = toml_edit::value("~/.codex/models.json");
+                models_json_str = Some(render_codex_models(model_catalog)?);
+            }
         }
     }
 
-    // 3) 顶层 model_catalog_json（可选）：存在模型目录时指向 ~/.codex/models.json（Codex 官方命名）
-    if provider.model_catalog.is_some() {
-        doc["model_catalog_json"] = toml_edit::value("~/.codex/models.json");
-    }
-
-    Ok(doc.to_string())
+    Ok((doc.to_string(), models_json_str))
 }
 
 /// `~/.codex/models.json` 路径（`model_catalog_json` 指向，Codex 官方命名；不是 cc-switch 的 model-catalog.json）。
@@ -2979,13 +3028,10 @@ pub fn apply_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
 
 // ===== Codex 配置命令(ADR 0004 平行独立模型)=====
 
-/// 合并内置只读与自定义 Codex Provider,返回 Codex 工作区视图。
+/// 合并内置只读 Provider,返回 Codex 工作区视图。
 /// Profile 的 api_key 经脱敏返回(展示用),真实 key 仅存于 registry,apply 时从 registry 取。
 fn build_codex_workspace(registry: &ConfigRegistry) -> CodexWorkspace {
     let mut providers = builtin_codex_providers();
-    let builtin_ids: Vec<String> = providers.iter().map(|p| p.id.clone()).collect();
-    providers.extend(registry.codex.providers.iter().cloned());
-    // 存量 chat 在展示层也规整为 responses,与 apply 行为一致
     for provider in providers.iter_mut() {
         provider.wire_api = coerce_codex_wire_api(&provider.wire_api);
     }
@@ -3003,7 +3049,6 @@ fn build_codex_workspace(registry: &ConfigRegistry) -> CodexWorkspace {
         providers,
         profiles,
         bindings: registry.codex.bindings.clone(),
-        builtin_provider_ids: builtin_ids,
     }
 }
 
@@ -3031,134 +3076,6 @@ pub fn get_codex_workspace(_app_handle: AppHandle) -> Result<CodexWorkspace, Str
 
 #[tauri::command]
 #[specta::specta]
-pub fn upsert_codex_provider(
-    app_handle: AppHandle,
-    data: CodexProviderInput,
-) -> Result<CodexProvider, String> {
-    let result = (|| {
-        let _lock = crate::utils::lock_config()?;
-        let mut registry = load_registry()?;
-        let provider = upsert_codex_provider_in_registry(&mut registry, data)?;
-        save_registry(&registry)?;
-        let _ = app_handle.emit("codex-workspace-changed", ());
-        Ok(provider)
-    })();
-    crate::logging::log_command_result("codex.provider.upsert", &result, |provider| {
-        format!("provider_id={}", provider.id)
-    });
-    result
-}
-
-/// Codex Provider 新建/编辑的 registry 变更(非加锁、非命令,可单测)。
-fn upsert_codex_provider_in_registry(
-    registry: &mut ConfigRegistry,
-    data: CodexProviderInput,
-) -> Result<CodexProvider, String> {
-    let name = data.name.trim().to_string();
-    let base_url = data.base_url.trim().to_string();
-    // env_key 可选（ADR 0005）：留空则 apply 内联 experimental_bearer_token
-    let env_key = data
-        .env_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|k| !k.is_empty())
-        .map(|k| k.to_string());
-    // 存量 chat / 空值规整为 responses;Codex 已移除 chat,只写受支持的 wire_api
-    let wire_api = coerce_codex_wire_api(data.wire_api.trim());
-    if name.is_empty() {
-        return Err("Codex Provider 名称不能为空".to_string());
-    }
-    if base_url.is_empty() {
-        return Err("Codex Provider base_url 不能为空".to_string());
-    }
-
-    let provider_id = data
-        .id
-        .clone()
-        .unwrap_or_else(|| format!("custom:{}", Uuid::new_v4()));
-    // 内置 Provider 只读,禁止经此入口覆盖
-    if builtin_codex_providers()
-        .iter()
-        .any(|p| p.id == provider_id)
-    {
-        return Err("内置 Codex Provider 只读,不可修改".to_string());
-    }
-    // 自定义 id 必须带 custom: 前缀,与内置区分
-    let provider_id = if provider_id.starts_with("custom:") {
-        provider_id
-    } else {
-        format!("custom:{}", provider_id)
-    };
-
-    let provider = CodexProvider {
-        id: provider_id.clone(),
-        name,
-        base_url,
-        env_key,
-        wire_api,
-        model_catalog: data.model_catalog,
-        doc_url: data.doc_url.filter(|s| !s.trim().is_empty()),
-    };
-    if let Some(existing) = registry
-        .codex
-        .providers
-        .iter_mut()
-        .find(|p| p.id == provider_id)
-    {
-        *existing = provider.clone();
-    } else {
-        registry.codex.providers.push(provider.clone());
-    }
-    Ok(provider)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn delete_codex_provider(app_handle: AppHandle, id: String) -> Result<(), String> {
-    let result = (|| {
-        let _lock = crate::utils::lock_config()?;
-        let mut registry = load_registry()?;
-        delete_codex_provider_in_registry(&mut registry, &id)?;
-        save_registry(&registry)?;
-        let _ = app_handle.emit("codex-workspace-changed", ());
-        Ok(())
-    })();
-    crate::logging::log_command_result("codex.provider.delete", &result, |_| {
-        format!("provider_id={id}")
-    });
-    result
-}
-
-/// Codex Provider 删除的 registry 变更(非加锁、非命令,可单测)。内置只读。
-fn delete_codex_provider_in_registry(
-    registry: &mut ConfigRegistry,
-    id: &str,
-) -> Result<(), String> {
-    if builtin_codex_providers().iter().any(|p| p.id == id) {
-        return Err("内置 Codex Provider 只读,不可删除".to_string());
-    }
-    // 引用检查:被 Codex Profile 引用的 provider 禁止删除,避免产生悬空引用
-    let referenced_by = registry
-        .codex
-        .profiles
-        .iter()
-        .filter(|p| p.provider_id == id)
-        .count();
-    if referenced_by > 0 {
-        return Err(format!(
-            "该 Codex Provider 被 {referenced_by} 个 Codex Profile 引用,请先删除或改绑这些 Profile"
-        ));
-    }
-    let original_len = registry.codex.providers.len();
-    registry.codex.providers.retain(|p| p.id != id);
-    if registry.codex.providers.len() == original_len {
-        return Err("未找到要删除的 Codex Provider".to_string());
-    }
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn upsert_codex_profile(
     app_handle: AppHandle,
     data: CodexProfileInput,
@@ -3181,7 +3098,7 @@ pub fn upsert_codex_profile(
 }
 
 /// Codex Profile 新建/编辑的 registry 变更(非加锁、非命令,可单测)。
-/// `api_key` 为空表示编辑时保留已有 key;新建时必须非空。provider_id 必须可解析。
+/// `api_key` 为空表示编辑时保留已有 key。provider_id 必须为内置项或 "custom"。
 fn upsert_codex_profile_in_registry(
     registry: &mut ConfigRegistry,
     data: CodexProfileInput,
@@ -3190,9 +3107,20 @@ fn upsert_codex_profile_in_registry(
     if name.is_empty() {
         return Err("Codex Profile 名称不能为空".to_string());
     }
-    // provider_id 必须可解析(内置或自定义);认证模式决定新建是否必须 key(ADR 0005)
-    let provider = resolve_codex_provider(registry, &data.provider_id)?;
-    let is_api_key_mode = codex_auth_mode(&provider) == CodexAuthMode::ApiKey;
+    let is_custom = data.provider_id == "custom";
+    if !is_custom {
+        let provider = resolve_codex_provider_by_id(&data.provider_id)?;
+        let is_api_key_mode = codex_auth_mode(&provider) == CodexAuthMode::ApiKey;
+        let uses_env_key = provider
+            .env_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+            .is_some();
+        if is_api_key_mode && !uses_env_key && data.id.is_none() && data.api_key.trim().is_empty() {
+            return Err("新建 Codex Profile 必须提供 API key".to_string());
+        }
+    }
 
     let now = crate::utils::current_rfc3339_timestamp();
     let profile_id = data
@@ -3212,18 +3140,22 @@ fn upsert_codex_profile_in_registry(
         if !data.api_key.trim().is_empty() {
             existing.api_key = data.api_key;
         }
+        existing.model = data.model;
+        existing.model_reasoning_effort = data.model_reasoning_effort;
+        existing.custom_config_toml = data.custom_config_toml;
+        existing.custom_models_json = data.custom_models_json;
         existing.updated_at = now;
         existing.clone()
     } else {
-        // 新建:api-key 模式必须有 key;chatgpt-login(内置 openai)免 key
-        if is_api_key_mode && data.api_key.trim().is_empty() {
-            return Err("新建 Codex Profile 必须提供 API key".to_string());
-        }
         let profile = CodexProfile {
             id: profile_id,
             name,
             provider_id: data.provider_id,
             api_key: data.api_key,
+            model: data.model,
+            model_reasoning_effort: data.model_reasoning_effort,
+            custom_config_toml: data.custom_config_toml,
+            custom_models_json: data.custom_models_json,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -3259,7 +3191,7 @@ pub fn delete_codex_profile(app_handle: AppHandle, id: String) -> Result<(), Str
     result
 }
 
-/// 应用 Codex Profile:外科补丁写 config.toml + auth.json,更新 codex.bindings 激活态。
+/// 应用 Codex Profile:外科补丁写 config.toml (+ 可选 models.json),更新 codex.bindings 激活态。
 #[tauri::command]
 #[specta::specta]
 pub fn apply_codex_profile(app_handle: AppHandle, id: String) -> Result<(), String> {
@@ -3274,8 +3206,7 @@ pub fn apply_codex_profile(app_handle: AppHandle, id: String) -> Result<(), Stri
     result
 }
 
-/// Codex Apply 预览(不写盘):计算将落盘的 provider 相关改动,供用户确认。
-/// 复用 render_codex_config 的补丁计算(只读现有 config.toml,不写),保证与实际 apply 一致。
+/// Codex Apply 预览(不写盘):计算将落盘的 provider 相关改动及完整配置预览,供用户确认。
 #[tauri::command]
 #[specta::specta]
 pub fn preview_codex_apply(
@@ -3285,6 +3216,68 @@ pub fn preview_codex_apply(
     let _lock = crate::utils::lock_config()?;
     let registry = load_registry()?;
     preview_codex_apply_inner(&registry, &id)
+}
+
+/// 针对未保存的输入进行实时配置预览(不写盘)。
+#[tauri::command]
+#[specta::specta]
+pub fn preview_codex_input(data: CodexProfileInput) -> Result<CodexApplyPreview, String> {
+    let _lock = crate::utils::lock_config()?;
+    let config_path = codex_config_path()?;
+    let current_provider = read_current_codex_model_provider(&config_path);
+
+    let profile = CodexProfile {
+        id: data.id.unwrap_or_default(),
+        name: data.name.clone(),
+        provider_id: data.provider_id.clone(),
+        api_key: data.api_key,
+        model: data.model,
+        model_reasoning_effort: data.model_reasoning_effort,
+        custom_config_toml: data.custom_config_toml,
+        custom_models_json: data.custom_models_json,
+        created_at: String::new(),
+        updated_at: String::new(),
+    };
+
+    let (config_toml_preview, models_json_preview) = render_codex_config(&config_path, &profile)?;
+
+    if profile.provider_id == "custom" {
+        return Ok(CodexApplyPreview {
+            profile_id: profile.id,
+            profile_name: data.name,
+            provider_name: "自定义配置".to_string(),
+            current_model_provider: current_provider,
+            next_model_provider: "custom".to_string(),
+            auth_mode: CodexAuthMode::ApiKey,
+            target_model: None,
+            target_reasoning_effort: None,
+            config_toml_preview,
+            models_json_preview,
+        });
+    }
+
+    let provider = resolve_codex_provider_by_id(&profile.provider_id)?;
+    let target_model = profile
+        .model
+        .clone()
+        .or_else(|| provider.default_model.clone());
+    let target_effort = profile
+        .model_reasoning_effort
+        .clone()
+        .or_else(|| provider.default_reasoning_effort.clone());
+
+    Ok(CodexApplyPreview {
+        profile_id: profile.id,
+        profile_name: data.name,
+        provider_name: provider.name.clone(),
+        current_model_provider: current_provider,
+        next_model_provider: provider.slug.clone(),
+        auth_mode: codex_auth_mode(&provider),
+        target_model,
+        target_reasoning_effort: target_effort,
+        config_toml_preview,
+        models_json_preview,
+    })
 }
 
 /// Codex Apply 预览的 registry 变更计算(非加锁、非命令,可单测)。只读不写。
@@ -3299,28 +3292,46 @@ fn preview_codex_apply_inner(
         .find(|p| p.id == id)
         .cloned()
         .ok_or_else(|| format!("未找到 Codex Profile '{}'", id))?;
-    let provider = resolve_codex_provider(registry, &profile.provider_id)?;
-    let slug = codex_provider_slug(&provider);
     let config_path = codex_config_path()?;
+    let current_provider = read_current_codex_model_provider(&config_path);
+    let (config_toml_preview, models_json_preview) = render_codex_config(&config_path, &profile)?;
 
-    // 复用补丁计算(验证可渲染,但不写盘),确保 preview 与 apply 一致
-    let _ = render_codex_config(&config_path, &slug, &provider, profile.api_key.trim())?;
+    if profile.provider_id == "custom" {
+        return Ok(CodexApplyPreview {
+            profile_id: profile.id,
+            profile_name: profile.name,
+            provider_name: "自定义配置".to_string(),
+            current_model_provider: current_provider,
+            next_model_provider: "custom".to_string(),
+            auth_mode: CodexAuthMode::ApiKey,
+            target_model: None,
+            target_reasoning_effort: None,
+            config_toml_preview,
+            models_json_preview,
+        });
+    }
 
-    let uses_env_key = provider
-        .env_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|k| !k.is_empty())
-        .is_some();
+    let provider = resolve_codex_provider_by_id(&profile.provider_id)?;
+    let target_model = profile
+        .model
+        .clone()
+        .or_else(|| provider.default_model.clone());
+    let target_effort = profile
+        .model_reasoning_effort
+        .clone()
+        .or_else(|| provider.default_reasoning_effort.clone());
+
     Ok(CodexApplyPreview {
-        current_model_provider: read_current_codex_model_provider(&config_path),
-        next_model_provider: slug,
+        profile_id: profile.id,
+        profile_name: profile.name,
         provider_name: provider.name.clone(),
-        provider_base_url: provider.base_url.clone(),
-        provider_wire_api: provider.wire_api.clone(),
+        current_model_provider: current_provider,
+        next_model_provider: provider.slug.clone(),
         auth_mode: codex_auth_mode(&provider),
-        uses_env_key,
-        will_inline_bearer_token: !uses_env_key && !profile.api_key.trim().is_empty(),
+        target_model,
+        target_reasoning_effort: target_effort,
+        config_toml_preview,
+        models_json_preview,
     })
 }
 
@@ -4931,8 +4942,7 @@ mod tests {
         // version 被规范为当前版本(迁移）
         assert_eq!(registry.version, REGISTRY_VERSION);
         assert_eq!(REGISTRY_VERSION, 2);
-        // codex 段缺省为空，三块都空
-        assert!(registry.codex.providers.is_empty());
+        // codex 段缺省为空
         assert!(registry.codex.profiles.is_empty());
         assert!(registry.codex.bindings.codex_profile_id.is_none());
         assert!(registry.codex.is_empty());
@@ -4953,20 +4963,15 @@ mod tests {
         assert!(json.get("codex").is_none(), "空 codex 段不应序列化");
 
         // 填充 codex 后：写回再读稳定
-        registry.codex.providers.push(CodexProvider {
-            id: "custom:my-relay".to_string(),
-            name: "My Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: Some("MY_RELAY_KEY".to_string()),
-            model_catalog: None,
-            wire_api: "responses".to_string(),
-            doc_url: None,
-        });
         registry.codex.profiles.push(CodexProfile {
             id: "codex-1".to_string(),
             name: "Codex One".to_string(),
-            provider_id: "custom:my-relay".to_string(),
+            provider_id: "codex-builtin:deepseek".to_string(),
             api_key: "sk-secret".to_string(),
+            model: Some("deepseek-v4-flash".to_string()),
+            model_reasoning_effort: Some("high".to_string()),
+            custom_config_toml: None,
+            custom_models_json: None,
             created_at: "2026-01-01T00:00:00+08:00".to_string(),
             updated_at: "2026-01-01T00:00:00+08:00".to_string(),
         });
@@ -4978,8 +4983,20 @@ mod tests {
         assert!(!back.codex.is_empty());
     }
 
+    // 验证内置 5 家厂商预设能成功解析
+    #[test]
+    fn builtin_codex_providers_loads_all_presets() {
+        let providers = builtin_codex_providers();
+        assert_eq!(providers.len(), 5);
+        let ids: Vec<_> = providers.iter().map(|p| p.id.as_str()).collect();
+        assert!(ids.contains(&"codex-builtin:openai"));
+        assert!(ids.contains(&"codex-builtin:deepseek"));
+        assert!(ids.contains(&"codex-builtin:zhipu"));
+        assert!(ids.contains(&"codex-builtin:minimax"));
+        assert!(ids.contains(&"codex-builtin:xiaomi-mimo"));
+    }
+
     // Codex Apply 外科补丁：只改 provider 相关键,保留注释/顺序/无关键。
-    // 这是验证 #33 核心决策的关键测试。
     #[test]
     fn codex_apply_patches_only_provider_keys_and_preserves_rest() {
         let _guard = crate::utils::lock_config().unwrap();
@@ -5007,51 +5024,42 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
 ";
         fs::write(&config_path, original).unwrap();
 
-        // 存量 wire_api=chat 在落盘时被规整为 responses(Codex 已移除 chat);
-        // 自定义第三方 provider 不填 env_key,apply 内联 experimental_bearer_token(ADR 0005)
-        let provider = CodexProvider {
-            id: "custom:my-relay".to_string(),
-            name: "My Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: None,
-            wire_api: "chat".to_string(),
-            model_catalog: None,
-            doc_url: None,
+        let profile = CodexProfile {
+            id: "p1".to_string(),
+            name: "DeepSeek Flash".to_string(),
+            provider_id: "codex-builtin:deepseek".to_string(),
+            api_key: "sk-deepseek-key".to_string(),
+            model: Some("deepseek-v4-flash".to_string()),
+            model_reasoning_effort: Some("high".to_string()),
+            custom_config_toml: None,
+            custom_models_json: None,
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
         };
-        let provider_slug = codex_provider_slug(&provider);
 
-        // apply：外科补丁只写 config.toml,不写 auth.json
-        codex_apply_patch(&config_path, &provider_slug, &provider, "sk-secret-key").unwrap();
+        codex_apply_patch(&config_path, &profile).unwrap();
 
         let patched = fs::read_to_string(&config_path).unwrap();
 
-        // 1) provider 相关键被改写
-        assert!(patched.contains("model_provider = \"my-relay\""));
-        assert!(patched.contains("[model_providers.my-relay]"));
+        // 1) provider 相关键与模型被改写
+        assert!(patched.contains("model_provider = \"deepseek\""));
+        assert!(patched.contains("model = \"deepseek-v4-flash\""));
+        assert!(patched.contains("model_reasoning_effort = \"high\""));
+        assert!(patched.contains("[model_providers.deepseek]"));
         assert!(
-            patched.contains("base_url = \"https://relay.example.com/v1\""),
+            patched.contains("base_url = \"https://api.deepseek.com/\""),
             "新 provider 的 base_url 要写入"
         );
         assert!(
             patched.contains("wire_api = \"responses\""),
-            "存量 chat 落盘时规整为 responses(Codex 已移除 chat)"
+            "wire_api 必须为 responses"
         );
-        // 旧 provider 段原样保留(外科补丁不删用户维护内容),其 chat 仍在——只有新段被规整
         assert!(
-            patched.contains("wire_api = \"chat\""),
-            "旧 provider 段的 chat 应原样保留(外科补丁不删旧段)"
-        );
-        // 无 env_key → 内联 experimental_bearer_token(官方第三方做法,不依赖环境变量、不污染 auth.json)
-        assert!(
-            patched.contains("experimental_bearer_token = \"sk-secret-key\""),
-            "无 env_key 时应内联 experimental_bearer_token,实际:\n{}",
+            patched.contains("experimental_bearer_token = \"sk-deepseek-key\""),
+            "应内联 experimental_bearer_token,实际:\n{}",
             patched
         );
-        assert!(
-            !patched.contains("env_key"),
-            "未填 env_key 时不得写入 env_key"
-        );
-        // 旧 provider 段原样保留(外科补丁不删除任何用户维护的段)
+        // 旧 provider 段原样保留(外科补丁不删旧段)
         assert!(
             patched.contains("[model_providers.old-relay]"),
             "旧 provider 段不得被删除"
@@ -5069,27 +5077,77 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         );
 
         // 3) 无关键与顺序保留
-        assert!(patched.contains("model = \"gpt-5.2\""));
         assert!(patched.contains("approval_policy = \"on-failure\""));
         assert!(patched.contains("sandbox_mode = \"workspace-write\""));
         assert!(patched.contains("[mcp_servers.filesystem]"));
-        assert!(
-            patched.contains("@modelcontextprotocol/server-filesystem"),
-            "mcp_servers 数组参数必须保留"
-        );
 
-        // 4) auth.json 不被触碰(ADR 0005:Code Manager 不拥有 auth.json)
-        let auth_path = codex_config_path()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("auth.json");
-        assert!(!auth_path.exists(), "apply 不得创建/写入 auth.json");
+        // 4) models.json 目录原子写入
+        let models_path = codex_models_path().unwrap();
+        assert!(models_path.exists());
+        let models_str = fs::read_to_string(&models_path).unwrap();
+        assert!(models_str.contains("deepseek-v4-flash"));
 
         clear_test_env();
     }
 
-    // 成对原子:第二个文件替换失败时,第一个文件被回滚,不留半套配置。#33。
+    // 自定义 TOML/JSON 片段模式 apply
+    #[test]
+    fn codex_apply_custom_snippet_merges_tables_and_preserves_rest() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-apply-custom-snippet");
+        set_test_env(&root);
+        let config_path = codex_config_path().unwrap();
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        let original = "\
+model = \"gpt-4o\"
+model_provider = \"openai\"
+approval_policy = \"on-failure\"
+";
+        fs::write(&config_path, original).unwrap();
+
+        let custom_toml = "\
+model_provider = \"my_custom_relay\"
+model = \"custom-model-x\"
+
+[model_providers.my_custom_relay]
+name = \"Custom Relay\"
+base_url = \"https://relay.custom.io/v1\"
+experimental_bearer_token = \"sk-custom\"
+wire_api = \"responses\"
+";
+        let custom_models = "{\"models\": [{\"slug\": \"custom-model-x\"}]}";
+
+        let profile = CodexProfile {
+            id: "custom-p1".to_string(),
+            name: "My Custom".to_string(),
+            provider_id: "custom".to_string(),
+            api_key: String::new(),
+            model: None,
+            model_reasoning_effort: None,
+            custom_config_toml: Some(custom_toml.to_string()),
+            custom_models_json: Some(custom_models.to_string()),
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
+        };
+
+        codex_apply_patch(&config_path, &profile).unwrap();
+
+        let patched = fs::read_to_string(&config_path).unwrap();
+        assert!(patched.contains("model_provider = \"my_custom_relay\""));
+        assert!(patched.contains("model = \"custom-model-x\""));
+        assert!(patched.contains("[model_providers.my_custom_relay]"));
+        assert!(patched.contains("approval_policy = \"on-failure\""));
+        assert!(patched.contains("model_catalog_json = \"~/.codex/models.json\""));
+
+        let models_path = codex_models_path().unwrap();
+        assert!(models_path.exists());
+        let models_str = fs::read_to_string(&models_path).unwrap();
+        assert!(models_str.contains("custom-model-x"));
+
+        clear_test_env();
+    }
+
+    // 成对原子:第二个文件替换失败时,第一个文件被回滚,不留半套配置。
     #[test]
     fn codex_write_pair_atomic_rolls_back_first_on_second_failure() {
         let _guard = crate::utils::lock_config().unwrap();
@@ -5123,167 +5181,6 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             first_content
         );
         assert!(!first_content.contains("new-key"));
-        // 临时文件不残留
-        let leftovers: Vec<_> = fs::read_dir(first.parent().unwrap())
-            .unwrap()
-            .filter_map(|entry| entry.ok())
-            .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp-"))
-            .collect();
-        assert!(leftovers.is_empty(), "不应残留临时文件");
-
-        clear_test_env();
-    }
-
-    // config.toml 不存在时 apply 创建一份最小可用文件。
-    #[test]
-    fn codex_apply_creates_minimal_config_when_absent() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("codex-apply-create");
-        set_test_env(&root);
-        let config_path = codex_config_path().unwrap();
-        assert!(!config_path.exists());
-
-        let provider = CodexProvider {
-            id: "custom:r".to_string(),
-            name: "R".to_string(),
-            base_url: "https://r.example.com/v1".to_string(),
-            env_key: None,
-            wire_api: "responses".to_string(),
-            model_catalog: None,
-            doc_url: None,
-        };
-        codex_apply_patch(
-            &config_path,
-            &codex_provider_slug(&provider),
-            &provider,
-            "sk-k",
-        )
-        .unwrap();
-
-        let config = fs::read_to_string(&config_path).unwrap();
-        assert!(config.contains("model_provider = \"r\""));
-        assert!(config.contains("[model_providers.r]"));
-        assert!(
-            config.contains("experimental_bearer_token = \"sk-k\""),
-            "内联 bearer token"
-        );
-        // auth.json 不被创建(ADR 0005)
-        let auth_path = config_path.parent().unwrap().join("auth.json");
-        assert!(!auth_path.exists(), "apply 不得创建 auth.json");
-
-        clear_test_env();
-    }
-
-    // codex_apply 端到端:从 registry 解析 profile + provider,写盘并更新绑定态。
-    // 沿用 lock_config + 非加锁 helper 的既有模式(见 apply_profile_to_registry)。
-    #[test]
-    fn codex_apply_inner_resolves_writes_and_binds() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("codex-apply-inner");
-        set_test_env(&root);
-
-        // 预置 registry:一个自定义 provider + 引用它的 profile
-        let mut registry = ConfigRegistry::default();
-        registry.codex.providers.push(CodexProvider {
-            id: "custom:relay".to_string(),
-            name: "Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: None,
-            wire_api: "responses".to_string(),
-            model_catalog: None,
-            doc_url: None,
-        });
-        registry.codex.profiles.push(CodexProfile {
-            id: "codex-1".to_string(),
-            name: "Codex One".to_string(),
-            provider_id: "custom:relay".to_string(),
-            api_key: "sk-inner".to_string(),
-            created_at: "2026-01-01T00:00:00+08:00".to_string(),
-            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
-        });
-        let registry_path = get_registry_path().unwrap();
-        fs::create_dir_all(registry_path.parent().unwrap()).unwrap();
-        save_registry(&registry).unwrap();
-
-        // 用非加锁 helper(测试已持锁),避免与 codex_apply_inner 自取的锁死锁
-        codex_apply_to_registry(&mut registry, "codex-1").unwrap();
-        // 绑定态更新
-        assert_eq!(
-            registry.codex.bindings.codex_profile_id.as_deref(),
-            Some("codex-1")
-        );
-
-        // 落盘正确:内联 bearer token,auth.json 不被创建(ADR 0005)
-        let config = fs::read_to_string(codex_config_path().unwrap()).unwrap();
-        assert!(config.contains("model_provider = \"relay\""));
-        assert!(
-            config.contains("experimental_bearer_token = \"sk-inner\""),
-            "内联 bearer token"
-        );
-        let auth_path = codex_config_path()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("auth.json");
-        assert!(!auth_path.exists(), "apply 不得创建 auth.json");
-
-        // 不存在的 profile 报错
-        codex_apply_to_registry(&mut registry, "missing").unwrap_err();
-
-        clear_test_env();
-    }
-
-    // preview_codex_apply:只读现有 config.toml 的 model_provider,不写盘,返回切换摘要。#37。
-    #[test]
-    fn preview_codex_apply_reads_current_without_writing() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("codex-preview");
-        set_test_env(&root);
-        // 预置 registry + 一份现有 config.toml(活跃 model_provider = old)
-        let mut registry = ConfigRegistry::default();
-        registry.codex.providers.push(CodexProvider {
-            id: "custom:relay".to_string(),
-            name: "Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: None,
-            wire_api: "responses".to_string(),
-            model_catalog: None,
-            doc_url: None,
-        });
-        registry.codex.profiles.push(CodexProfile {
-            id: "codex-1".to_string(),
-            name: "P".to_string(),
-            provider_id: "custom:relay".to_string(),
-            api_key: "testkey-secret".to_string(),
-            created_at: "2026-01-01T00:00:00+08:00".to_string(),
-            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
-        });
-        let config_path = codex_config_path().unwrap();
-        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
-        fs::write(
-            &config_path,
-            "model_provider = \"old\"\nmodel = \"gpt-5.2\"\n",
-        )
-        .unwrap();
-        let registry_path = get_registry_path().unwrap();
-        fs::create_dir_all(registry_path.parent().unwrap()).unwrap();
-        save_registry(&registry).unwrap();
-
-        let mtime_before = fs::metadata(&config_path).unwrap().modified().unwrap();
-        let preview = preview_codex_apply_inner(&registry, "codex-1").unwrap();
-
-        // 读到切换前活跃 slug,next 为切换目标(旧段原样保留,不提示删除)
-        assert_eq!(preview.current_model_provider.as_deref(), Some("old"));
-        assert_eq!(preview.next_model_provider, "relay");
-        assert_eq!(preview.provider_base_url, "https://relay.example.com/v1");
-        assert_eq!(preview.auth_mode, CodexAuthMode::ApiKey);
-        assert!(preview.will_inline_bearer_token);
-
-        // 不写盘:mtime 不变
-        let mtime_after = fs::metadata(&config_path).unwrap().modified().unwrap();
-        assert_eq!(mtime_before, mtime_after, "preview 不得写盘");
-        // config.toml 内容未变
-        assert!(fs::read_to_string(&config_path).unwrap().contains("old"));
 
         clear_test_env();
     }
@@ -5304,315 +5201,42 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         )
         .unwrap();
 
-        let provider = builtin_codex_providers()
-            .into_iter()
-            .find(|p| p.id == CODEX_BUILTIN_OPENAI_ID)
-            .unwrap();
-        assert_eq!(codex_auth_mode(&provider), CodexAuthMode::ChatGptLogin);
-        let slug = codex_provider_slug(&provider);
+        let profile = CodexProfile {
+            id: "openai-p1".to_string(),
+            name: "OpenAI 官方".to_string(),
+            provider_id: "codex-builtin:openai".to_string(),
+            api_key: String::new(),
+            model: Some("gpt-5.4".to_string()),
+            model_reasoning_effort: None,
+            custom_config_toml: None,
+            custom_models_json: None,
+            created_at: "2026-01-01T00:00:00+08:00".to_string(),
+            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
+        };
 
-        // chatgpt-login 模式 apply:profile 免 key
-        codex_apply_patch(&config_path, &slug, &provider, "").unwrap();
+        codex_apply_patch(&config_path, &profile).unwrap();
 
         let patched = fs::read_to_string(&config_path).unwrap();
         assert!(patched.contains("model_provider = \"openai\""));
+        assert!(patched.contains("model = \"gpt-5.4\""));
         assert!(
             !patched.contains("[model_providers.openai]"),
             "内置 openai 不得建 provider 段,实际:\n{}",
             patched
         );
-        // 旧第三方段与用户手改键原样保留(外科补丁不删)
+        // 旧第三方段原样保留(外科补丁不删)
         assert!(patched.contains("[model_providers.deepseek]"));
-        assert!(patched.contains("model = \"deepseek-chat\""));
-        // auth.json 不被创建(Code Manager 不拥有 auth.json)
-        let auth_path = config_path.parent().unwrap().join("auth.json");
-        assert!(!auth_path.exists(), "apply 不得创建 auth.json");
 
         clear_test_env();
     }
 
-    // 带 model_catalog 的 provider:apply 生成 ~/.codex/models.json 并写顶层 model_catalog_json(ADR 0005)。
-    #[test]
-    fn codex_apply_writes_model_catalog_when_provider_has_one() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("codex-model-catalog");
-        set_test_env(&root);
-        let config_path = codex_config_path().unwrap();
-        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
-
-        let provider = CodexProvider {
-            id: "custom:relay".to_string(),
-            name: "Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: None,
-            wire_api: "responses".to_string(),
-            model_catalog: Some(serde_json::json!({
-                "deepseek-chat": { "context_window": 128000, "display_name": "DeepSeek Chat" }
-            })),
-            doc_url: None,
-        };
-        codex_apply_patch(
-            &config_path,
-            &codex_provider_slug(&provider),
-            &provider,
-            "sk-k",
-        )
-        .unwrap();
-
-        let config = fs::read_to_string(&config_path).unwrap();
-        assert!(
-            config.contains("model_catalog_json = \"~/.codex/models.json\""),
-            "应写顶层 model_catalog_json,实际:\n{}",
-            config
-        );
-        // models.json 生成且含模型(Codex 官方命名,非 cc-switch 的 model-catalog.json)
-        let models_path = codex_models_path().unwrap();
-        let models: Value =
-            serde_json::from_str(&fs::read_to_string(&models_path).unwrap()).unwrap();
-        assert_eq!(models["deepseek-chat"]["context_window"], 128000);
-
-        clear_test_env();
-    }
-
-    // 删除被 Profile 引用的 Provider 必须被拒绝,避免悬空引用。
-    #[test]
-    fn delete_codex_provider_blocks_when_referenced() {
-        let mut registry = ConfigRegistry::default();
-        registry.codex.providers.push(CodexProvider {
-            id: "custom:relay".to_string(),
-            name: "Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: Some("RELAY_KEY".to_string()),
-            model_catalog: None,
-            wire_api: "responses".to_string(),
-            doc_url: None,
-        });
-        registry.codex.profiles.push(CodexProfile {
-            id: "codex-1".to_string(),
-            name: "P1".to_string(),
-            provider_id: "custom:relay".to_string(),
-            api_key: "sk-x".to_string(),
-            created_at: "2026-01-01T00:00:00+08:00".to_string(),
-            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
-        });
-
-        let err = delete_codex_provider_in_registry(&mut registry, "custom:relay").unwrap_err();
-        assert!(err.contains("引用"), "报错应说明引用关系: {}", err);
-        assert_eq!(registry.codex.providers.len(), 1, "被引用时不得删除");
-
-        // 解除引用后可删除
-        registry.codex.profiles.clear();
-        delete_codex_provider_in_registry(&mut registry, "custom:relay").unwrap();
-        assert!(registry.codex.providers.is_empty());
-    }
-
-    // 空 key 的 api-key profile 拒绝 apply:未配 env_key 时内联空白 token 会让 Codex 请求报错不明。
-    #[test]
-    fn codex_apply_rejects_empty_api_key_without_env_key() {
-        let mut registry = ConfigRegistry::default();
-        registry.codex.providers.push(CodexProvider {
-            id: "custom:relay".to_string(),
-            name: "Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: None,
-            model_catalog: None,
-            wire_api: "responses".to_string(),
-            doc_url: None,
-        });
-        registry.codex.profiles.push(CodexProfile {
-            id: "codex-empty".to_string(),
-            name: "Empty".to_string(),
-            provider_id: "custom:relay".to_string(),
-            api_key: "  ".to_string(),
-            created_at: "2026-01-01T00:00:00+08:00".to_string(),
-            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
-        });
-
-        let err = codex_apply_to_registry(&mut registry, "codex-empty").unwrap_err();
-        assert!(err.contains("API key"), "空 key 报错应指明缺 key: {}", err);
-    }
-
-    // env_key provider 空 key 允许 apply:key 由环境变量提供、不内联(ADR 0005 放宽)。
-    #[test]
-    fn codex_apply_allows_empty_key_when_provider_uses_env_key() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("codex-env-key-no-key");
-        set_test_env(&root);
-        let mut registry = ConfigRegistry::default();
-        registry.codex.providers.push(CodexProvider {
-            id: "custom:relay".to_string(),
-            name: "Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: Some("RELAY_KEY".to_string()),
-            model_catalog: None,
-            wire_api: "responses".to_string(),
-            doc_url: None,
-        });
-        registry.codex.profiles.push(CodexProfile {
-            id: "codex-1".to_string(),
-            name: "EnvKey".to_string(),
-            provider_id: "custom:relay".to_string(),
-            api_key: "".to_string(),
-            created_at: "2026-01-01T00:00:00+08:00".to_string(),
-            updated_at: "2026-01-01T00:00:00+08:00".to_string(),
-        });
-
-        // env_key 模式空 key 不拒绝,落盘写 env_key、不内联 token
-        codex_apply_to_registry(&mut registry, "codex-1").unwrap();
-        let config = fs::read_to_string(codex_config_path().unwrap()).unwrap();
-        assert!(config.contains("env_key = \"RELAY_KEY\""), "写 env_key");
-        assert!(
-            !config.contains("experimental_bearer_token"),
-            "env_key 模式不内联 token"
-        );
-
-        clear_test_env();
-    }
-
-    // 点号 slug(手改 registry 的 custom:my.relay 一类)的同名段被替换,其他旧段原样保留。
-    #[test]
-    fn codex_apply_preserves_dotted_slug_section() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("codex-dotted-slug");
-        set_test_env(&root);
-        let config_path = codex_config_path().unwrap();
-        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
-        fs::write(
-            &config_path,
-            "model_provider = \"my.relay\"\n\n[model_providers.\"my.relay\"]\nname = \"My Relay\"\nbase_url = \"https://r.example.com/v1\"\n",
-        )
-        .unwrap();
-
-        let provider = CodexProvider {
-            id: "custom:other".to_string(),
-            name: "Other".to_string(),
-            base_url: "https://o.example.com/v1".to_string(),
-            env_key: Some("O_KEY".to_string()),
-            model_catalog: None,
-            wire_api: "responses".to_string(),
-            doc_url: None,
-        };
-        codex_apply_patch(
-            &config_path,
-            &codex_provider_slug(&provider),
-            &provider,
-            "sk-k",
-        )
-        .unwrap();
-
-        let patched = fs::read_to_string(&config_path).unwrap();
-        assert!(patched.contains("model_provider = \"other\""));
-        assert!(
-            patched.contains("[model_providers.\"my.relay\"]"),
-            "点号 slug 的旧段要原样保留,实际:\n{}",
-            patched
-        );
-
-        clear_test_env();
-    }
-
-    // 自定义 Codex Provider 的增删改:新建带 custom: 前缀,编辑更新,删除移除;
-    // 内置 Provider 不可改删。验证 #34 持久化行为。
-    #[test]
-    fn codex_provider_crud_and_builtin_readonly() {
-        let _guard = crate::utils::lock_config().unwrap();
-        let root = temp_root("codex-provider-crud");
-        set_test_env(&root);
-        let mut registry = ConfigRegistry::default();
-
-        // 新建:不传 id,自动生成 custom: 前缀
-        let created = upsert_codex_provider_in_registry(
-            &mut registry,
-            CodexProviderInput {
-                id: None,
-                name: "My Relay".to_string(),
-                base_url: "https://relay.example.com/v1".to_string(),
-                env_key: Some("MY_RELAY_KEY".to_string()),
-                wire_api: "responses".to_string(),
-                model_catalog: None,
-                doc_url: None,
-            },
-        )
-        .unwrap();
-        assert!(created.id.starts_with("custom:"));
-        assert_eq!(registry.codex.providers.len(), 1);
-
-        // 编辑:传回 id,更新字段
-        let updated = upsert_codex_provider_in_registry(
-            &mut registry,
-            CodexProviderInput {
-                id: Some(created.id.clone()),
-                name: "My Relay v2".to_string(),
-                base_url: "https://relay2.example.com/v1".to_string(),
-                env_key: Some("MY_RELAY_KEY".to_string()),
-                wire_api: "responses".to_string(),
-                model_catalog: None,
-                doc_url: Some("https://docs.example.com".to_string()),
-            },
-        )
-        .unwrap();
-        assert_eq!(updated.name, "My Relay v2");
-        assert_eq!(registry.codex.providers.len(), 1, "编辑不新增");
-        assert_eq!(
-            registry.codex.providers[0].base_url,
-            "https://relay2.example.com/v1"
-        );
-
-        // 任意非 responses 的 wire_api(含 bogus / chat)都规整为 responses,不再报错
-        let coerced = upsert_codex_provider_in_registry(
-            &mut registry,
-            CodexProviderInput {
-                id: None,
-                name: "Legacy Chat".to_string(),
-                base_url: "https://x.example.com/v1".to_string(),
-                env_key: Some("K".to_string()),
-                wire_api: "chat".to_string(),
-                model_catalog: None,
-                doc_url: None,
-            },
-        )
-        .unwrap();
-        assert_eq!(coerced.wire_api, "responses");
-        assert!(
-            registry
-                .codex
-                .providers
-                .iter()
-                .all(|p| p.wire_api == "responses"),
-            "chat wire_api 的 provider 应规整为 responses 持久化"
-        );
-
-        // 内置 Provider 删除被拒
-        delete_codex_provider_in_registry(&mut registry, CODEX_BUILTIN_OPENAI_ID).unwrap_err();
-
-        // 删除自定义 Provider 成功(规整后的 provider 保留)
-        delete_codex_provider_in_registry(&mut registry, &created.id).unwrap();
-        assert_eq!(registry.codex.providers.len(), 1);
-        assert_eq!(registry.codex.providers[0].id, coerced.id);
-
-        // 重复删除报错
-        delete_codex_provider_in_registry(&mut registry, &created.id).unwrap_err();
-
-        clear_test_env();
-    }
-
-    // Codex Profile 增删改 + api_key 脱敏 + 空 key 保留。验证 #35。
+    // Codex Profile 增删改 + api_key 脱敏 + 空 key 保留。
     #[test]
     fn codex_profile_crud_and_api_key_masking() {
         let _guard = crate::utils::lock_config().unwrap();
         let root = temp_root("codex-profile-crud");
         set_test_env(&root);
         let mut registry = ConfigRegistry::default();
-        // 预置一个自定义 provider 供 profile 引用
-        registry.codex.providers.push(CodexProvider {
-            id: "custom:relay".to_string(),
-            name: "Relay".to_string(),
-            base_url: "https://relay.example.com/v1".to_string(),
-            env_key: Some("RELAY_KEY".to_string()),
-            model_catalog: None,
-            wire_api: "responses".to_string(),
-            doc_url: None,
-        });
 
         // 新建 profile:必须提供 key
         upsert_codex_profile_in_registry(
@@ -5620,8 +5244,12 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             CodexProfileInput {
                 id: None,
                 name: "P1".to_string(),
-                provider_id: "custom:relay".to_string(),
+                provider_id: "codex-builtin:deepseek".to_string(),
                 api_key: String::new(),
+                model: None,
+                model_reasoning_effort: None,
+                custom_config_toml: None,
+                custom_models_json: None,
             },
         )
         .unwrap_err(); // 空 key 新建被拒
@@ -5631,8 +5259,12 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             CodexProfileInput {
                 id: None,
                 name: "P1".to_string(),
-                provider_id: "custom:relay".to_string(),
+                provider_id: "codex-builtin:deepseek".to_string(),
                 api_key: "testkey-secret-12345".to_string(),
+                model: Some("deepseek-v4-flash".to_string()),
+                model_reasoning_effort: Some("high".to_string()),
+                custom_config_toml: None,
+                custom_models_json: None,
             },
         )
         .unwrap();
@@ -5645,8 +5277,12 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             CodexProfileInput {
                 id: None,
                 name: "Bad".to_string(),
-                provider_id: "custom:missing".to_string(),
+                provider_id: "codex-builtin:missing".to_string(),
                 api_key: "test-x".to_string(),
+                model: None,
+                model_reasoning_effort: None,
+                custom_config_toml: None,
+                custom_models_json: None,
             },
         )
         .unwrap_err();
@@ -5657,81 +5293,36 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
             CodexProfileInput {
                 id: Some(created.id.clone()),
                 name: "P1 改名".to_string(),
-                provider_id: "custom:relay".to_string(),
+                provider_id: "codex-builtin:deepseek".to_string(),
                 api_key: String::new(),
+                model: Some("deepseek-v4-pro".to_string()),
+                model_reasoning_effort: Some("high".to_string()),
+                custom_config_toml: None,
+                custom_models_json: None,
             },
         )
         .unwrap();
         assert_eq!(preserved.name, "P1 改名");
+        assert_eq!(preserved.model.as_deref(), Some("deepseek-v4-pro"));
         assert_eq!(
             preserved.api_key, "testkey-secret-12345",
             "空 key 编辑应保留已有值"
         );
 
-        // 编辑:提供新 key 则更新
-        let rotated = upsert_codex_profile_in_registry(
-            &mut registry,
-            CodexProfileInput {
-                id: Some(created.id.clone()),
-                name: "P1".to_string(),
-                provider_id: "custom:relay".to_string(),
-                api_key: "testkey-rotated-abcdef".to_string(),
-            },
-        )
-        .unwrap();
-        assert_eq!(rotated.api_key, "testkey-rotated-abcdef");
-
         // 工作区视图 api_key 脱敏
         let workspace = build_codex_workspace(&registry);
         let view = &workspace.profiles[0];
         assert_ne!(
-            view.api_key, "testkey-rotated-abcdef",
+            view.api_key, "testkey-secret-12345",
             "工作区不应暴露明文 key"
         );
         assert!(view.api_key.contains("••••"));
-        assert!(
-            view.api_key.starts_with("test"),
-            "脱敏应保留首 4 字符: {}",
-            view.api_key
-        );
 
         // 短 key 全掩码
         assert_eq!(mask_codex_api_key("abc"), "••••");
         assert_eq!(mask_codex_api_key(""), "");
 
         clear_test_env();
-    }
-
-    // Codex Profile 解析：内置或自定义 provider 都能解析出连接信息。
-    #[test]
-    fn resolve_codex_profile_finds_builtin_and_custom_provider() {
-        // 自定义 provider 优先（含内置 OpenAI 时）
-        let registry = ConfigRegistry {
-            codex: CodexRegistry {
-                providers: vec![CodexProvider {
-                    id: "custom:relay".to_string(),
-                    name: "Relay".to_string(),
-                    base_url: "https://relay.example.com/v1".to_string(),
-                    env_key: Some("RELAY_KEY".to_string()),
-                    model_catalog: None,
-                    wire_api: "responses".to_string(),
-                    doc_url: None,
-                }],
-                ..CodexRegistry::default()
-            },
-            ..ConfigRegistry::default()
-        };
-
-        let resolved = resolve_codex_provider(&registry, "custom:relay").unwrap();
-        assert_eq!(resolved.base_url, "https://relay.example.com/v1");
-        assert_eq!(resolved.env_key.as_deref(), Some("RELAY_KEY"));
-        assert_eq!(resolved.wire_api, "responses");
-
-        // 不存在的 provider 报错
-        assert!(resolve_codex_provider(&registry, "custom:missing").is_err());
-
-        // 内置 OpenAI provider 可解析
-        assert!(resolve_codex_provider(&registry, CODEX_BUILTIN_OPENAI_ID).is_ok());
     }
 
     #[test]

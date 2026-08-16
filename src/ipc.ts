@@ -185,7 +185,6 @@ type CompatibleIpcOverrides = {
   updateMemory(id: string, data: MemoryData): Promise<AppTypes.MemoryState>;
   updateSkill(id: string, isActive: boolean, data: SkillData): Promise<AppTypes.Skill>;
   upsertCodexProfile(data: AppTypes.CodexProfileInput): Promise<AppTypes.CodexProfile>;
-  upsertCodexProvider(data: AppTypes.CodexProviderInput): Promise<AppTypes.CodexProvider>;
   upsertProfile(data: ProfileInput): Promise<AppTypes.ConfigProfile>;
 };
 

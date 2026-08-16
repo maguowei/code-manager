@@ -1,6 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { CircleCheck, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
-import type { KeyboardEvent } from "react";
+import { Check, CircleCheck, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
@@ -13,7 +12,6 @@ import type {
   CodexProfile,
   CodexProfileInput,
   CodexProvider,
-  CodexProviderInput,
   CodexWorkspace,
 } from "../types";
 import ConfigPreview from "./ConfigPreview";
@@ -28,7 +26,6 @@ import type { EditorExitGuard } from "./editor-exit-guard";
 import PageHeader from "./PageHeader";
 import ProfileNameBadge from "./ProfileNameBadge";
 import SensitiveTextInput from "./profile-editor/SensitiveTextInput";
-import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -41,8 +38,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Field, FieldContent, FieldDescription, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
+import { SegmentedControl } from "./ui/segmented-control";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import {
   Sheet,
@@ -52,192 +50,146 @@ import {
   SheetHeader,
   SheetTitle,
 } from "./ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Textarea } from "./ui/textarea";
 
-// wire_api 恒为 responses(Codex 已移除 chat);与后端 CODEX_WIRE_API_RESPONSES 对齐
-const WIRE_API_RESPONSES = "responses";
-
-// 内置 OpenAI 官方 provider id(ADR 0005:chatgpt-login 模式,免 key、认证走 ChatGPT 登录)
 const CODEX_BUILTIN_OPENAI_ID = "codex-builtin:openai";
-const isChatGptLogin = (provider?: CodexProvider) => provider?.id === CODEX_BUILTIN_OPENAI_ID;
+const isChatGptLogin = (providerId: string) => providerId === CODEX_BUILTIN_OPENAI_ID;
 
-// 卡片与 chip 样式对齐 ProvidersPage 的 preset-card / preset-chip 体系
-const PROVIDER_CARD_CLASS =
-  "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel";
-const PROVIDER_CHIP_CLASS =
-  "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
-
-interface ProviderDraft {
-  id: string | null;
-  name: string;
-  baseUrl: string;
-  envKey: string;
-  docUrl: string;
-  // 模型目录整体 JSON 文本草稿(空串 = 无);保存时解析为 modelCatalog
-  modelCatalogText: string;
-}
-
-// 模型目录解析状态:整体 JSON 输入,实时预览为模型列表(不做逐字段拆分)
-interface ModelCatalogModel {
-  id: string;
-  displayName?: string;
-  contextWindow?: number;
-}
-
-type ModelCatalogState =
-  | { kind: "empty" }
-  | { kind: "invalid"; detail: string }
-  | { kind: "ok"; models: ModelCatalogModel[] };
-
-function parseModelCatalog(text: string): ModelCatalogState {
-  const trimmed = text.trim();
-  if (trimmed === "") {
-    return { kind: "empty" };
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch (error) {
-    return {
-      kind: "invalid",
-      detail: error instanceof Error ? error.message : String(error),
-    };
-  }
-  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
-    return { kind: "invalid", detail: "" };
-  }
-  const models = Object.entries(parsed as Record<string, unknown>).map(([id, value]) => {
-    const record = value as Record<string, unknown> | null;
-    return {
-      id,
-      displayName:
-        record !== null && typeof record.display_name === "string"
-          ? record.display_name
-          : undefined,
-      contextWindow:
-        record !== null && typeof record.context_window === "number"
-          ? record.context_window
-          : undefined,
-    };
-  });
-  return { kind: "ok", models };
-}
-
-function ModelCatalogPreview({ state }: { state: ModelCatalogState }) {
-  const { t } = useI18n();
-  if (state.kind === "empty") {
-    return <p className="text-xs text-muted-foreground">{t("codex.field.modelCatalogEmpty")}</p>;
-  }
-  if (state.kind === "invalid") {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <p className="text-sm text-destructive">{t("codex.field.modelCatalogInvalid")}</p>
-        {state.detail ? <p className="text-xs text-muted-foreground">{state.detail}</p> : null}
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-xs text-muted-foreground">
-        {t("codex.field.modelCatalogCount").replace("{count}", String(state.models.length))}
-      </p>
-      <ul className="flex flex-col gap-1">
-        {state.models.map((model) => (
-          <li
-            key={model.id}
-            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground"
-          >
-            <span className="font-mono text-foreground">{model.id}</span>
-            {model.displayName ? <span>{model.displayName}</span> : null}
-            {model.contextWindow !== undefined ? <span>context: {model.contextWindow}</span> : null}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+type ProfileMode = "preset" | "custom";
 
 interface ProfileDraft {
   id: string | null;
+  mode: ProfileMode;
   name: string;
   providerId: string;
   apiKey: string;
+  model: string;
+  modelReasoningEffort: string;
+  customConfigToml: string;
+  customModelsJson: string;
 }
 
-function emptyProviderDraft(): ProviderDraft {
+function createEmptyDraft(defaultProvider?: CodexProvider): ProfileDraft {
+  const provider = defaultProvider;
   return {
     id: null,
-    name: "",
-    baseUrl: "",
-    // envKey 可选(ADR 0005):留空则 apply 内联 experimental_bearer_token
-    envKey: "",
-    docUrl: "",
-    modelCatalogText: "",
+    mode: "preset",
+    name: provider ? `${provider.name} 快速起步` : "DeepSeek 快速起步",
+    providerId: provider ? provider.id : "codex-builtin:deepseek",
+    apiKey: "",
+    model: provider?.defaultModel ?? "",
+    modelReasoningEffort: provider?.defaultReasoningEffort ?? "",
+    customConfigToml: "",
+    customModelsJson: "",
   };
 }
 
-function providerDraftFrom(p: CodexProvider): ProviderDraft {
+function profileToDraft(profile: CodexProfile, providers: CodexProvider[]): ProfileDraft {
+  const matchedProvider = providers.find((p) => p.id === profile.providerId);
+  const isCustom =
+    profile.providerId === "custom" ||
+    (!matchedProvider && (Boolean(profile.customConfigToml) || Boolean(profile.customModelsJson)));
+  const mode: ProfileMode = isCustom ? "custom" : "preset";
+  const fallbackProvider = providers.find((p) => p.id === "codex-builtin:deepseek") ?? providers[0];
+  const activeProvider = matchedProvider ?? fallbackProvider;
+
   return {
-    id: p.id,
-    name: p.name,
-    baseUrl: p.baseUrl,
-    envKey: p.envKey ?? "",
-    docUrl: p.docUrl ?? "",
-    modelCatalogText: p.modelCatalog ? JSON.stringify(p.modelCatalog, null, 2) : "",
+    id: profile.id,
+    mode,
+    name: profile.name,
+    providerId: isCustom
+      ? "custom"
+      : (matchedProvider?.id ?? activeProvider?.id ?? "codex-builtin:deepseek"),
+    apiKey: "", // 编辑时留空表示保留已有 key
+    model: profile.model ?? (isCustom ? "" : (activeProvider?.defaultModel ?? "")),
+    modelReasoningEffort:
+      profile.modelReasoningEffort ??
+      (isCustom ? "" : (activeProvider?.defaultReasoningEffort ?? "")),
+    customConfigToml: profile.customConfigToml ?? "",
+    customModelsJson: profile.customModelsJson ?? "",
   };
 }
 
-function emptyProfileDraft(defaultProviderId: string): ProfileDraft {
-  return { id: null, name: "", providerId: defaultProviderId, apiKey: "" };
+function draftToInput(draft: ProfileDraft): CodexProfileInput {
+  if (draft.mode === "custom") {
+    return {
+      id: draft.id,
+      name: draft.name.trim(),
+      providerId: "custom",
+      apiKey: "",
+      model: null,
+      modelReasoningEffort: null,
+      customConfigToml: draft.customConfigToml.trim() ? draft.customConfigToml : null,
+      customModelsJson: draft.customModelsJson.trim() ? draft.customModelsJson : null,
+    };
+  }
+
+  return {
+    id: draft.id,
+    name: draft.name.trim(),
+    providerId: draft.providerId,
+    apiKey: draft.apiKey,
+    model: draft.model.trim() ? draft.model.trim() : null,
+    modelReasoningEffort: draft.modelReasoningEffort.trim()
+      ? draft.modelReasoningEffort.trim()
+      : null,
+    customConfigToml: null,
+    customModelsJson: null,
+  };
 }
 
-function profileDraftFrom(p: CodexProfile): ProfileDraft {
-  // 编辑时 apiKey 留空:后端空 key 表示保留已有值;界面显示脱敏值作占位提示
-  return { id: p.id, name: p.name, providerId: p.providerId, apiKey: "" };
+function isDraftEqual(a: ProfileDraft, b: ProfileDraft): boolean {
+  return (
+    a.id === b.id &&
+    a.mode === b.mode &&
+    a.name === b.name &&
+    a.providerId === b.providerId &&
+    a.apiKey === b.apiKey &&
+    a.model === b.model &&
+    a.modelReasoningEffort === b.modelReasoningEffort &&
+    a.customConfigToml === b.customConfigToml &&
+    a.customModelsJson === b.customModelsJson
+  );
 }
 
 interface CodexProfilesPageProps {
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
 }
 
-export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProfilesPageProps) {
+export default function CodexProfilesPage({
+  onEditorExitGuardChange,
+}: CodexProfilesPageProps = {}) {
   const { t } = useI18n();
   const { showToast } = useToast();
+
   const [workspace, setWorkspace] = useState<CodexWorkspace | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Provider 编辑器
-  const [providerEditorOpen, setProviderEditorOpen] = useState(false);
-  const [providerDraft, setProviderDraft] = useState<ProviderDraft>(emptyProviderDraft());
-  const [providerSaving, setProviderSaving] = useState(false);
-  // 打开时的 draft 快照,用于判断是否 dirty
-  const providerDraftInitialRef = useRef("");
-
-  // Profile 编辑器
-  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+  // Profile 编辑抽屉状态
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState<ProfileDraft | null>(null);
-  const [profileSaving, setProfileSaving] = useState(false);
-  const profileDraftInitialRef = useRef("");
+  const initialDraftRef = useRef<ProfileDraft | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // 脏编辑器的退出保护:跳转页面前弹 UnsavedChangesAlertDialog
-  const [pendingExitAction, setPendingExitAction] = useState<(() => void) | null>(null);
-  const [isSavingExit, setIsSavingExit] = useState(false);
+  // 实时配置预览状态
+  const [livePreview, setLivePreview] = useState<CodexApplyPreview | null>(null);
+  const [livePreviewError, setLivePreviewError] = useState<string | null>(null);
 
-  // 删除确认(共用,带类型与目标 id)
-  const [pendingDelete, setPendingDelete] = useState<{
-    kind: "provider" | "profile";
-    id: string;
-  } | null>(null);
+  // 删除 Profile 确认对话框
+  const [deleteTarget, setDeleteTarget] = useState<CodexProfile | null>(null);
 
-  // Apply 中的 profile id(禁用按钮、防重复点击)
-  const [applyingProfileId, setApplyingProfileId] = useState<string | null>(null);
-  // Apply 预览确认(profileId + 预览数据;null 表示关闭)
-  const [applyPreview, setApplyPreview] = useState<{
-    profileId: string;
-    preview: CodexApplyPreview;
-  } | null>(null);
-  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
+  // Apply 预览对话框
+  const [applyTarget, setApplyTarget] = useState<CodexProfile | null>(null);
+  const [applyPreview, setApplyPreview] = useState<CodexApplyPreview | null>(null);
+  const [applyPreviewLoading, setApplyPreviewLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
 
-  const loadWorkspace = useCallback(async () => {
+  // 未保存更改拦截
+  const [isUnsavedChangesAlertOpen, setIsUnsavedChangesAlertOpen] = useState(false);
+  const pendingExitActionRef = useRef<(() => void) | null>(null);
+
+  const fetchWorkspace = useCallback(async () => {
     try {
       const data = await ipc.getCodexWorkspace();
       setWorkspace(data);
@@ -249,909 +201,855 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
   }, [showToast, t]);
 
   useEffect(() => {
-    void loadWorkspace();
-  }, [loadWorkspace]);
+    void fetchWorkspace();
+  }, [fetchWorkspace]);
 
   useTauriEvent("codex-workspace-changed", () => {
-    void loadWorkspace();
+    void fetchWorkspace();
   });
 
-  const builtinIdSet = new Set(workspace?.builtinProviderIds ?? []);
-  const providers = workspace?.providers ?? [];
-  const profiles = workspace?.profiles ?? [];
-  const providerName = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
-  const providerOf = (id: string) => providers.find((p) => p.id === id);
+  const isDraftDirty = useMemo(() => {
+    if (!profileDraft || !initialDraftRef.current) return false;
+    return !isDraftEqual(profileDraft, initialDraftRef.current);
+  }, [profileDraft]);
 
-  // ===== Provider handlers =====
-  const openCreateProvider = () => {
-    const draft = emptyProviderDraft();
-    providerDraftInitialRef.current = JSON.stringify(draft);
-    setProviderDraft(draft);
-    setProviderEditorOpen(true);
-  };
-  const openEditProvider = (p: CodexProvider) => {
-    const draft = providerDraftFrom(p);
-    providerDraftInitialRef.current = JSON.stringify(draft);
-    setProviderDraft(draft);
-    setProviderEditorOpen(true);
-  };
-  const closeProviderEditor = () => {
-    setProviderEditorOpen(false);
-    setPendingExitAction(null);
-  };
-  async function saveProviderDraft(): Promise<boolean> {
-    const input: CodexProviderInput = {
-      id: providerDraft.id,
-      name: providerDraft.name.trim(),
-      baseUrl: providerDraft.baseUrl.trim(),
-      // envKey 可选(ADR 0005):留空则 apply 内联 experimental_bearer_token
-      envKey: providerDraft.envKey.trim() ? providerDraft.envKey.trim() : undefined,
-      // wire_api 恒为 responses(Codex 已移除 chat),后端负责落盘
-      wireApi: WIRE_API_RESPONSES,
-      docUrl: providerDraft.docUrl.trim() ? providerDraft.docUrl.trim() : undefined,
-      // 模型目录(整体 JSON 输入):空串不上送,否则解析为对象(valid 已保证可解析)
-      modelCatalog: providerDraft.modelCatalogText.trim()
-        ? JSON.parse(providerDraft.modelCatalogText)
-        : undefined,
-    };
-    setProviderSaving(true);
-    try {
-      await ipc.upsertCodexProvider(input);
-      showToast(
-        providerDraft.id ? t("codex.toast.providerUpdated") : t("codex.toast.providerCreated"),
-      );
-      closeProviderEditor();
-      return true;
-    } catch (error) {
-      showOperationError(showToast, t("codex.toast.providerSaveFailed"), error);
-      return false;
-    } finally {
-      setProviderSaving(false);
-    }
-  }
-  const handleSaveProvider = () => {
-    void saveProviderDraft();
-  };
-
-  // ===== Profile handlers =====
-  const openCreateProfile = () => {
-    const defaultProviderId = providers[0]?.id ?? "";
-    const draft = emptyProfileDraft(defaultProviderId);
-    profileDraftInitialRef.current = JSON.stringify(draft);
-    setProfileDraft(draft);
-    setProfileEditorOpen(true);
-  };
-  const openEditProfile = (p: CodexProfile) => {
-    const draft = profileDraftFrom(p);
-    profileDraftInitialRef.current = JSON.stringify(draft);
-    setProfileDraft(draft);
-    setProfileEditorOpen(true);
-  };
-  const closeProfileEditor = () => {
-    setProfileEditorOpen(false);
-    setProfileDraft(null);
-    setPendingExitAction(null);
-  };
-  async function saveProfileDraft(): Promise<boolean> {
-    if (!profileDraft) return false;
-    const input: CodexProfileInput = {
-      id: profileDraft.id,
-      name: profileDraft.name.trim(),
-      providerId: profileDraft.providerId,
-      apiKey: profileDraft.apiKey,
-    };
-    setProfileSaving(true);
-    try {
-      await ipc.upsertCodexProfile(input);
-      showToast(
-        profileDraft.id ? t("codex.toast.profileUpdated") : t("codex.toast.profileCreated"),
-      );
-      closeProfileEditor();
-      return true;
-    } catch (error) {
-      showOperationError(showToast, t("codex.toast.profileSaveFailed"), error);
-      return false;
-    } finally {
-      setProfileSaving(false);
-    }
-  }
-  const handleSaveProfile = () => {
-    void saveProfileDraft();
-  };
-
-  // ===== Delete handler(共用) =====
-  const handleConfirmDelete = async () => {
-    if (!pendingDelete) return;
-    const { kind, id } = pendingDelete;
-    setPendingDelete(null);
-    try {
-      if (kind === "provider") {
-        await ipc.deleteCodexProvider(id);
-        showToast(t("codex.toast.providerDeleted"));
-      } else {
-        await ipc.deleteCodexProfile(id);
-        showToast(t("codex.toast.profileDeleted"));
+  const requestExitGuard = useCallback(
+    (onDiscard: () => void): boolean => {
+      if (isDraftDirty) {
+        pendingExitActionRef.current = onDiscard;
+        setIsUnsavedChangesAlertOpen(true);
+        return false;
       }
-    } catch (error) {
-      showOperationError(
-        showToast,
-        kind === "provider"
-          ? t("codex.toast.providerDeleteFailed")
-          : t("codex.toast.profileDeleteFailed"),
-        error,
-      );
-    }
-  };
-
-  // 模型目录整体 JSON 解析状态(实时预览 + 保存前校验)
-  const modelCatalogState = useMemo(
-    () => parseModelCatalog(providerDraft.modelCatalogText),
-    [providerDraft.modelCatalogText],
-  );
-
-  const providerDraftValid =
-    providerDraft.name.trim() !== "" &&
-    providerDraft.baseUrl.trim() !== "" &&
-    // 模型目录为空或 JSON 合法才允许保存(无效 JSON 禁用保存)
-    modelCatalogState.kind !== "invalid";
-  const profileDraftValid =
-    profileDraft !== null &&
-    profileDraft.name.trim() !== "" &&
-    profileDraft.providerId !== "" &&
-    // 新建:chatgpt-login(内置 openai)免 key;api-key 模式必须有 key;编辑可空(保留)
-    (profileDraft.id !== null ||
-      isChatGptLogin(providerOf(profileDraft.providerId)) ||
-      profileDraft.apiKey.trim() !== "");
-
-  // ===== 脏编辑器退出保护(frontend-ui.md:抽屉编辑器必须暴露 EditorExitGuard)=====
-  const providerDirty =
-    providerEditorOpen && JSON.stringify(providerDraft) !== providerDraftInitialRef.current;
-  const profileDirty =
-    profileEditorOpen &&
-    profileDraft !== null &&
-    JSON.stringify(profileDraft) !== profileDraftInitialRef.current;
-
-  const requestEditorExit = useCallback(
-    (action: () => void) => {
-      if (providerDirty || profileDirty) {
-        setPendingExitAction(() => action);
-        return;
-      }
-      action();
+      onDiscard();
+      return true;
     },
-    [providerDirty, profileDirty],
+    [isDraftDirty],
   );
 
   useEffect(() => {
-    if (!onEditorExitGuardChange) {
-      return;
-    }
-    if (!providerEditorOpen && !profileEditorOpen) {
+    if (!onEditorExitGuardChange) return;
+    if (isEditorOpen && isDraftDirty) {
+      onEditorExitGuardChange({
+        id: "codex-profile-editor",
+        canExit: () => requestExitGuard(() => setIsEditorOpen(false)),
+      });
+    } else {
       onEditorExitGuardChange(null);
-      return;
     }
-    onEditorExitGuardChange({ requestExit: requestEditorExit });
-    return () => onEditorExitGuardChange(null);
-  }, [providerEditorOpen, profileEditorOpen, onEditorExitGuardChange, requestEditorExit]);
+    return () => {
+      onEditorExitGuardChange(null);
+    };
+  }, [isEditorOpen, isDraftDirty, onEditorExitGuardChange, requestExitGuard]);
 
-  async function saveAndRunPendingExit() {
-    const action = pendingExitAction;
-    if (!action) {
+  // 打开创建 Profile 抽屉
+  const handleOpenCreate = useCallback(() => {
+    const defaultProvider =
+      workspace?.providers.find((p) => p.id === "codex-builtin:deepseek") ??
+      workspace?.providers[0];
+    const draft = createEmptyDraft(defaultProvider);
+    initialDraftRef.current = draft;
+    setProfileDraft(draft);
+    setIsEditorOpen(true);
+  }, [workspace]);
+
+  // 打开编辑 Profile 抽屉
+  const handleOpenEdit = useCallback(
+    (profile: CodexProfile) => {
+      if (!workspace) return;
+      const draft = profileToDraft(profile, workspace.providers);
+      initialDraftRef.current = draft;
+      setProfileDraft(draft);
+      setIsEditorOpen(true);
+    },
+    [workspace],
+  );
+
+  const handleCloseEditor = useCallback(() => {
+    requestExitGuard(() => {
+      setIsEditorOpen(false);
+      setProfileDraft(null);
+      initialDraftRef.current = null;
+      setLivePreview(null);
+      setLivePreviewError(null);
+    });
+  }, [requestExitGuard]);
+
+  // 实时预览防抖更新
+  useEffect(() => {
+    if (!isEditorOpen || !profileDraft) {
+      setLivePreview(null);
+      setLivePreviewError(null);
       return;
     }
-    setIsSavingExit(true);
-    try {
-      const saved = providerDirty ? await saveProviderDraft() : await saveProfileDraft();
-      if (saved) {
-        setPendingExitAction(null);
-        action();
+
+    const timer = setTimeout(() => {
+      const input = draftToInput(profileDraft);
+      ipc
+        .previewCodexInput(input)
+        .then((preview) => {
+          setLivePreview(preview);
+          setLivePreviewError(null);
+        })
+        .catch((err) => {
+          setLivePreview(null);
+          setLivePreviewError(err instanceof Error ? err.message : String(err));
+        });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [isEditorOpen, profileDraft]);
+
+  // 保存 Profile
+  const handleSaveProfile = async () => {
+    if (!profileDraft) return;
+    const name = profileDraft.name.trim();
+    if (!name) return;
+
+    if (profileDraft.mode === "preset") {
+      const isChatGpt = isChatGptLogin(profileDraft.providerId);
+      if (!isChatGpt && !profileDraft.id && !profileDraft.apiKey.trim()) {
+        showToast(t("codex.field.apiKey"), "error");
+        return;
       }
-    } finally {
-      setIsSavingExit(false);
     }
-  }
 
-  function discardAndRunPendingExit() {
-    const action = pendingExitAction;
-    setPendingExitAction(null);
-    if (providerEditorOpen) {
-      closeProviderEditor();
-    }
-    if (profileEditorOpen) {
-      closeProfileEditor();
-    }
-    action?.();
-  }
-  const hasProvider = providers.length > 0;
-  const activeProfileId = workspace?.bindings.codexProfileId ?? null;
-  // 正在编辑的条目 id,用于给对应卡片加 editing 高亮(仅编辑已有条目时,新建为 null)
-  const editingProviderId = providerEditorOpen ? providerDraft.id : null;
-  const editingProfileId = profileEditorOpen ? (profileDraft?.id ?? null) : null;
-
-  // 点击应用:先拉取预览(不写盘),弹确认面板;确认后才真正 apply
-  const handleApplyProfile = async (profileId: string) => {
-    setPreviewLoadingId(profileId);
+    setSaving(true);
     try {
-      const preview = await ipc.previewCodexApply(profileId);
-      setApplyPreview({ profileId, preview });
+      const input = draftToInput(profileDraft);
+      await ipc.upsertCodexProfile(input);
+      showToast(
+        profileDraft.id ? t("codex.toast.profileUpdated") : t("codex.toast.profileCreated"),
+        "success",
+      );
+      setIsEditorOpen(false);
+      setProfileDraft(null);
+      initialDraftRef.current = null;
+      await fetchWorkspace();
     } catch (error) {
-      showOperationError(showToast, t("codex.toast.profileApplyFailed"), error);
+      showOperationError(showToast, t("codex.toast.profileSaveFailed"), error);
     } finally {
-      setPreviewLoadingId(null);
+      setSaving(false);
     }
   };
 
-  const handleConfirmApply = async () => {
-    if (!applyPreview) return;
-    const { profileId } = applyPreview;
+  // 删除 Profile
+  const handleDeleteProfile = async () => {
+    if (!deleteTarget) return;
+    try {
+      await ipc.deleteCodexProfile(deleteTarget.id);
+      showToast(t("codex.toast.profileDeleted"), "success");
+      setDeleteTarget(null);
+      await fetchWorkspace();
+    } catch (error) {
+      showOperationError(showToast, t("codex.toast.profileDeleteFailed"), error);
+    }
+  };
+
+  // 触发 Apply 预览
+  const handleTriggerApply = async (profile: CodexProfile) => {
+    setApplyTarget(profile);
+    setApplyPreviewLoading(true);
     setApplyPreview(null);
-    setApplyingProfileId(profileId);
     try {
-      await ipc.applyCodexProfile(profileId);
-      showToast(t("codex.toast.profileApplied"));
+      const preview = await ipc.previewCodexApply(profile.id);
+      setApplyPreview(preview);
     } catch (error) {
       showOperationError(showToast, t("codex.toast.profileApplyFailed"), error);
+      setApplyTarget(null);
     } finally {
-      setApplyingProfileId(null);
+      setApplyPreviewLoading(false);
     }
   };
 
-  // Profile 摘要行的标签样式(对齐 ProfilesPage 的 summary row)
-  const summaryLabelClass =
-    "inline-flex shrink-0 items-center text-xs leading-none font-bold text-muted-foreground uppercase after:ml-0.5 after:font-bold after:text-border after:content-[':']";
-  const summaryRowClass =
-    "grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-1.5 text-sm text-muted-foreground";
+  // 确认 Apply
+  const handleConfirmApply = async () => {
+    if (!applyTarget) return;
+    setApplying(true);
+    try {
+      await ipc.applyCodexProfile(applyTarget.id);
+      showToast(t("codex.toast.profileApplied"), "success");
+      setApplyTarget(null);
+      setApplyPreview(null);
+      await fetchWorkspace();
+    } catch (error) {
+      showOperationError(showToast, t("codex.toast.profileApplyFailed"), error);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  // 切换预设供应商时联动模型与名称
+  const handleSelectPresetProvider = (provider: CodexProvider) => {
+    if (!profileDraft) return;
+    const isPreviousDefaultName = workspace?.providers.some(
+      (p) => profileDraft.name === `${p.name} 快速起步`,
+    );
+
+    setProfileDraft((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        providerId: provider.id,
+        name: isPreviousDefaultName || !prev.name ? `${provider.name} 快速起步` : prev.name,
+        model: provider.defaultModel ?? "",
+        modelReasoningEffort: provider.defaultReasoningEffort ?? "",
+      };
+    });
+  };
+
+  const activeProfileId = workspace?.bindings.codexProfileId;
+  const currentSelectedPresetProvider = useMemo(() => {
+    if (!workspace || !profileDraft || profileDraft.mode !== "preset") return undefined;
+    return (
+      workspace.providers.find((p) => p.id === profileDraft.providerId) ??
+      workspace.providers.find((p) => p.id === "codex-builtin:deepseek") ??
+      workspace.providers[0]
+    );
+  }, [workspace, profileDraft]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-secondary">
+    <div className="flex flex-col gap-6">
+      {/* 页头 */}
       <PageHeader
         title={t("codex.pageTitle")}
         description={t("codex.pageDescription")}
-        surface="secondary"
-        variant="list"
+        actions={
+          <Button size="sm" onClick={handleOpenCreate} disabled={loading}>
+            <Plus className="size-4" />
+            {t("codex.addProfile")}
+          </Button>
+        }
       />
 
-      <div className="scrollbar-none flex min-h-0 flex-col gap-6 overflow-y-auto p-4">
-        {loading ? (
-          <EmptyState title={t("codex.loading")} loading />
-        ) : (
-          <>
-            {/* Provider 区 */}
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className={TYPOGRAPHY.sectionTitle}>{t("codex.providerSectionTitle")}</h2>
-                <Button type="button" size="sm" onClick={openCreateProvider}>
-                  <Plus className="size-4" />
-                  {t("codex.addProvider")}
-                </Button>
-              </div>
-              <p className={TYPOGRAPHY.auxiliary}>{t("codex.providerSectionHint")}</p>
-              {providers.length === 0 ? (
-                <EmptyState
-                  title={t("codex.emptyProviderTitle")}
-                  hint={t("codex.emptyProviderHint")}
-                  icon={Plus}
-                />
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {providers.map((provider) => {
-                    const builtin = builtinIdSet.has(provider.id);
-                    const docUrl = provider.docUrl;
-                    const editing = editingProviderId === provider.id;
-                    // 内置 Provider 只读;自定义 Provider 整卡可点进入编辑
-                    const openThisProvider = () =>
-                      requestEditorExit(() => openEditProvider(provider));
-                    return (
-                      <li key={provider.id}>
-                        <Card
-                          className={cn(
-                            "group",
-                            PROVIDER_CARD_CLASS,
-                            !builtin && INTERACTIVE_CARD_CLASS,
-                            !builtin && editing && "editing border-chart-3 ring-1 ring-chart-3/30",
-                          )}
-                          data-slot="codex-provider-card"
-                          {...(builtin
-                            ? {}
-                            : {
-                                role: "button",
-                                tabIndex: 0,
-                                "aria-label": provider.name,
-                                onClick: openThisProvider,
-                                onKeyDown: (event: KeyboardEvent) => {
-                                  // 只响应卡片自身的 Enter/Space,内层按钮按键不冒泡误触
-                                  if (event.target !== event.currentTarget) return;
-                                  if (event.key === "Enter" || event.key === " ") {
-                                    event.preventDefault();
-                                    openThisProvider();
-                                  }
-                                },
-                              })}
-                        >
-                          <div className="preset-card-head flex items-start justify-between gap-3 max-[700px]:flex-wrap">
-                            <div className="preset-card-title-block min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-base leading-snug font-semibold">
-                                  {provider.name}
-                                </h3>
-                                {builtin ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="rounded-full px-2 py-0.5 text-xs font-semibold text-muted-foreground"
-                                  >
-                                    {t("codex.builtinBadge")}
-                                  </Badge>
-                                ) : null}
-                              </div>
-                            </div>
-                            {docUrl ? (
-                              <div className="flex shrink-0 items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant="link"
-                                  className="preset-card-doc-link h-auto min-h-7 gap-1.5 p-0 text-xs font-semibold text-primary hover:text-primary"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    void openUrl(docUrl);
-                                  }}
-                                >
-                                  <span>{t("codex.openDocs")}</span>
-                                  <ExternalLink className="size-3.5" aria-hidden="true" />
-                                </Button>
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="preset-card-body flex flex-col gap-2.5">
-                            <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
-                              <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
-                                {t("codex.field.baseUrl")}
-                              </span>
-                              <div className="preset-summary-value mt-[7px] flex flex-wrap items-center gap-2 font-mono text-xs leading-normal text-foreground [overflow-wrap:anywhere]">
-                                {provider.baseUrl}
-                              </div>
-                            </div>
-                            <div className="preset-chip-list flex flex-wrap items-center gap-2">
-                              {isChatGptLogin(provider) ? (
-                                <span className={PROVIDER_CHIP_CLASS}>
-                                  {t("codex.summary.chatgptLogin")}
-                                </span>
-                              ) : provider.envKey ? (
-                                <span className={PROVIDER_CHIP_CLASS}>{provider.envKey}</span>
-                              ) : null}
-                            </div>
-                          </div>
-                          {builtin ? null : (
-                            <div className={CARD_ACTION_BAR_CLASS}>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                className={CARD_ACTION_BUTTON_CLASS}
-                                aria-label={t("codex.edit")}
-                                title={t("codex.edit")}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openThisProvider();
-                                }}
-                              >
-                                <Pencil aria-hidden="true" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                className="border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
-                                aria-label={t("codex.delete")}
-                                title={t("codex.delete")}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setPendingDelete({ kind: "provider", id: provider.id });
-                                }}
-                              >
-                                <Trash2 aria-hidden="true" />
-                              </Button>
-                            </div>
-                          )}
-                        </Card>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
+      {/* 主体列表 */}
+      {loading ? (
+        <p className="text-sm text-muted-foreground">{t("codex.loading")}</p>
+      ) : !workspace || workspace.profiles.length === 0 ? (
+        <EmptyState
+          title={t("codex.emptyProfileTitle")}
+          description={t("codex.emptyProfileHint")}
+          action={
+            <Button size="sm" onClick={handleOpenCreate}>
+              <Plus className="size-4" />
+              {t("codex.addProfile")}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {workspace.profiles.map((profile) => {
+            const isCustom = profile.providerId === "custom";
+            const provider = workspace.providers.find((p) => p.id === profile.providerId);
+            const isActive = activeProfileId === profile.id;
+            const isEditing = isEditorOpen && profileDraft?.id === profile.id;
+            const targetModel = profile.model || provider?.defaultModel;
+            const targetEffort = profile.modelReasoningEffort || provider?.defaultReasoningEffort;
 
-            {/* Profile 区 */}
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className={TYPOGRAPHY.sectionTitle}>{t("codex.profileSectionTitle")}</h2>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={openCreateProfile}
-                  disabled={!hasProvider}
-                  title={hasProvider ? undefined : t("codex.profileCreateDisabledHint")}
-                >
-                  <Plus className="size-4" />
-                  {t("codex.addProfile")}
-                </Button>
-              </div>
-              <p className={TYPOGRAPHY.auxiliary}>{t("codex.profileSectionHint")}</p>
-              {!hasProvider ? (
-                <EmptyState
-                  title={t("codex.profileNeedsProviderTitle")}
-                  hint={t("codex.profileNeedsProviderHint")}
-                  icon={Plus}
-                />
-              ) : profiles.length === 0 ? (
-                <EmptyState
-                  title={t("codex.emptyProfileTitle")}
-                  hint={t("codex.emptyProfileHint")}
-                  icon={Plus}
-                />
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {profiles.map((profile) => {
-                    const isActive = profile.id === activeProfileId;
-                    const isEditing = editingProfileId === profile.id;
-                    const applying = applyingProfileId === profile.id;
-                    const previewing = previewLoadingId === profile.id;
-                    const provider = providerOf(profile.providerId);
-                    // 整卡可点进入编辑,复用退出保护
-                    const openThisProfile = () => requestEditorExit(() => openEditProfile(profile));
-                    return (
-                      <li key={profile.id}>
-                        <Card
-                          className={cn(
-                            "group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 text-foreground shadow-panel",
-                            INTERACTIVE_CARD_CLASS,
-                            isActive && "active border-primary ring-1 ring-primary/30",
-                            isEditing && "editing border-chart-3 ring-1 ring-chart-3/30",
-                          )}
-                          data-slot="codex-profile-card"
-                          role="button"
-                          tabIndex={0}
-                          aria-label={profile.name}
-                          onClick={openThisProfile}
-                          onKeyDown={(event) => {
-                            // 只响应卡片自身的 Enter/Space,内层按钮按键不冒泡误触
-                            if (event.target !== event.currentTarget) return;
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              openThisProfile();
-                            }
+            return (
+              <Card
+                key={profile.id}
+                role="button"
+                tabIndex={0}
+                data-slot="profile-card"
+                onClick={() => {
+                  requestExitGuard(() => handleOpenEdit(profile));
+                }}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    requestExitGuard(() => handleOpenEdit(profile));
+                  }
+                }}
+                className={cn(
+                  INTERACTIVE_CARD_CLASS,
+                  "relative flex flex-col justify-between gap-4 p-5",
+                  isActive && "border-primary/60 ring-1 ring-primary/40",
+                  isEditing && "border-chart-3 ring-1 ring-chart-3/40",
+                )}
+              >
+                {/* 顶部标题行 */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ProfileNameBadge name={profile.name} size="sm" />
+                      <span className="text-sm font-semibold text-foreground">{profile.name}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {isCustom ? t("codex.customBadge") : (provider?.name ?? profile.providerId)}
+                      </Badge>
+                    </div>
+
+                    {isActive ? (
+                      <Badge
+                        variant="default"
+                        className="gap-1 bg-primary text-xs text-primary-foreground"
+                      >
+                        <CircleCheck className="size-3.5" />
+                        {t("codex.activeBadge")}
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  {/* 属性信息 */}
+                  <div className="mt-2 flex flex-col gap-1.5 text-xs text-muted-foreground">
+                    {targetModel ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <span>{t("codex.summary.model")}</span>
+                        <span className="font-mono font-medium text-foreground">{targetModel}</span>
+                      </div>
+                    ) : null}
+
+                    {targetEffort ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <span>{t("codex.summary.effort")}</span>
+                        <span className="font-mono text-foreground">{targetEffort}</span>
+                      </div>
+                    ) : null}
+
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{t("codex.summary.apiKey")}</span>
+                      <span className="font-mono text-foreground">
+                        {isCustom
+                          ? t("codex.summary.customSnippet")
+                          : isChatGptLogin(profile.providerId)
+                            ? t("codex.summary.chatgptLogin")
+                            : profile.apiKey || t("codex.summary.apiKeyUnset")}
+                      </span>
+                    </div>
+
+                    {provider?.docUrl ? (
+                      <div className="flex items-center justify-between gap-2 pt-0.5">
+                        <span>{t("codex.openDocs")}</span>
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            provider.docUrl && void openUrl(provider.docUrl);
                           }}
+                          className="h-auto p-0 text-xs text-primary hover:underline"
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex min-w-0 items-start gap-3">
-                              <ProfileNameBadge
-                                name={profile.name}
-                                colorSeedScope={profile.providerId}
-                                size="sm"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <h3 className="truncate text-base font-semibold">{profile.name}</h3>
-                                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                                  <Badge
-                                    variant="secondary"
-                                    className="rounded-full px-2 py-0.5 text-xs font-semibold text-primary"
-                                  >
-                                    {providerName(profile.providerId)}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap items-center justify-end gap-2">
-                              {isActive ? (
-                                <Badge
-                                  variant="secondary"
-                                  className={cn(
-                                    "active rounded-md px-2.5 py-1.5 text-chart-2",
-                                    TYPOGRAPHY.badge,
-                                  )}
-                                >
-                                  <CircleCheck className="size-3" />
-                                  {t("codex.activeBadge")}
-                                </Badge>
-                              ) : isEditing ? (
-                                <Badge
-                                  className={cn(
-                                    "editing rounded-md bg-chart-3/10 px-2.5 py-1.5 text-chart-3",
-                                    TYPOGRAPHY.badge,
-                                  )}
-                                >
-                                  {t("codex.editingBadge")}
-                                </Badge>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="font-semibold"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    void handleApplyProfile(profile.id);
-                                  }}
-                                  disabled={applying || previewing}
-                                  aria-label={t("codex.apply")}
-                                >
-                                  {t("codex.apply")}
-                                </Button>
-                              )}
-                            </div>
-                          </div>
+                          <ExternalLink className="size-3" />
+                          <span>{provider.name}</span>
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
 
-                          <div className="flex flex-col gap-2">
-                            <div className={summaryRowClass}>
-                              <span className={summaryLabelClass}>
-                                {t("codex.summary.baseUrl")}
-                              </span>
-                              <span className="min-w-0 max-w-full truncate font-mono text-xs leading-none text-foreground [overflow-wrap:anywhere]">
-                                {provider?.baseUrl ?? "—"}
-                              </span>
-                            </div>
-                            <div className={summaryRowClass}>
-                              <span className={summaryLabelClass}>{t("codex.summary.apiKey")}</span>
-                              {isChatGptLogin(provider) ? (
-                                <span className="text-xs leading-none text-muted-foreground">
-                                  {t("codex.summary.chatgptLogin")}
-                                </span>
-                              ) : profile.apiKey ? (
-                                <span className="min-w-0 max-w-full truncate font-mono text-xs leading-none text-foreground [overflow-wrap:anywhere]">
-                                  {profile.apiKey}
-                                </span>
-                              ) : (
-                                <span className="text-xs leading-none text-muted-foreground">
-                                  {t("codex.summary.apiKeyUnset")}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                {/* 底部操作条 */}
+                <div
+                  className={cn(CARD_ACTION_BAR_CLASS, "justify-between pt-2")}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    size="sm"
+                    variant={isActive ? "secondary" : "default"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTriggerApply(profile);
+                    }}
+                    disabled={isActive}
+                    className="gap-1.5"
+                  >
+                    {isActive ? <Check className="size-3.5" /> : null}
+                    {isActive ? t("codex.applied") : t("codex.apply")}
+                  </Button>
 
-                          <div className={CARD_ACTION_BAR_CLASS}>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              className={CARD_ACTION_BUTTON_CLASS}
-                              aria-label={t("codex.edit")}
-                              title={t("codex.edit")}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openThisProfile();
-                              }}
-                            >
-                              <Pencil aria-hidden="true" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              className="border-border bg-muted text-foreground hover:border-destructive hover:text-destructive"
-                              aria-label={t("codex.delete")}
-                              title={t("codex.delete")}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setPendingDelete({ kind: "profile", id: profile.id });
-                              }}
-                            >
-                              <Trash2 aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </Card>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-          </>
-        )}
-      </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className={cn(CARD_ACTION_BUTTON_CLASS, "size-8")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestExitGuard(() => handleOpenEdit(profile));
+                      }}
+                      title={t("codex.edit")}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className={cn(
+                        CARD_ACTION_BUTTON_CLASS,
+                        "size-8 text-destructive hover:bg-destructive/10 hover:text-destructive",
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(profile);
+                      }}
+                      title={t("codex.delete")}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Provider 编辑器 */}
-      <Sheet
-        open={providerEditorOpen}
-        onOpenChange={(open) => !open && requestEditorExit(closeProviderEditor)}
-      >
-        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="shrink-0 border-b px-5 py-3.5 pr-12">
-            <SheetTitle>
-              {providerDraft.id ? t("codex.editProvider") : t("codex.createProvider")}
-            </SheetTitle>
-            <SheetDescription>{t("codex.editorDescription")}</SheetDescription>
-          </SheetHeader>
-          <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-5 py-4">
-            <ProfileNameBadge name={providerDraft.name} size="lg" fallbackChar="P" />
-            <FieldGroup className="w-full">
-              <Field>
-                <FieldLabel>{t("codex.field.name")}</FieldLabel>
-                <FieldContent>
-                  <Input
-                    value={providerDraft.name}
-                    onChange={(e) => setProviderDraft({ ...providerDraft, name: e.target.value })}
-                    placeholder={t("codex.field.namePlaceholder")}
-                  />
-                </FieldContent>
-              </Field>
-              <Field>
-                <FieldLabel>{t("codex.field.baseUrl")}</FieldLabel>
-                <FieldDescription>{t("codex.field.baseUrlHint")}</FieldDescription>
-                <FieldContent>
-                  <Input
-                    value={providerDraft.baseUrl}
-                    onChange={(e) =>
-                      setProviderDraft({ ...providerDraft, baseUrl: e.target.value })
-                    }
-                    placeholder="https://api.example.com/v1"
-                  />
-                </FieldContent>
-              </Field>
-              <Field>
-                <FieldLabel>{t("codex.field.envKey")}</FieldLabel>
-                <FieldDescription>{t("codex.field.envKeyHint")}</FieldDescription>
-                <FieldContent>
-                  <Input
-                    value={providerDraft.envKey}
-                    onChange={(e) => setProviderDraft({ ...providerDraft, envKey: e.target.value })}
-                    placeholder="DEEPSEEK_API_KEY"
-                  />
-                </FieldContent>
-              </Field>
-              <Field>
-                <FieldLabel>{t("codex.field.docUrl")}</FieldLabel>
-                <FieldContent>
-                  <Input
-                    value={providerDraft.docUrl}
-                    onChange={(e) => setProviderDraft({ ...providerDraft, docUrl: e.target.value })}
-                    placeholder="https://docs.example.com"
-                  />
-                </FieldContent>
-              </Field>
-              <Field>
-                <FieldLabel>{t("codex.field.modelCatalog")}</FieldLabel>
-                <FieldDescription>{t("codex.field.modelCatalogHint")}</FieldDescription>
-                <FieldContent>
-                  <ConfigPreview
-                    content={providerDraft.modelCatalogText}
-                    onChange={(value) =>
-                      setProviderDraft({ ...providerDraft, modelCatalogText: value })
-                    }
-                  />
-                  <ModelCatalogPreview state={modelCatalogState} />
-                </FieldContent>
-              </Field>
-            </FieldGroup>
-          </div>
-          <SheetFooter className="shrink-0 border-t px-5 py-3.5">
-            <div className="flex w-full flex-row justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => requestEditorExit(closeProviderEditor)}
-                disabled={providerSaving}
-              >
-                {t("codex.cancel")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleSaveProvider()}
-                disabled={!providerDraftValid || providerSaving}
-              >
-                {t("codex.save")}
-              </Button>
-            </div>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      {/* Profile 编辑器 */}
-      <Sheet
-        open={profileEditorOpen}
-        onOpenChange={(open) => !open && requestEditorExit(closeProfileEditor)}
-      >
-        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="shrink-0 border-b px-5 py-3.5 pr-12">
+      {/* Profile 创建/编辑 抽屉 */}
+      <Sheet open={isEditorOpen} onOpenChange={(open) => !open && handleCloseEditor()}>
+        <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-2xl">
+          <SheetHeader>
             <SheetTitle>
               {profileDraft?.id ? t("codex.editProfile") : t("codex.createProfile")}
             </SheetTitle>
             <SheetDescription>{t("codex.profileEditorDescription")}</SheetDescription>
           </SheetHeader>
+
           {profileDraft ? (
-            <>
-              <div className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto px-5 py-4">
-                <ProfileNameBadge
-                  name={profileDraft.name}
-                  colorSeedScope={profileDraft.providerId}
-                  size="lg"
-                  fallbackChar="P"
-                />
-                <FieldGroup className="w-full">
+            <div className="flex flex-1 flex-col gap-5 py-4">
+              {/* 模式选择 */}
+              <Field>
+                <FieldLabel>{t("codex.selectPresetTitle")}</FieldLabel>
+                <FieldContent>
+                  <SegmentedControl
+                    ariaLabel={t("codex.modePreset")}
+                    value={profileDraft.mode}
+                    onValueChange={(val) => {
+                      const nextMode = val as ProfileMode;
+                      setProfileDraft((prev) => {
+                        if (!prev) return null;
+                        if (nextMode === "custom") {
+                          return {
+                            ...prev,
+                            mode: "custom",
+                            providerId: "custom",
+                          };
+                        }
+                        const defaultP =
+                          workspace?.providers.find((p) => p.id === "codex-builtin:deepseek") ??
+                          workspace?.providers[0];
+                        const targetP =
+                          workspace?.providers.find((p) => p.id === prev.providerId) ?? defaultP;
+                        return {
+                          ...prev,
+                          mode: "preset",
+                          providerId: targetP ? targetP.id : "codex-builtin:deepseek",
+                          model: prev.model || (targetP?.defaultModel ?? ""),
+                          modelReasoningEffort:
+                            prev.modelReasoningEffort || (targetP?.defaultReasoningEffort ?? ""),
+                        };
+                      });
+                    }}
+                    items={[
+                      { value: "preset", label: t("codex.modePreset") },
+                      { value: "custom", label: t("codex.modeCustom") },
+                    ]}
+                  />
+                </FieldContent>
+              </Field>
+
+              {/* 预设模式: 厂商选择卡片 */}
+              {profileDraft.mode === "preset" ? (
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                    {workspace?.providers.map((p) => {
+                      const isSelected = profileDraft.providerId === p.id;
+                      return (
+                        <Button
+                          key={p.id}
+                          type="button"
+                          variant="ghost"
+                          onClick={() => handleSelectPresetProvider(p)}
+                          className={cn(
+                            "flex h-auto flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all",
+                            isSelected
+                              ? "border-primary bg-primary/5 ring-1 ring-primary"
+                              : "border-border hover:border-muted-foreground/40 hover:bg-muted/40",
+                          )}
+                        >
+                          <div className="flex w-full items-center justify-between">
+                            <span className="text-sm font-semibold text-foreground">{p.name}</span>
+                            {isSelected ? <Check className="size-4 text-primary" /> : null}
+                          </div>
+                          <span className="text-xs text-muted-foreground truncate max-w-full font-normal">
+                            {p.defaultModel ?? p.slug}
+                          </span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* 通用字段: 配置名称 */}
+              <Field>
+                <FieldLabel>{t("codex.field.profileName")}</FieldLabel>
+                <FieldContent>
+                  <Input
+                    value={profileDraft.name}
+                    onChange={(e) =>
+                      setProfileDraft((prev) => (prev ? { ...prev, name: e.target.value } : null))
+                    }
+                    placeholder={t("codex.field.profileNamePlaceholder")}
+                  />
+                </FieldContent>
+              </Field>
+
+              {/* 预设模式表单项 */}
+              {profileDraft.mode === "preset" && currentSelectedPresetProvider ? (
+                <div className="flex flex-col gap-4 rounded-lg border border-border/80 bg-muted/20 p-4">
+                  {/* 目标模型 */}
                   <Field>
-                    <FieldLabel>{t("codex.field.profileName")}</FieldLabel>
-                    <FieldContent>
+                    <FieldLabel>{t("codex.field.model")}</FieldLabel>
+                    <FieldContent className="flex flex-col gap-2">
+                      {currentSelectedPresetProvider.models.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {currentSelectedPresetProvider.models.map((m) => {
+                            const isCurrent = profileDraft.model === m.id;
+                            return (
+                              <Button
+                                key={m.id}
+                                type="button"
+                                variant={isCurrent ? "secondary" : "outline"}
+                                size="xs"
+                                onClick={() =>
+                                  setProfileDraft((prev) =>
+                                    prev ? { ...prev, model: m.id } : null,
+                                  )
+                                }
+                                className={cn(
+                                  "font-mono text-xs",
+                                  isCurrent &&
+                                    "border-primary bg-primary/10 text-primary font-semibold",
+                                )}
+                              >
+                                {m.name || m.id}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                       <Input
-                        value={profileDraft.name}
-                        onChange={(e) => setProfileDraft({ ...profileDraft, name: e.target.value })}
-                        placeholder={t("codex.field.profileNamePlaceholder")}
+                        value={profileDraft.model}
+                        onChange={(e) =>
+                          setProfileDraft((prev) =>
+                            prev ? { ...prev, model: e.target.value } : null,
+                          )
+                        }
+                        placeholder={t("codex.field.modelPlaceholder")}
+                        className="font-mono text-xs"
                       />
+                      <FieldDescription>{t("codex.field.modelHint")}</FieldDescription>
                     </FieldContent>
                   </Field>
+
+                  {/* 推理档位 */}
                   <Field>
-                    <FieldLabel>{t("codex.field.provider")}</FieldLabel>
+                    <FieldLabel>{t("codex.field.reasoningEffort")}</FieldLabel>
                     <FieldContent>
                       <Select
-                        value={profileDraft.providerId}
-                        onValueChange={(value) =>
-                          setProfileDraft({ ...profileDraft, providerId: value })
+                        value={profileDraft.modelReasoningEffort || "none"}
+                        onValueChange={(val) =>
+                          setProfileDraft((prev) =>
+                            prev
+                              ? { ...prev, modelReasoningEffort: val === "none" ? "" : val }
+                              : null,
+                          )
                         }
                       >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder={t("codex.field.providerPlaceholder")} />
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("codex.field.reasoningEffortPlaceholder")} />
                         </SelectTrigger>
                         <SelectContent>
-                          {providers.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="none">默认 (Default)</SelectItem>
+                          <SelectItem value="low">low</SelectItem>
+                          <SelectItem value="medium">medium</SelectItem>
+                          <SelectItem value="high">high</SelectItem>
+                          <SelectItem value="max">max</SelectItem>
                         </SelectContent>
                       </Select>
-                      {providerOf(profileDraft.providerId) ? (
-                        <p
-                          className="text-auxiliary mt-1.5 text-muted-foreground"
-                          data-slot="codex-profile-provider-summary"
-                        >
-                          <span className="font-mono">
-                            {providerOf(profileDraft.providerId)?.baseUrl}
-                          </span>
-                        </p>
-                      ) : null}
+                      <FieldDescription>{t("codex.field.reasoningEffortHint")}</FieldDescription>
                     </FieldContent>
                   </Field>
-                  {isChatGptLogin(providerOf(profileDraft.providerId)) ? (
-                    <Field>
-                      <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
-                      <FieldDescription>{t("codex.field.chatgptLoginHint")}</FieldDescription>
-                    </Field>
-                  ) : (
-                    <Field>
-                      <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
-                      <FieldDescription>{t("codex.field.apiKeyHint")}</FieldDescription>
-                      <FieldContent>
-                        <SensitiveTextInput
-                          id="codex-profile-api-key"
-                          value={profileDraft.apiKey}
-                          placeholder={profileDraft.id ? t("codex.field.apiKeyKeepHint") : "sk-..."}
-                          ariaLabel={t("codex.field.apiKey")}
-                          showLabel={t("codex.field.showApiKey")}
-                          hideLabel={t("codex.field.hideApiKey")}
-                          onChange={(value) => setProfileDraft({ ...profileDraft, apiKey: value })}
-                        />
-                      </FieldContent>
-                    </Field>
-                  )}
-                </FieldGroup>
-              </div>
-              <SheetFooter className="shrink-0 border-t px-5 py-3.5">
-                <div className="flex w-full flex-row justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => requestEditorExit(closeProfileEditor)}
-                    disabled={profileSaving}
-                  >
-                    {t("codex.cancel")}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => void handleSaveProfile()}
-                    disabled={!profileDraftValid || profileSaving}
-                  >
-                    {t("codex.save")}
-                  </Button>
+
+                  {/* API Key 认证 */}
+                  <Field>
+                    <FieldLabel>{t("codex.field.apiKey")}</FieldLabel>
+                    <FieldContent>
+                      {isChatGptLogin(profileDraft.providerId) ? (
+                        <div className="rounded-md border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
+                          {t("codex.field.chatgptLoginHint")}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          <SensitiveTextInput
+                            id="codex-profile-api-key"
+                            ariaLabel={t("codex.field.apiKey")}
+                            showLabel={t("codex.field.showApiKey")}
+                            hideLabel={t("codex.field.hideApiKey")}
+                            value={profileDraft.apiKey}
+                            onChange={(val) =>
+                              setProfileDraft((prev) => (prev ? { ...prev, apiKey: val } : null))
+                            }
+                            placeholder={
+                              profileDraft.id
+                                ? t("codex.field.apiKeyKeepHint")
+                                : t("codex.field.apiKeyPlaceholder")
+                            }
+                          />
+                          <FieldDescription>{t("codex.field.apiKeyHint")}</FieldDescription>
+                        </div>
+                      )}
+                    </FieldContent>
+                  </Field>
+
+                  {/* 供应商详情与文档 */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                    <span className="truncate">
+                      Base URL:{" "}
+                      <code className="font-mono text-foreground">
+                        {currentSelectedPresetProvider.baseUrl}
+                      </code>
+                    </span>
+                    {currentSelectedPresetProvider.docUrl ? (
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="xs"
+                        onClick={() =>
+                          currentSelectedPresetProvider.docUrl &&
+                          void openUrl(currentSelectedPresetProvider.docUrl)
+                        }
+                        className="h-auto p-0 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="size-3" />
+                        <span>{t("codex.openDocs")}</span>
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
-              </SheetFooter>
-            </>
+              ) : null}
+
+              {/* 自定义模式表单项 */}
+              {profileDraft.mode === "custom" ? (
+                <div className="flex flex-col gap-4">
+                  <Field>
+                    <FieldLabel>{t("codex.field.customToml")}</FieldLabel>
+                    <FieldContent>
+                      <Textarea
+                        value={profileDraft.customConfigToml}
+                        onChange={(e) =>
+                          setProfileDraft((prev) =>
+                            prev ? { ...prev, customConfigToml: e.target.value } : null,
+                          )
+                        }
+                        placeholder={t("codex.field.customTomlPlaceholder")}
+                        className="font-mono text-xs min-h-[160px]"
+                      />
+                      <FieldDescription>{t("codex.field.customTomlHint")}</FieldDescription>
+                    </FieldContent>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>{t("codex.field.customJson")}</FieldLabel>
+                    <FieldContent>
+                      <Textarea
+                        value={profileDraft.customModelsJson}
+                        onChange={(e) =>
+                          setProfileDraft((prev) =>
+                            prev ? { ...prev, customModelsJson: e.target.value } : null,
+                          )
+                        }
+                        placeholder={t("codex.field.customJsonPlaceholder")}
+                        className="font-mono text-xs min-h-[120px]"
+                      />
+                      <FieldDescription>{t("codex.field.customJsonHint")}</FieldDescription>
+                    </FieldContent>
+                  </Field>
+                </div>
+              ) : null}
+
+              {/* 实时配置预览 */}
+              <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
+                <span className="text-xs font-semibold text-foreground">
+                  {t("codex.previewLiveTitle")}
+                </span>
+                <span className="text-xs text-muted-foreground">{t("codex.previewLiveHint")}</span>
+
+                {livePreviewError ? (
+                  <p className="text-xs text-destructive">{livePreviewError}</p>
+                ) : livePreview ? (
+                  <Tabs defaultValue="toml" className="mt-1">
+                    <TabsList className="h-8">
+                      <TabsTrigger value="toml" className="text-xs">
+                        config.toml
+                      </TabsTrigger>
+                      {livePreview.modelsJsonPreview ? (
+                        <TabsTrigger value="models" className="text-xs">
+                          models.json
+                        </TabsTrigger>
+                      ) : null}
+                    </TabsList>
+                    <TabsContent value="toml" className="mt-2">
+                      <ConfigPreview content={livePreview.configTomlPreview} />
+                    </TabsContent>
+                    {livePreview.modelsJsonPreview ? (
+                      <TabsContent value="models" className="mt-2">
+                        <ConfigPreview content={livePreview.modelsJsonPreview} />
+                      </TabsContent>
+                    ) : null}
+                  </Tabs>
+                ) : null}
+              </div>
+            </div>
           ) : null}
+
+          <SheetFooter className="gap-2 sm:justify-end">
+            <Button variant="outline" onClick={handleCloseEditor} disabled={saving}>
+              {t("codex.cancel")}
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={saving || !profileDraft?.name.trim()}>
+              {saving ? t("codex.loading") : t("codex.save")}
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
 
-      {/* 删除确认(共用):破坏性操作走共享 AlertDialog */}
-      {pendingDelete ? (
+      {/* 删除 Profile 确认 */}
+      {deleteTarget !== null ? (
         <ConfirmAlertDialog
-          title={
-            pendingDelete.kind === "provider"
-              ? t("codex.deleteProviderTitle")
-              : t("codex.deleteProfileTitle")
-          }
+          title={t("codex.deleteProfileTitle")}
           message={
-            pendingDelete.kind === "provider"
-              ? t("codex.deleteProviderDescription")
+            deleteTarget
+              ? `${t("codex.deleteProfileDescription")} (${deleteTarget.name})`
               : t("codex.deleteProfileDescription")
           }
           confirmText={t("codex.delete")}
           cancelText={t("codex.cancel")}
+          onConfirm={handleDeleteProfile}
+          onCancel={() => setDeleteTarget(null)}
           danger
-          onConfirm={() => void handleConfirmDelete()}
-          onCancel={() => setPendingDelete(null)}
         />
       ) : null}
 
-      {/* Apply 预览确认(#37):展示 provider 切换摘要,确认后才写盘 */}
-      <Dialog open={applyPreview !== null} onOpenChange={(open) => !open && setApplyPreview(null)}>
-        <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-md">
+      {/* Apply 预览确认弹窗 */}
+      <Dialog
+        open={applyTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !applying) {
+            setApplyTarget(null);
+            setApplyPreview(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t("codex.applyPreviewTitle")}</DialogTitle>
             <DialogDescription>{t("codex.applyPreviewDescription")}</DialogDescription>
           </DialogHeader>
-          {applyPreview ? (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <FieldGroup className="w-full">
-                <Field>
-                  <FieldLabel>{t("codex.applyPreviewCurrent")}</FieldLabel>
-                  <FieldContent>
-                    <p className="text-body text-muted-foreground">
-                      {applyPreview.preview.currentModelProvider ?? t("codex.applyPreviewNone")}
-                    </p>
-                  </FieldContent>
-                </Field>
-                <Field>
-                  <FieldLabel>{t("codex.applyPreviewNext")}</FieldLabel>
-                  <FieldContent>
-                    <p className="text-body font-medium">
-                      {applyPreview.preview.providerName}
-                      <span className="text-muted-foreground">
-                        {" "}
-                        ({applyPreview.preview.nextModelProvider})
-                      </span>
-                    </p>
-                    <p className="text-auxiliary text-muted-foreground">
-                      {applyPreview.preview.providerBaseUrl}
-                    </p>
-                  </FieldContent>
-                </Field>
-                <Field>
-                  <FieldLabel>{t("codex.applyPreviewAuth")}</FieldLabel>
-                  <FieldContent>
-                    <p className="text-body text-muted-foreground">
-                      {applyPreview.preview.authMode === "chatGptLogin"
-                        ? t("codex.applyPreviewAuthChatgpt")
-                        : applyPreview.preview.usesEnvKey
-                          ? t("codex.applyPreviewAuthEnvKey")
-                          : applyPreview.preview.willInlineBearerToken
-                            ? t("codex.applyPreviewAuthInline")
-                            : t("codex.applyPreviewAuthUnset")}
-                    </p>
-                  </FieldContent>
-                </Field>
-              </FieldGroup>
+
+          {applyPreviewLoading ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">{t("codex.loading")}</p>
+          ) : applyPreview ? (
+            <div className="flex flex-col gap-4 py-2">
+              {/* 关键信息摘要 */}
+              <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground">{t("codex.applyPreviewCurrent")}:</span>{" "}
+                  <span className="font-semibold text-foreground">
+                    {applyPreview.currentModelProvider || t("codex.applyPreviewNone")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{t("codex.applyPreviewNext")}:</span>{" "}
+                  <span className="font-semibold text-primary">
+                    {applyPreview.nextModelProvider}
+                  </span>
+                </div>
+                {applyPreview.targetModel ? (
+                  <div>
+                    <span className="text-muted-foreground">
+                      {t("codex.applyPreviewTargetModel")}:
+                    </span>{" "}
+                    <span className="font-mono text-foreground">{applyPreview.targetModel}</span>
+                  </div>
+                ) : null}
+                {applyPreview.targetReasoningEffort ? (
+                  <div>
+                    <span className="text-muted-foreground">
+                      {t("codex.applyPreviewReasoningEffort")}:
+                    </span>{" "}
+                    <span className="font-mono text-foreground">
+                      {applyPreview.targetReasoningEffort}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* 完整文件预览选项卡 */}
+              <Tabs defaultValue="toml" className="w-full">
+                <TabsList className="h-8">
+                  <TabsTrigger value="toml" className="text-xs">
+                    {t("codex.previewTabToml")}
+                  </TabsTrigger>
+                  {applyPreview.modelsJsonPreview ? (
+                    <TabsTrigger value="models" className="text-xs">
+                      {t("codex.previewTabModels")}
+                    </TabsTrigger>
+                  ) : null}
+                </TabsList>
+                <TabsContent value="toml" className="mt-2">
+                  <ConfigPreview content={applyPreview.configTomlPreview} />
+                </TabsContent>
+                {applyPreview.modelsJsonPreview ? (
+                  <TabsContent value="models" className="mt-2">
+                    <ConfigPreview content={applyPreview.modelsJsonPreview} />
+                  </TabsContent>
+                ) : null}
+              </Tabs>
             </div>
           ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setApplyPreview(null)}>
+
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setApplyTarget(null);
+                setApplyPreview(null);
+              }}
+              disabled={applying}
+            >
               {t("codex.cancel")}
             </Button>
-            <Button
-              type="button"
-              onClick={() => void handleConfirmApply()}
-              disabled={applyingProfileId !== null}
-            >
-              {t("codex.apply")}
+            <Button onClick={handleConfirmApply} disabled={applying || applyPreviewLoading}>
+              {applying ? t("codex.loading") : t("codex.apply")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {pendingExitAction && (
+      {/* 未保存修改拦截对话框 */}
+      {isUnsavedChangesAlertOpen ? (
         <UnsavedChangesAlertDialog
-          canSave={providerDirty ? providerDraftValid : profileDraftValid}
-          isSaving={isSavingExit}
-          onCancel={() => setPendingExitAction(null)}
-          onDiscard={discardAndRunPendingExit}
-          onSaveAndExit={() => {
-            void saveAndRunPendingExit();
+          canSave={Boolean(profileDraft?.name.trim())}
+          onCancel={() => setIsUnsavedChangesAlertOpen(false)}
+          onDiscard={() => {
+            setIsUnsavedChangesAlertOpen(false);
+            if (pendingExitActionRef.current) {
+              const action = pendingExitActionRef.current;
+              pendingExitActionRef.current = null;
+              action();
+            }
+          }}
+          onSaveAndExit={async () => {
+            setIsUnsavedChangesAlertOpen(false);
+            await handleSaveProfile();
+            if (pendingExitActionRef.current) {
+              const action = pendingExitActionRef.current;
+              pendingExitActionRef.current = null;
+              action();
+            }
           }}
         />
-      )}
+      ) : null}
     </div>
   );
 }

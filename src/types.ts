@@ -177,15 +177,28 @@ export interface ConfigWorkspace {
 
 // ===== Codex 配置(Codex Config System,ADR 0004)=====
 
-/** 自定义 Codex Provider(内置只读项不落盘 registry,经 CodexWorkspace.providers 合并返回)。 */
+/** Codex Provider 模型条目。 */
+export interface CodexProviderModel {
+  id: string;
+  name: string;
+}
+
+/** 内置只读 Codex Provider 预设。 */
 export interface CodexProvider {
   id: string;
   name: string;
+  slug: string;
   baseUrl: string;
   /** 读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 experimental_bearer_token(ADR 0005) */
   envKey?: string;
-  /** `responses` 或 `chat` */
+  /** `responses` */
   wireApi: string;
+  /** 预设默认模型名称 */
+  defaultModel?: string;
+  /** 推荐模型列表 */
+  models: CodexProviderModel[];
+  /** 预设默认推理档位 */
+  defaultReasoningEffort?: string;
   /** 可选模型目录,apply 时生成 ~/.codex/models.json(ADR 0005) */
   modelCatalog?: unknown;
   docUrl?: string;
@@ -194,13 +207,17 @@ export interface CodexProvider {
 /** Codex 认证模式(ADR 0005):从 Provider 推导,不是用户可选项。 */
 export type CodexAuthMode = "chatGptLogin" | "apiKey";
 
-/** Codex Profile:引用一个 Codex Provider + 认证(ADR 0005);内置官方用 ChatGPT 登录(免 key),自定义第三方用一个 API key。 */
+/** Codex Profile:引用内置 Provider 或自定义配置片段。 */
 export interface CodexProfile {
   id: string;
   name: string;
   providerId: string;
   /** API key(敏感,展示与日志需脱敏) */
   apiKey: string;
+  model?: string;
+  modelReasoningEffort?: string;
+  customConfigToml?: string;
+  customModelsJson?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -211,41 +228,26 @@ export interface CodexBindingState {
   codexLastAppliedAt?: string;
 }
 
-/** Codex 工作区视图:内置只读 + 自定义 Provider、Profile、绑定。 */
+/** Codex 工作区视图:内置预设 Provider 与用户 Profile、绑定。 */
 export interface CodexWorkspace {
   providers: CodexProvider[];
   profiles: CodexProfile[];
   bindings: CodexBindingState;
-  /** 内置只读 Provider 的 id 列表(前端据此禁用编辑/删除) */
-  builtinProviderIds: string[];
 }
 
-/** Codex Apply 预览:不写盘的 provider 切换摘要,供用户确认不误伤 config.toml。 */
+/** Codex Apply 预览:包含切换摘要与合并后的完整 config.toml / models.json 预览。 */
 export interface CodexApplyPreview {
+  profileId: string;
+  profileName: string;
+  providerName: string;
   currentModelProvider: string | null;
   nextModelProvider: string;
-  providerName: string;
-  providerBaseUrl: string;
-  providerWireApi: string;
-  /** 认证模式(ADR 0005):内置 openai 为 ChatGPT 登录,自定义第三方为 API key */
+  /** 认证模式(ADR 0005):内置 openai 为 ChatGPT 登录,其余为 API key */
   authMode: CodexAuthMode;
-  /** 自定义第三方是否配置了 env_key(走环境变量认证,不内联 token) */
-  usesEnvKey: boolean;
-  /** 是否内联 experimental_bearer_token(无 env_key 且 profile 有 key 时为 true) */
-  willInlineBearerToken: boolean;
-}
-
-/** 新建/编辑自定义 Codex Provider 的输入。 */
-export interface CodexProviderInput {
-  id?: string | null;
-  name: string;
-  baseUrl: string;
-  /** 可选;留空则 apply 内联 experimental_bearer_token(ADR 0005) */
-  envKey?: string;
-  wireApi: string;
-  /** 可选模型目录,apply 时生成 ~/.codex/models.json(ADR 0005) */
-  modelCatalog?: unknown;
-  docUrl?: string;
+  targetModel?: string;
+  targetReasoningEffort?: string;
+  configTomlPreview: string;
+  modelsJsonPreview?: string;
 }
 
 /** 新建/编辑 Codex Profile 的输入。apiKey 为空表示编辑时保留已有 key。 */
@@ -254,6 +256,10 @@ export interface CodexProfileInput {
   name: string;
   providerId: string;
   apiKey: string;
+  model?: string | null;
+  modelReasoningEffort?: string | null;
+  customConfigToml?: string | null;
+  customModelsJson?: string | null;
 }
 
 export interface ModelTestResult {

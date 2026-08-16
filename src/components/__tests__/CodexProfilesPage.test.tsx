@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { CodexWorkspace } from "../../types";
 import CodexProfilesPage from "../CodexProfilesPage";
@@ -23,71 +23,102 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(),
 }));
 
-// ConfigPreview 内部懒加载 ConfigPreviewCodeEditor;mock 为可交互 textarea 以便整体输入模型目录 JSON
-vi.mock("@uiw/react-codemirror", () => ({
-  default: (props: { value: string; onChange?: (value: string) => void }) => (
-    <textarea
-      data-testid="codex-model-catalog-editor"
-      value={props.value}
-      onChange={(event) => props.onChange?.(event.target.value)}
-    />
-  ),
-}));
-
 vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
     showToast: showToastMock,
   }),
 }));
 
-const BUILTIN_OPENAI = {
-  id: "codex-builtin:openai",
-  name: "OpenAI 官方",
-  baseUrl: "https://api.openai.com/v1",
-  // chatgpt-login 模式:无 envKey,认证走 ChatGPT 登录(ADR 0005)
-  wireApi: "responses",
-  docUrl: "https://developers.openai.com/codex/",
-};
+const MOCK_PROVIDERS = [
+  {
+    id: "codex-builtin:openai",
+    name: "OpenAI 官方",
+    slug: "openai",
+    baseUrl: "https://api.openai.com/v1",
+    wireApi: "responses",
+    defaultModel: "gpt-5.4",
+    models: [{ id: "gpt-5.4", name: "GPT-5.4" }],
+    docUrl: "https://developers.openai.com/codex/",
+  },
+  {
+    id: "codex-builtin:deepseek",
+    name: "DeepSeek",
+    slug: "deepseek",
+    baseUrl: "https://api.deepseek.com/",
+    wireApi: "responses",
+    defaultModel: "deepseek-v4-flash",
+    models: [
+      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+      { id: "deepseek-chat", name: "DeepSeek Chat" },
+    ],
+    defaultReasoningEffort: "high",
+    docUrl: "https://api-docs.deepseek.com/zh-cn/quick_start/agent_integrations/codex",
+  },
+];
 
-const BUILTIN_WORKSPACE: CodexWorkspace = {
-  providers: [BUILTIN_OPENAI],
-  profiles: [],
-  bindings: {},
-  builtinProviderIds: ["codex-builtin:openai"],
-};
-
-const CUSTOM_RELAY = {
-  id: "custom:relay",
-  name: "我的中转",
-  baseUrl: "https://r.example.com/v1",
-  wireApi: "responses",
+const MOCK_WORKSPACE: CodexWorkspace = {
+  providers: MOCK_PROVIDERS,
+  profiles: [
+    {
+      id: "profile-1",
+      name: "DeepSeek 快速起步",
+      providerId: "codex-builtin:deepseek",
+      apiKey: "sk-••••12",
+      model: "deepseek-v4-flash",
+      modelReasoningEffort: "high",
+      createdAt: "2026-01-01T00:00:00+08:00",
+      updatedAt: "2026-01-01T00:00:00+08:00",
+    },
+  ],
+  bindings: {
+    codexProfileId: "profile-1",
+  },
 };
 
 function stubInvoke(workspace: CodexWorkspace) {
-  invokeMock.mockImplementation(async (command: string, args?: unknown) => {
+  invokeMock.mockImplementation(async (command: string, _args?: unknown) => {
     if (command === "get_codex_workspace") return workspace;
-    if (command === "upsert_codex_provider") {
-      const data = (args as { data?: { name?: string } })?.data;
+    if (command === "preview_codex_input") {
       return {
-        id: "custom:new",
-        name: data?.name ?? "x",
-        baseUrl: "https://r.example.com/v1",
-        wireApi: "responses",
+        profileId: "preview-id",
+        profileName: "Preview",
+        providerName: "DeepSeek",
+        currentModelProvider: "openai",
+        nextModelProvider: "deepseek",
+        authMode: "apiKey",
+        targetModel: "deepseek-v4-flash",
+        targetReasoningEffort: "high",
+        configTomlPreview: 'model_provider = "deepseek"\nmodel = "deepseek-v4-flash"',
+        modelsJsonPreview: '{"deepseek-v4-flash": {}}',
       };
     }
     if (command === "preview_codex_apply") {
       return {
-        currentModelProvider: "old",
-        nextModelProvider: "openai",
-        providerName: "OpenAI 官方",
-        providerBaseUrl: "https://api.openai.com/v1",
-        providerWireApi: "responses",
-        authMode: "chatGptLogin",
-        usesEnvKey: false,
-        willInlineBearerToken: false,
+        profileId: "profile-1",
+        profileName: "DeepSeek 快速起步",
+        providerName: "DeepSeek",
+        currentModelProvider: "openai",
+        nextModelProvider: "deepseek",
+        authMode: "apiKey",
+        targetModel: "deepseek-v4-flash",
+        targetReasoningEffort: "high",
+        configTomlPreview: 'model_provider = "deepseek"\nmodel = "deepseek-v4-flash"',
+        modelsJsonPreview: '{"deepseek-v4-flash": {}}',
       };
     }
-    if (command === "delete_codex_provider" || command === "apply_codex_profile") return null;
+    if (command === "upsert_codex_profile") {
+      return {
+        id: "profile-1",
+        name: "DeepSeek 快速起步",
+        providerId: "codex-builtin:deepseek",
+        apiKey: "sk-••••12",
+        model: "deepseek-v4-flash",
+        modelReasoningEffort: "high",
+        createdAt: "2026-01-01T00:00:00+08:00",
+        updatedAt: "2026-01-01T00:00:00+08:00",
+      };
+    }
+    if (command === "delete_codex_profile" || command === "apply_codex_profile") return null;
     return null;
   });
 }
@@ -109,500 +140,201 @@ describe("CodexProfilesPage", () => {
     listenMock.mockReset();
   });
 
-  it("渲染内置只读 Provider,内置项无删除按钮", async () => {
-    stubInvoke(BUILTIN_WORKSPACE);
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("渲染 Profile 列表与已激活状态", async () => {
+    stubInvoke(MOCK_WORKSPACE);
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("OpenAI 官方")).toBeInTheDocument();
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
-    expect(screen.getByText("内置")).toBeInTheDocument();
-    // 内置 Provider 只读:无删除按钮
-    expect(screen.queryAllByLabelText("删除")).toHaveLength(0);
+    expect(screen.getByText("当前激活")).toBeInTheDocument();
+    expect(screen.getByText("deepseek-v4-flash")).toBeInTheDocument();
   });
 
-  it("Provider 卡片展示 base_url 摘要块,内置 OpenAI 显示 ChatGPT 登录 chip", async () => {
-    stubInvoke(BUILTIN_WORKSPACE);
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText("OpenAI 官方")).toBeInTheDocument();
-    });
-    // base_url 摘要块
-    expect(screen.getByText("https://api.openai.com/v1")).toBeInTheDocument();
-    // 内置 openai(chatgpt-login)显示 ChatGPT 登录 chip,而非 env_key(ADR 0005)
-    expect(screen.getByText("ChatGPT 登录")).toBeInTheDocument();
-  });
-
-  it("自定义 Provider 可删除,删除调用后端", async () => {
-    const ws: CodexWorkspace = {
-      providers: [
-        ...BUILTIN_WORKSPACE.providers,
-        {
-          id: "custom:relay",
-          name: "我的中转",
-          baseUrl: "https://r.example.com/v1",
-          envKey: "RELAY_KEY",
-          wireApi: "responses",
-        },
-      ],
-      profiles: [],
-      bindings: {},
-      builtinProviderIds: ["codex-builtin:openai"],
-    };
-    stubInvoke(ws);
-    renderPage();
-    await waitFor(() => expect(screen.getByText("我的中转")).toBeInTheDocument());
-
-    fireEvent.click(screen.getAllByLabelText("删除")[0]);
-
-    // 删除走两段式确认:弹出确认面板后再次点击删除
-    await waitFor(() => {
-      expect(screen.getByText("删除 Codex Provider")).toBeInTheDocument();
-    });
-    // 确认面板内的删除按钮(此时列表按钮已不可见,只剩确认面板一个删除按钮)
-    fireEvent.click(screen.getAllByRole("button", { name: "删除" })[0]);
-
-    await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("delete_codex_provider", { id: "custom:relay" });
-    });
-  });
-
-  it("内层按钮上按 Enter 不触发整卡编辑(键盘守卫)", async () => {
-    const ws: CodexWorkspace = {
-      providers: [
-        ...BUILTIN_WORKSPACE.providers,
-        {
-          id: "custom:relay",
-          name: "我的中转",
-          baseUrl: "https://r.example.com/v1",
-          envKey: "RELAY_KEY",
-          wireApi: "responses",
-        },
-      ],
-      profiles: [],
-      bindings: {},
-      builtinProviderIds: ["codex-builtin:openai"],
-    };
-    stubInvoke(ws);
-    renderPage();
-    await waitFor(() => expect(screen.getByText("我的中转")).toBeInTheDocument());
-
-    // 焦点在卡片内删除按钮上按 Enter:事件不冒泡到卡片,编辑器不被误打开
-    const deleteButton = screen.getAllByLabelText("删除")[0];
-    deleteButton.focus();
-    fireEvent.keyDown(deleteButton, { key: "Enter" });
-
-    expect(screen.queryByText("编辑 Codex Provider")).not.toBeInTheDocument();
-    // 卡片本身未被标记为按钮焦点误触(未触发整卡点击)
-    expect(invokeMock).not.toHaveBeenCalledWith(
-      "upsert_codex_provider",
-      expect.anything() as never,
-    );
-  });
-
-  it("空 Provider 列表展示空状态", async () => {
+  it("空列表展示空状态", async () => {
     const empty: CodexWorkspace = {
-      providers: [],
+      providers: MOCK_PROVIDERS,
       profiles: [],
       bindings: {},
-      builtinProviderIds: [],
     };
     stubInvoke(empty);
     renderPage();
+
     await waitFor(() => {
-      expect(screen.getByText("尚无 Codex Provider")).toBeInTheDocument();
+      expect(screen.getByText("尚无 Codex 配置")).toBeInTheDocument();
     });
   });
 
-  it("Profile 列表展示脱敏 api key,删除调用后端", async () => {
-    const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers, CUSTOM_RELAY],
-      profiles: [
-        {
-          id: "codex-1",
-          name: "工作中转",
-          providerId: "custom:relay",
-          apiKey: "test••••ey", // 后端已脱敏
-          createdAt: "2026-01-01T00:00:00+08:00",
-          updatedAt: "2026-01-01T00:00:00+08:00",
-        },
-      ],
-      bindings: {},
-      builtinProviderIds: ["codex-builtin:openai"],
-    };
-    stubInvoke(ws);
+  it("点击新增配置打开抽屉，可选择预设并提交保存", async () => {
+    stubInvoke(MOCK_WORKSPACE);
     renderPage();
-    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
-    // 自定义第三方 profile 展示脱敏 key(不含明文)
-    expect(screen.getByText(/test••••ey/)).toBeInTheDocument();
-
-    // 删除 profile:两段式确认。删除按钮顺序:自定义 Provider 卡片在前,Profile 卡片在后
-    fireEvent.click(screen.getAllByLabelText("删除")[1]);
-    await waitFor(() => {
-      expect(screen.getByText("删除 Codex 配置")).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getAllByRole("button", { name: "删除" })[0]);
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("delete_codex_profile", { id: "codex-1" });
-    });
-  });
-
-  it("Profile 卡片展示 provider Badge 与 summary 行(base_url / key)", async () => {
-    const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers, CUSTOM_RELAY],
-      profiles: [
-        {
-          id: "codex-1",
-          name: "工作中转",
-          providerId: "custom:relay",
-          apiKey: "test••••ey",
-          createdAt: "2026-01-01T00:00:00+08:00",
-          updatedAt: "2026-01-01T00:00:00+08:00",
-        },
-      ],
-      bindings: {},
-      builtinProviderIds: ["codex-builtin:openai"],
-    };
-    stubInvoke(ws);
-    renderPage();
-    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
-    // 卡片内 provider Badge(Provider 区卡片与 Profile 卡片各一处名称)
-    expect(screen.getAllByText("我的中转")).toHaveLength(2);
-    // summary 行:base_url(Provider 卡片与 Profile 卡片各一处)与 key 状态
-    expect(screen.getAllByText("https://r.example.com/v1")).toHaveLength(2);
-    // key 状态行:脱敏 key
-    expect(screen.getByText(/test••••ey/)).toBeInTheDocument();
-  });
-
-  it("Profile 卡片对无 key 的第三方配置展示「未配置」", async () => {
-    const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers, CUSTOM_RELAY],
-      profiles: [
-        {
-          id: "codex-1",
-          name: "工作中转",
-          providerId: "custom:relay",
-          apiKey: "",
-          createdAt: "2026-01-01T00:00:00+08:00",
-          updatedAt: "2026-01-01T00:00:00+08:00",
-        },
-      ],
-      bindings: {},
-      builtinProviderIds: ["codex-builtin:openai"],
-    };
-    stubInvoke(ws);
-    renderPage();
-    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
-    expect(screen.getByText("未配置")).toBeInTheDocument();
-  });
-
-  it("激活态展示徽标,且不再显示应用按钮", async () => {
-    const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers],
-      profiles: [
-        {
-          id: "codex-1",
-          name: "工作中转",
-          providerId: "codex-builtin:openai",
-          apiKey: "test••••ey",
-          createdAt: "2026-01-01T00:00:00+08:00",
-          updatedAt: "2026-01-01T00:00:00+08:00",
-        },
-      ],
-      // 已绑定激活 codex-1
-      bindings: { codexProfileId: "codex-1" },
-      builtinProviderIds: ["codex-builtin:openai"],
-    };
-    stubInvoke(ws);
-    renderPage();
-    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
-    // 激活态徽标展示,头部 Apply 按钮由徽标替换
-    expect(screen.getByText("已激活")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "应用" })).not.toBeInTheDocument();
-  });
-
-  it("未激活配置点击应用先 preview 再 apply", async () => {
-    const ws: CodexWorkspace = {
-      providers: [...BUILTIN_WORKSPACE.providers],
-      profiles: [
-        {
-          id: "codex-1",
-          name: "工作中转",
-          providerId: "codex-builtin:openai",
-          apiKey: "test••••ey",
-          createdAt: "2026-01-01T00:00:00+08:00",
-          updatedAt: "2026-01-01T00:00:00+08:00",
-        },
-      ],
-      // 未绑定:卡片展示应用按钮
-      bindings: {},
-      builtinProviderIds: ["codex-builtin:openai"],
-    };
-    stubInvoke(ws);
-    renderPage();
-    await waitFor(() => expect(screen.getByText("工作中转")).toBeInTheDocument());
-
-    // 点击应用:先调用 preview(不写盘)
-    fireEvent.click(screen.getByRole("button", { name: "应用" }));
-    await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("preview_codex_apply", { id: "codex-1" });
-    });
-    // 预览面板展示切换摘要
-    await waitFor(() => {
-      expect(screen.getByText("确认应用 Codex 配置")).toBeInTheDocument();
-    });
-    // 确认后才真正 apply(预览 Dialog 打开后背景被 aria-hidden,仅剩确认按钮)
-    fireEvent.click(screen.getByRole("button", { name: "应用" }));
-    await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("apply_codex_profile", { id: "codex-1" });
-    });
-  });
-
-  it("新建自定义 Provider 无 wire_api 选择器,提交固定 responses", async () => {
-    stubInvoke(BUILTIN_WORKSPACE);
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
 
-    // 打开新建编辑器
-    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
-    await waitFor(() => {
-      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
-    });
-    // wire_api 选择器已移除(wire_api 恒为 responses)
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    const addButtons = screen.getAllByRole("button", { name: /新增配置/i });
+    fireEvent.click(addButtons[0]);
 
-    // 填必填字段
-    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
-      target: { value: "Azure 中转" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
-      target: { value: "https://azure.example.com/v1" },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("upsert_codex_provider", {
-        data: {
-          id: null,
-          name: "Azure 中转",
-          baseUrl: "https://azure.example.com/v1",
-          // envKey 留空则不上送(内联 bearer token,ADR 0005)
-          envKey: undefined,
-          wireApi: "responses",
-          docUrl: undefined,
-          // 模型目录留空则不上送
-          modelCatalog: undefined,
-        },
-      });
-    });
-  });
-
-  it("Profile 编辑器展示引用 provider 摘要行,API key 支持明文切换", async () => {
-    const ws: CodexWorkspace = {
-      providers: [CUSTOM_RELAY],
-      profiles: [],
-      bindings: {},
-      builtinProviderIds: [],
-    };
-    stubInvoke(ws);
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "新增配置" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "新增配置" }));
     await waitFor(() => {
       expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
     });
-    // 引用 provider 的 base_url 摘要行(与 Provider 区卡片各一处)
-    expect(screen.getAllByText("https://r.example.com/v1")).toHaveLength(2);
-    // wire_api 不再在摘要行展示
 
-    // API key 输入框默认密文,可切换明文(自定义第三方为 api-key 模式)
-    const keyInput = screen.getByPlaceholderText("sk-...");
-    expect(keyInput).toHaveAttribute("type", "password");
-    fireEvent.click(screen.getByRole("button", { name: "显示 API key" }));
-    expect(keyInput).toHaveAttribute("type", "text");
-    fireEvent.click(screen.getByRole("button", { name: "隐藏 API key" }));
-    expect(keyInput).toHaveAttribute("type", "password");
-  });
+    // 填写 API key 并保存
+    const apiKeyInput = screen.getByLabelText("API Key");
+    fireEvent.change(apiKeyInput, { target: { value: "sk-test-key-123" } });
 
-  it("脏 Provider 编辑器关闭前弹未保存确认,可放弃退出", async () => {
-    stubInvoke(BUILTIN_WORKSPACE);
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
-    });
+    const saveButton = screen.getByRole("button", { name: "保存" });
+    fireEvent.click(saveButton);
 
-    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
-    await waitFor(() => {
-      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
-    });
-    // 修改表单使其变脏
-    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
-      target: { value: "未保存的中转" },
-    });
-    // 点取消:弹未保存确认,而非直接关闭
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    await waitFor(() => {
-      expect(screen.getByText("存在未保存的更改")).toBeInTheDocument();
-    });
-    // 放弃:编辑器关闭且未调用后端保存
-    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
-    await waitFor(() => {
-      expect(screen.queryByText("新增 Codex Provider")).not.toBeInTheDocument();
-    });
-    expect(invokeMock).not.toHaveBeenCalledWith(
-      "upsert_codex_provider",
-      expect.anything() as never,
-    );
-  });
-
-  it("脏 Profile 编辑器从未保存确认中保存并退出", async () => {
-    const ws: CodexWorkspace = {
-      providers: [CUSTOM_RELAY],
-      profiles: [],
-      bindings: {},
-      builtinProviderIds: [],
-    };
-    stubInvoke(ws);
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "新增配置" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "新增配置" }));
-    await waitFor(() => {
-      expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
-    });
-    // 填名称与 key 使其 dirty 且可保存
-    fireEvent.change(screen.getByPlaceholderText("例如：工作中转"), {
-      target: { value: "工作配置" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("sk-..."), { target: { value: "sk-new" } });
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    await waitFor(() => {
-      expect(screen.getByText("存在未保存的更改")).toBeInTheDocument();
-    });
-    // 保存并退出:调用 upsert_codex_profile,编辑器关闭
-    fireEvent.click(screen.getByRole("button", { name: "保存并退出" }));
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith(
         "upsert_codex_profile",
         expect.objectContaining({
-          data: expect.objectContaining({ name: "工作配置", apiKey: "sk-new" }),
+          data: expect.objectContaining({
+            providerId: "codex-builtin:deepseek",
+            apiKey: "sk-test-key-123",
+          }),
         }),
       );
     });
-    await waitFor(() => {
-      expect(screen.queryByText("新增 Codex 配置")).not.toBeInTheDocument();
-    });
   });
 
-  it("整体输入模型目录 JSON,预览模型列表,保存解析为对象上送", async () => {
-    stubInvoke(BUILTIN_WORKSPACE);
+  it("创建自定义片段 Profile：切换到自定义模式，输入 toml 与 models.json 片段并保存", async () => {
+    stubInvoke(MOCK_WORKSPACE);
     renderPage();
+
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    const addButtons = screen.getAllByRole("button", { name: /新增配置/i });
+    fireEvent.click(addButtons[0]);
+
     await waitFor(() => {
-      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
+      expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
     });
 
-    // 填必填字段解除保存禁用
-    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
-      target: { value: "模型目录中转" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
-      target: { value: "https://m.example.com/v1" },
-    });
+    // 切换到自定义片段模式
+    const customModeTab = screen.getByRole("button", { name: "自定义片段" });
+    fireEvent.click(customModeTab);
 
-    // 整体输入模型目录 JSON(CodeMirror mock 为可交互 textarea)
-    const catalogEditor = await screen.findByTestId("codex-model-catalog-editor");
-    fireEvent.change(catalogEditor, {
+    // 修改名称
+    const nameInput = screen.getByPlaceholderText("例如：DeepSeek 快速起步");
+    fireEvent.change(nameInput, { target: { value: "我的自定义中转" } });
+
+    // 输入 toml 片段
+    const tomlInput = screen.getByPlaceholderText(/model_provider = "my_provider"/i);
+    fireEvent.change(tomlInput, {
       target: {
-        value: '{"deepseek-chat":{"context_window":128000,"display_name":"DeepSeek Chat"}}',
+        value:
+          'model_provider = "my_relay"\nmodel = "my-model"\n\n[model_providers.my_relay]\nbase_url = "https://example.com"',
       },
     });
 
-    // 预览区实时展示模型条目与计数
-    expect(await screen.findByText("DeepSeek Chat")).toBeInTheDocument();
-    expect(screen.getByText("共 1 个模型")).toBeInTheDocument();
+    const saveButton = screen.getByRole("button", { name: "保存" });
+    fireEvent.click(saveButton);
 
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("upsert_codex_provider", {
-        data: expect.objectContaining({
-          modelCatalog: {
-            "deepseek-chat": { context_window: 128000, display_name: "DeepSeek Chat" },
-          },
+      expect(invokeMock).toHaveBeenCalledWith(
+        "upsert_codex_profile",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            name: "我的自定义中转",
+            providerId: "custom",
+            customConfigToml: expect.stringContaining('model_provider = "my_relay"'),
+          }),
         }),
-      });
+      );
     });
   });
 
-  it("模型目录留空时保存传 modelCatalog: undefined", async () => {
-    stubInvoke(BUILTIN_WORKSPACE);
+  it("点击已创建 Profile 卡片或编辑按钮均可展开编辑抽屉", async () => {
+    stubInvoke(MOCK_WORKSPACE);
     renderPage();
+
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
-    await waitFor(() => {
-      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
-    });
+    const editBtn = screen.getByTitle("编辑");
+    fireEvent.click(editBtn);
 
-    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
-      target: { value: "无目录中转" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
-      target: { value: "https://n.example.com/v1" },
-    });
-
-    // 未触碰模型目录输入:直接保存,modelCatalog 不上送(undefined)
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("upsert_codex_provider", {
-        data: expect.objectContaining({ modelCatalog: undefined }),
-      });
+      expect(screen.getByText("编辑 Codex 配置")).toBeInTheDocument();
     });
   });
 
-  it("模型目录 JSON 无效时提示错误并禁用保存", async () => {
-    stubInvoke(BUILTIN_WORKSPACE);
+  it("点击卡片本身直接展开编辑抽屉", async () => {
+    stubInvoke(MOCK_WORKSPACE);
     renderPage();
+
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    const card = screen.getByText("DeepSeek 快速起步").closest('[data-slot="profile-card"]');
+    expect(card).not.toBeNull();
+    if (card) {
+      fireEvent.click(card);
+    }
+
     await waitFor(() => {
-      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
+      expect(screen.getByText("编辑 Codex 配置")).toBeInTheDocument();
+    });
+  });
+
+  it("点击应用触发 Preview 对话框并确认 Apply", async () => {
+    const inactiveWorkspace: CodexWorkspace = {
+      ...MOCK_WORKSPACE,
+      bindings: {},
+    };
+    stubInvoke(inactiveWorkspace);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
-      target: { value: "无效目录中转" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
-      target: { value: "https://bad.example.com/v1" },
+    const applyButton = screen.getByRole("button", { name: "应用" });
+    fireEvent.click(applyButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("应用 Codex 配置预览")).toBeInTheDocument();
     });
 
-    const catalogEditor = await screen.findByTestId("codex-model-catalog-editor");
-    fireEvent.change(catalogEditor, { target: { value: "{ invalid" } });
+    const confirmApplyBtn = screen.getByRole("button", { name: "应用" });
+    fireEvent.click(confirmApplyBtn);
 
-    // 预览区显示无效提示,保存按钮保持禁用
-    expect(screen.getByText("模型目录 JSON 无效")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
-    expect(invokeMock).not.toHaveBeenCalledWith(
-      "upsert_codex_provider",
-      expect.anything() as never,
-    );
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("apply_codex_profile", { id: "profile-1" });
+    });
+  });
+
+  it("删除 Profile 调用后端 delete_codex_profile", async () => {
+    stubInvoke(MOCK_WORKSPACE);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
+    });
+
+    const deleteBtn = screen.getByTitle("删除");
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("删除 Codex 配置")).toBeInTheDocument();
+    });
+
+    const confirmDeleteBtn = screen.getByRole("button", { name: "删除" });
+    fireEvent.click(confirmDeleteBtn);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("delete_codex_profile", { id: "profile-1" });
+    });
   });
 });

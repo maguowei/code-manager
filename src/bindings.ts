@@ -19,17 +19,14 @@ export const commands = {
 	deleteProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_profile", { id })),
 	applyProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_profile", { id })),
 	getCodexWorkspace: () => typedError<CodexWorkspace_Serialize, string>(__TAURI_INVOKE("get_codex_workspace")),
-	upsertCodexProvider: (data: CodexProviderInput) => typedError<CodexProvider_Serialize, string>(__TAURI_INVOKE("upsert_codex_provider", { data })),
-	deleteCodexProvider: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_provider", { id })),
-	upsertCodexProfile: (data: CodexProfileInput) => typedError<CodexProfile, string>(__TAURI_INVOKE("upsert_codex_profile", { data })),
+	upsertCodexProfile: (data: CodexProfileInput) => typedError<CodexProfile_Serialize, string>(__TAURI_INVOKE("upsert_codex_profile", { data })),
 	deleteCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_profile", { id })),
-	/**  应用 Codex Profile:外科补丁写 config.toml + auth.json,更新 codex.bindings 激活态。 */
+	/**  应用 Codex Profile:外科补丁写 config.toml (+ 可选 models.json),更新 codex.bindings 激活态。 */
 	applyCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_codex_profile", { id })),
-	/**
-	 *  Codex Apply 预览(不写盘):计算将落盘的 provider 相关改动,供用户确认。
-	 *  复用 render_codex_config 的补丁计算(只读现有 config.toml,不写),保证与实际 apply 一致。
-	 */
+	/**  Codex Apply 预览(不写盘):计算将落盘的 provider 相关改动及完整配置预览,供用户确认。 */
 	previewCodexApply: (id: string) => typedError<CodexApplyPreview, string>(__TAURI_INVOKE("preview_codex_apply", { id })),
+	/**  针对未保存的输入进行实时配置预览(不写盘)。 */
+	previewCodexInput: (data: CodexProfileInput) => typedError<CodexApplyPreview, string>(__TAURI_INVOKE("preview_codex_input", { data })),
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
@@ -299,24 +296,28 @@ export type ClaudeStats = {
 	btwUseCount?: number | null,
 };
 
-/**  Codex Apply 预览:不写盘,只计算将落盘的 provider 相关改动,供用户确认不误伤 config.toml。 */
+/**  Codex Apply 预览:不写盘,计算将落盘的改动与完整配置预览,供用户确认。 */
 export type CodexApplyPreview = {
+	/**  目标 profile id。 */
+	profileId: string,
+	/**  目标 profile 名称。 */
+	profileName: string,
+	/**  供应商展示名。 */
+	providerName: string,
 	/**  切换前的活跃 model_provider(读自现有 config.toml,无则 None)。 */
 	currentModelProvider: string | null,
 	/**  将写入的 model_provider(slug)。 */
 	nextModelProvider: string,
-	/**  将写入的 provider 展示名。 */
-	providerName: string,
-	/**  将写入的 base_url。 */
-	providerBaseUrl: string,
-	/**  将写入的 wire_api。 */
-	providerWireApi: string,
-	/**  认证模式:内置 openai 为 ChatGPT 登录,自定义第三方为 API key(ADR 0005)。 */
+	/**  认证模式:内置 openai 为 ChatGPT 登录,其余为 API key(ADR 0005)。 */
 	authMode: CodexAuthMode,
-	/**  自定义第三方是否配置了 `env_key`(走环境变量认证,不内联 token)。 */
-	usesEnvKey: boolean,
-	/**  是否内联 `experimental_bearer_token`(无 env_key 且 profile 有 key 时为 true)。 */
-	willInlineBearerToken: boolean,
+	/**  将生效的目标模型。 */
+	targetModel: string | null,
+	/**  将生效的推理档位。 */
+	targetReasoningEffort: string | null,
+	/**  完整合并后的 config.toml 文本预览。 */
+	configTomlPreview: string,
+	/**  可选 models.json 文本预览。 */
+	modelsJsonPreview: string | null,
 };
 
 /**
@@ -343,24 +344,15 @@ export type CodexBindingState_Serialize = {
 };
 
 /**
- *  Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」,
- *  认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),自定义第三方用一个 API key。
- *  不是完整设置单元。Apply 时做外科补丁,只改 `config.toml` 的 provider 相关键,不写 auth.json。
+ *  Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」或「自定义配置片段」。
+ *  认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),内置第三方用 API key。
+ *  Apply 时做外科补丁,写 `config.toml` 与可选 `models.json`,不写 auth.json。
  */
-export type CodexProfile = {
-	id: string,
-	name: string,
-	/**  引用的 Codex Provider id(内置或自定义) */
-	providerId: string,
-	/**  API key(敏感,展示与日志需脱敏) */
-	apiKey: string,
-	createdAt: string,
-	updatedAt: string,
-};
+export type CodexProfile = CodexProfile_Serialize | CodexProfile_Deserialize;
 
 /**
  *  Codex Profile 的新建/编辑输入。
- *  `api_key` 为空字符串表示「保留已有 key」(编辑场景);新建时必须非空。
+ *  `api_key` 为空字符串表示「保留已有 key」(编辑场景)。
  */
 export type CodexProfileInput = {
 	/**  编辑时传入;新建时为 None。 */
@@ -368,87 +360,128 @@ export type CodexProfileInput = {
 	name: string,
 	providerId: string,
 	apiKey?: string,
+	model?: string | null,
+	modelReasoningEffort?: string | null,
+	customConfigToml?: string | null,
+	customModelsJson?: string | null,
 };
 
 /**
- *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
- *  Codex Provider 可由用户自定义,承载 `base_url` / 可选环境变量键名 / `wire_api`;
- *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
+ *  Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」或「自定义配置片段」。
+ *  认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),内置第三方用 API key。
+ *  Apply 时做外科补丁,写 `config.toml` 与可选 `models.json`,不写 auth.json。
  */
+export type CodexProfile_Deserialize = {
+	id: string,
+	name: string,
+	/**  引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom") */
+	providerId: string,
+	/**  API key(敏感,展示与日志需脱敏) */
+	apiKey?: string,
+	/**  目标模型(可选,覆盖或使用预设默认模型) */
+	model?: string | null,
+	/**  推理档位(可选,如 "low", "medium", "high", "max") */
+	modelReasoningEffort?: string | null,
+	/**  自定义模式下的 config.toml 片段 */
+	customConfigToml?: string | null,
+	/**  自定义模式下的 models.json 片段 */
+	customModelsJson?: string | null,
+	createdAt: string,
+	updatedAt: string,
+};
+
+/**
+ *  Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」或「自定义配置片段」。
+ *  认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),内置第三方用 API key。
+ *  Apply 时做外科补丁,写 `config.toml` 与可选 `models.json`,不写 auth.json。
+ */
+export type CodexProfile_Serialize = {
+	id: string,
+	name: string,
+	/**  引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom") */
+	providerId: string,
+	/**  API key(敏感,展示与日志需脱敏) */
+	apiKey: string,
+	/**  目标模型(可选,覆盖或使用预设默认模型) */
+	model?: string | null,
+	/**  推理档位(可选,如 "low", "medium", "high", "max") */
+	modelReasoningEffort?: string | null,
+	/**  自定义模式下的 config.toml 片段 */
+	customConfigToml?: string | null,
+	/**  自定义模式下的 models.json 片段 */
+	customModelsJson?: string | null,
+	createdAt: string,
+	updatedAt: string,
+};
+
+/**  内置只读 Codex Provider（快速起步预设）。 */
 export type CodexProvider = CodexProvider_Serialize | CodexProvider_Deserialize;
 
-/**  自定义 Codex Provider 的新建/编辑输入(内置 Provider 只读,不经过此入口)。 */
-export type CodexProviderInput = {
-	/**  编辑时传入;新建时为 None。 */
-	id: string | null,
+/**  Codex Provider 模型条目。 */
+export type CodexProviderModel = {
+	id: string,
 	name: string,
-	baseUrl: string,
-	/**  读取 API key 的环境变量名;留空则 apply 内联 `experimental_bearer_token`(ADR 0005)。 */
-	envKey?: string | null,
-	/**  `responses` 或 `chat`。 */
-	wireApi: string,
-	/**  可选模型目录,apply 时生成 `~/.codex/models.json`(ADR 0005)。 */
-	modelCatalog?: unknown,
-	docUrl?: string | null,
 };
 
-/**
- *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
- *  Codex Provider 可由用户自定义,承载 `base_url` / 可选环境变量键名 / `wire_api`;
- *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
- */
+/**  内置只读 Codex Provider（快速起步预设）。 */
 export type CodexProvider_Deserialize = {
 	id: string,
 	name: string,
+	slug: string,
 	/**  对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url` */
 	baseUrl: string,
 	/**  读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 `experimental_bearer_token`(ADR 0005) */
 	envKey?: string | null,
 	/**  写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`) */
-	wireApi: string,
+	wireApi?: string,
+	/**  预设默认模型名称（如 "deepseek-v4-flash"） */
+	defaultModel?: string | null,
+	/**  推荐模型列表 */
+	models?: CodexProviderModel[],
+	/**  预设默认推理档位（如 "high", "max"） */
+	defaultReasoningEffort?: string | null,
 	/**  可选模型目录:存在时 apply 生成 `~/.codex/models.json` 并写顶层 `model_catalog_json`(ADR 0005) */
 	modelCatalog?: unknown,
 	docUrl: string | null,
 };
 
-/**
- *  自定义 Codex Provider。与 Claude 的 Provider 分家(ADR 0004):
- *  Codex Provider 可由用户自定义,承载 `base_url` / 可选环境变量键名 / `wire_api`;
- *  内置只读 Codex Provider 来自资源文件,不落盘到 registry,此处仅存用户自定义项。
- */
+/**  内置只读 Codex Provider（快速起步预设）。 */
 export type CodexProvider_Serialize = {
 	id: string,
 	name: string,
+	slug: string,
 	/**  对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url` */
 	baseUrl: string,
 	/**  读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 `experimental_bearer_token`(ADR 0005) */
 	envKey?: string | null,
 	/**  写入 `[model_providers.NAME].wire_api`;固定 `responses`(Codex 已移除 `chat`) */
 	wireApi: string,
+	/**  预设默认模型名称（如 "deepseek-v4-flash"） */
+	defaultModel?: string | null,
+	/**  推荐模型列表 */
+	models?: CodexProviderModel[],
+	/**  预设默认推理档位（如 "high", "max"） */
+	defaultReasoningEffort?: string | null,
 	/**  可选模型目录:存在时 apply 生成 `~/.codex/models.json` 并写顶层 `model_catalog_json`(ADR 0005) */
 	modelCatalog?: unknown,
 	docUrl?: string | null,
 };
 
-/**  Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。 */
+/**  Codex 工作区视图:内置预设 Provider 与用户 Profile,供前端 Codex 页展示。 */
 export type CodexWorkspace = CodexWorkspace_Serialize | CodexWorkspace_Deserialize;
 
-/**  Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。 */
+/**  Codex 工作区视图:内置预设 Provider 与用户 Profile,供前端 Codex 页展示。 */
 export type CodexWorkspace_Deserialize = {
 	providers: CodexProvider_Deserialize[],
-	profiles: CodexProfile[],
+	profiles: CodexProfile_Deserialize[],
 	bindings: CodexBindingState_Deserialize,
-	/**  标记每个 provider 是否内置只读(前端据此禁用编辑/删除)。 */
-	builtinProviderIds: string[],
 };
 
-/**  Codex 工作区视图:合并内置只读 Provider 与自定义 Provider,供前端 Codex 页展示。 */
+/**  Codex 工作区视图:内置预设 Provider 与用户 Profile,供前端 Codex 页展示。 */
 export type CodexWorkspace_Serialize = {
 	providers: CodexProvider_Serialize[],
-	profiles: CodexProfile[],
+	profiles: CodexProfile_Serialize[],
 	bindings: CodexBindingState_Serialize,
-	/**  标记每个 provider 是否内置只读(前端据此禁用编辑/删除)。 */
-	builtinProviderIds: string[],
 };
 
 export type ConfigProfile = ConfigProfile_Serialize | ConfigProfile_Deserialize;
