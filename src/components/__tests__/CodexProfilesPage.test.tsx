@@ -185,7 +185,7 @@ describe("CodexProfilesPage", () => {
     });
 
     // 默认即为自定义片段，填写名称、描述与 toml 片段
-    const nameInput = screen.getByPlaceholderText("例如：DeepSeek 快速起步");
+    const nameInput = screen.getByPlaceholderText("例如：DeepSeek-日常开发");
     fireEvent.change(nameInput, { target: { value: "我的自定义中转" } });
 
     const descInput = screen.getByLabelText("描述");

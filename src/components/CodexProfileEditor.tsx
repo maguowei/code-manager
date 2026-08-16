@@ -253,13 +253,28 @@ const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEdit
       const provider = providers.find((p) => p.id === providerId);
       if (!provider) return;
 
+      const getCleanShortName = (p: CodexProvider) => {
+        if (p.id === "codex-builtin:openai") return "OpenAI";
+        if (p.id === "codex-builtin:zhipu") return "智谱GLM";
+        if (p.id === "codex-builtin:minimax") return "MiniMax";
+        if (p.id === "codex-builtin:mimo") return "小米MiMo";
+        if (p.id === "codex-builtin:deepseek") return "DeepSeek";
+        return p.name;
+      };
+
       const isPreviousDefaultName =
-        !draft.name || providers.some((p) => draft.name === `${p.name} 快速起步`);
+        !draft.name ||
+        providers.some(
+          (p) =>
+            draft.name === `${p.name} 快速起步` ||
+            draft.name === `${getCleanShortName(p)}-日常开发` ||
+            draft.name === `${p.name}-日常开发`,
+        );
 
       setDraft((prev) => ({
         ...prev,
         providerId: provider.id,
-        name: isPreviousDefaultName ? `${provider.name} 快速起步` : prev.name,
+        name: isPreviousDefaultName ? `${getCleanShortName(provider)}-日常开发` : prev.name,
         model: provider.defaultModel ?? "",
         modelReasoningEffort: provider.defaultReasoningEffort ?? "",
       }));
