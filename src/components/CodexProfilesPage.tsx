@@ -153,8 +153,12 @@ export default function CodexProfilesPage({
     if (!onEditorExitGuardChange) return;
     if (isDrawerOpen) {
       onEditorExitGuardChange({
-        id: "codex-profile-editor",
-        canExit: () => requestExitGuard(() => setIsDrawerOpen(false)),
+        requestExit: (action) => {
+          requestExitGuard(() => {
+            setIsDrawerOpen(false);
+            action();
+          });
+        },
       });
     } else {
       onEditorExitGuardChange(null);
@@ -396,7 +400,7 @@ export default function CodexProfilesPage({
           ) : !workspace || workspace.profiles.length === 0 ? (
             <EmptyState
               title={t("codex.emptyProfileTitle")}
-              description={t("codex.emptyProfileHint")}
+              hint={t("codex.emptyProfileHint")}
               action={
                 <Button size="sm" onClick={handleOpenCreate}>
                   <Plus className="size-4" />

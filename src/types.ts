@@ -245,15 +245,15 @@ export interface CodexApplyPreview {
   nextModelProvider: string;
   /** 认证模式(ADR 0005):内置 openai 为 ChatGPT 登录,其余为 API key */
   authMode: CodexAuthMode;
-  targetModel?: string;
-  targetReasoningEffort?: string;
+  targetModel: string | null;
+  targetReasoningEffort: string | null;
   configTomlPreview: string;
-  modelsJsonPreview?: string;
+  modelsJsonPreview: string | null;
 }
 
 /** 新建/编辑 Codex Profile 的输入。apiKey 为空表示编辑时保留已有 key。 */
 export interface CodexProfileInput {
-  id?: string | null;
+  id: string | null;
   name: string;
   description?: string | null;
   providerId: string;

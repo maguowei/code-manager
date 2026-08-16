@@ -62,6 +62,8 @@ const translations = {
     // 配置预览（仍被 ConfigPreview.tsx 使用）
     "configModal.jsonCopy": "复制",
     "configModal.jsonCopied": "已复制",
+    "common.copy": "复制",
+    "common.copied": "已复制",
 
     // 导航栏
     "nav.cheatsheet": "速查表",
@@ -1789,6 +1791,7 @@ const translations = {
     "codex.launchCommandTitle": "Codex 启动命令",
     "codex.launchCommandDescription":
       "复制并在终端运行以下命令以使用「{name}」配置启动 Codex CLI：",
+    "codex.toast.loadFailed": "加载 Codex 配置失败",
     "codex.toast.profileCreated": "Codex 配置已创建",
     "codex.toast.profileUpdated": "Codex 配置已更新",
     "codex.toast.profileDuplicated": "Codex 配置已复制",
@@ -1863,6 +1866,8 @@ const translations = {
     // 配置预览（仍被 ConfigPreview.tsx 使用）
     "configModal.jsonCopy": "Copy",
     "configModal.jsonCopied": "Copied",
+    "common.copy": "Copy",
+    "common.copied": "Copied",
 
     // 导航栏
     "nav.cheatsheet": "Cheat Sheet",
@@ -3672,6 +3677,7 @@ const translations = {
     "codex.launchCommandTitle": "Codex Launch Command",
     "codex.launchCommandDescription":
       'Copy and run the following command in terminal to start Codex CLI with "{name}":',
+    "codex.toast.loadFailed": "Failed to load Codex config",
     "codex.toast.profileCreated": "Codex profile created",
     "codex.toast.profileUpdated": "Codex profile updated",
     "codex.toast.profileDuplicated": "Codex profile duplicated",

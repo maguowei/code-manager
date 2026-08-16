@@ -15,10 +15,19 @@ interface EmptyStateProps {
   hint?: ReactNode;
   icon?: LucideIcon;
   loading?: boolean;
+  /** 空状态主操作按钮,渲染在标题/提示下方 */
+  action?: ReactNode;
   className?: string;
 }
 
-function EmptyState({ title, hint, icon: Icon, loading = false, className }: EmptyStateProps) {
+function EmptyState({
+  title,
+  hint,
+  icon: Icon,
+  loading = false,
+  action,
+  className,
+}: EmptyStateProps) {
   return (
     <Empty className={cn("min-h-[240px] border-0 px-6 py-10", className)}>
       <EmptyHeader>
@@ -36,6 +45,7 @@ function EmptyState({ title, hint, icon: Icon, loading = false, className }: Emp
           <EmptyDescription className="max-w-[360px] leading-normal">{hint}</EmptyDescription>
         ) : null}
       </EmptyHeader>
+      {action ? <div className="mt-4">{action}</div> : null}
     </Empty>
   );
 }

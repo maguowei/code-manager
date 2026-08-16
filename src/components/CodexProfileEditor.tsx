@@ -129,7 +129,7 @@ function saveDataToInput(data: CodexProfileEditorSaveData): CodexProfileInput {
   const isCustom = data.providerId === CUSTOM_PROVIDER_ID;
   if (isCustom) {
     return {
-      id: data.id,
+      id: data.id ?? null,
       name: data.name.trim(),
       description: data.description.trim() ? data.description.trim() : null,
       providerId: CUSTOM_PROVIDER_ID,
@@ -142,7 +142,7 @@ function saveDataToInput(data: CodexProfileEditorSaveData): CodexProfileInput {
   }
 
   return {
-    id: data.id,
+    id: data.id ?? null,
     name: data.name.trim(),
     description: data.description.trim() ? data.description.trim() : null,
     providerId: data.providerId,
