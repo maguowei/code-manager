@@ -237,6 +237,50 @@ describe("config-workspace-utils preset autofill", () => {
     // 无可解析 provider 时不动任何字段(含地址)
     expect(applyProviderAutofill(seededSettings, PRESETS, undefined)).toEqual(seededSettings);
   });
+
+  it("切到 opencode-go 时清掉残留的 ANTHROPIC_AUTH_TOKEN(避免 Bearer 优先遮蔽 API Key)", () => {
+    const opencodeGoProviders: Provider[] = [
+      {
+        id: "builtin:opencode-go",
+        name: "OpenCode Go",
+        description: "OpenCode Go 供应商",
+        localizedName: { zh: "OpenCode Go", en: "OpenCode Go" },
+        models: [],
+        modelSuggestions: [],
+        env: { ANTHROPIC_BASE_URL: "https://opencode.ai/zen/go" },
+      },
+    ];
+    const staleSettings = {
+      env: {
+        ANTHROPIC_AUTH_TOKEN: "stale-token",
+        OTHER_ENV: "keep-me",
+      },
+    };
+
+    // 切到 opencode-go:地址与旧认证 token 一并清空,无关 env 保留
+    expect(
+      applyProviderAutofill(staleSettings, opencodeGoProviders, "builtin:opencode-go"),
+    ).toEqual({ env: { OTHER_ENV: "keep-me" } });
+  });
+
+  it("从 opencode-go 切走时保留 ANTHROPIC_API_KEY(x-api-key 为 Anthropic 兼容通用认证,不反向清理)", () => {
+    const settings = {
+      env: {
+        ANTHROPIC_API_KEY: "sk-keep",
+        ANTHROPIC_MODEL: "manual-model",
+        OTHER_ENV: "keep-me",
+      },
+    };
+
+    // 切到 deepseek(可解析)时只清地址,不清 API_KEY
+    expect(applyProviderAutofill(settings, PRESETS, "builtin:deepseek")).toEqual({
+      env: {
+        ANTHROPIC_API_KEY: "sk-keep",
+        ANTHROPIC_MODEL: "manual-model",
+        OTHER_ENV: "keep-me",
+      },
+    });
+  });
 });
 
 describe("config-workspace-utils profile effective summary", () => {

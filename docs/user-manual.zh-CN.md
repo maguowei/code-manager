@@ -143,7 +143,7 @@ macOS / Windows / Linux 在安装包场景下均可注册 scheme;开发态下 Li
 
 ## 供应商 Provider
 
-供应商均为内置且只读,只承载供应商客观信息(连接地址 `ANTHROPIC_BASE_URL`、模型映射与可选附加环境变量),不含认证密钥。当前覆盖 Anthropic、DeepSeek、智谱 GLM Coding Plan、Kimi Code Plan、MiniMax Token Plan、小米 MiMo Token Plan、OpenRouter、火山方舟 Coding Plan、万界方舟和 Ollama。
+供应商均为内置且只读,只承载供应商客观信息(连接地址 `ANTHROPIC_BASE_URL`、模型映射与可选附加环境变量),不含认证密钥。当前覆盖 Anthropic、DeepSeek、智谱 GLM Coding Plan、Kimi Code Plan、MiniMax Token Plan、小米 MiMo Token Plan、OpenRouter、火山方舟 Coding Plan、万界方舟、OpenCode Go 和 Ollama。
 
 不支持自定义供应商。在配置编辑器的「供应商」选项处选择一个内置供应商后,其连接地址与模型映射会自动带入;你只需补充认证密钥与行为设置。点击该选项下方的「查看内置供应商」可打开只读一览,查看每个供应商的名称、ID、API 地址、官方文档链接和推荐模型。
 

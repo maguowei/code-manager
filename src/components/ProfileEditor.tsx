@@ -228,7 +228,15 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     allowedKeys: COMMON_JSON_ALLOWED_KEYS,
   });
   const envObject = useMemo(() => readTopLevelObject(settings, "env"), [settings]);
-  const hiddenEnvKeys = useMemo(() => [...AUTH_ENV_KEYS, ...COMMON_ENV_SETTINGS_KEYS], []);
+  // opencode-go 通过 ANTHROPIC_API_KEY(x-api-key)认证,认证区切换为 API Key 字段
+  const usesApiKeyAuth = providerSlugFromId(providerId) === "opencode-go";
+  const hiddenEnvKeys = useMemo(() => {
+    const authKeys: string[] = [...AUTH_ENV_KEYS];
+    if (usesApiKeyAuth) {
+      authKeys.push("ANTHROPIC_API_KEY");
+    }
+    return [...authKeys, ...COMMON_ENV_SETTINGS_KEYS];
+  }, [usesApiKeyAuth]);
   const hiddenEnvEntries = useMemo(
     () => buildHiddenEnvEntries(envObject, hiddenEnvKeys),
     [envObject, hiddenEnvKeys],
@@ -743,6 +751,8 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     openProviderDocs: t("providers.actions.openDocs"),
     authToken: t("profiles.editor.fields.authToken"),
     authTokenEnv: t("profiles.editor.fields.authTokenEnv"),
+    authApiKey: t("profiles.editor.fields.authApiKey"),
+    authApiKeyEnv: t("profiles.editor.fields.authApiKeyEnv"),
     showAuthToken: t("common.showToken"),
     hideAuthToken: t("common.hideToken"),
     baseUrl: t("profiles.editor.fields.baseUrl"),
@@ -952,18 +962,31 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
 
           <EditorField>
             <EditorLabelRow>
-              <Label htmlFor="profile-auth-token">{messages.authToken}</Label>
-              <EditorEnvHint>{messages.authTokenEnv}</EditorEnvHint>
+              <Label htmlFor="profile-auth-token">
+                {usesApiKeyAuth ? messages.authApiKey : messages.authToken}
+              </Label>
+              <EditorEnvHint>
+                {usesApiKeyAuth ? messages.authApiKeyEnv : messages.authTokenEnv}
+              </EditorEnvHint>
             </EditorLabelRow>
             <SensitiveTextInput
               id="profile-auth-token"
-              ariaLabel={messages.authTokenEnv}
-              value={readEnvString(settings, "ANTHROPIC_AUTH_TOKEN")}
-              placeholder="sk-ant-..."
+              ariaLabel={usesApiKeyAuth ? messages.authApiKeyEnv : messages.authTokenEnv}
+              value={readEnvString(
+                settings,
+                usesApiKeyAuth ? "ANTHROPIC_API_KEY" : "ANTHROPIC_AUTH_TOKEN",
+              )}
+              placeholder={usesApiKeyAuth ? "sk-..." : "sk-ant-..."}
               showLabel={messages.showAuthToken}
               hideLabel={messages.hideAuthToken}
               onChange={(value) =>
-                applySettings(setEnvString(settings, "ANTHROPIC_AUTH_TOKEN", value))
+                applySettings(
+                  setEnvString(
+                    settings,
+                    usesApiKeyAuth ? "ANTHROPIC_API_KEY" : "ANTHROPIC_AUTH_TOKEN",
+                    value,
+                  ),
+                )
               }
             />
           </EditorField>

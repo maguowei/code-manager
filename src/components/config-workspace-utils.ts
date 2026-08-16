@@ -351,7 +351,13 @@ export function applyProviderAutofill(
   // 覆盖层只存差异:不再把 provider 的默认模型/effort 复制进 Profile settings
   // （编辑器按"有效值"显示这些默认,详见 readBehaviorFieldState）。
   // 仅在切到可解析供应商时清掉残留的地址覆盖——地址由 Provider 合并层提供(单一事实源),与后端一致。
-  return providerResolved ? setEnvString(settings, "ANTHROPIC_BASE_URL", "") : settings;
+  let next = providerResolved ? setEnvString(settings, "ANTHROPIC_BASE_URL", "") : settings;
+  // opencode-go 通过 ANTHROPIC_API_KEY(x-api-key)认证,而 Claude Code 与后端模型测试均
+  // Bearer 优先;切到该供应商时清掉可能残留的 ANTHROPIC_AUTH_TOKEN,避免其遮蔽用户新填的 API Key。
+  if (providerResolved && providerSlugFromId(providerId) === "opencode-go") {
+    next = setEnvString(next, "ANTHROPIC_AUTH_TOKEN", "");
+  }
+  return next;
 }
 
 /**
