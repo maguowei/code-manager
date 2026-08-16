@@ -16,7 +16,16 @@ use tauri_plugin_notification::NotificationExt;
 
 const MAIN_TRAY_ID: &str = "main_tray";
 const SESSIONS_TRAY_ID: &str = "sessions_tray";
-const SESSION_MENU_LABEL_MAX_CHARS: usize = 64;
+
+/// 会话文本截断长度上限常量，保持菜单与通知紧凑整洁；
+/// 待处理通知中 waiting_for 理由文本截断上限
+const SESSION_NOTIFICATION_WAITING_FOR_MAX_CHARS: usize = 64;
+/// 会话菜单项基础主标识（项目名 #短ID）截断上限
+const SESSION_MENU_TAG_MAX_CHARS: usize = 24;
+/// 会话菜单项自定义会话名截断上限
+const SESSION_MENU_CUSTOM_NAME_MAX_CHARS: usize = 16;
+/// 会话菜单项 waiting_for 理由文本截断上限
+const SESSION_MENU_WAITING_FOR_MAX_CHARS: usize = 24;
 // 会话状态分类 emoji：托盘 title 与下拉菜单项共用，保持视觉一致。
 // 🔴 待处理（最需关注）、🟢 进行中、⚪ 其它（空闲等）；语义可按需调整。
 const SESSION_STATUS_WAITING_EMOJI: &str = "🔴";
@@ -112,6 +121,12 @@ struct RawTraySession {
     /// 会话进程启动时间（`ps -o lstart=` 格式，UTC）；聚焦时校验 pid 未被回收。
     #[serde(default)]
     proc_start: Option<String>,
+    /// Claude Code 原生会话名称（自动生成如 `dotfiles-d4` 或用户自定义名）。
+    #[serde(default)]
+    name: Option<String>,
+    /// 名称来源：`derived`（自动派生）或 `user`（用户重命名）。
+    #[serde(default)]
+    name_source: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,6 +139,10 @@ struct TraySession {
     waiting_for: Option<String>,
     /// 会话进程启动时间；缺失或非法时不允许异步聚焦。
     proc_start: Option<String>,
+    /// 会话名称。
+    name: Option<String>,
+    /// 名称来源（`derived` / `user`）。
+    name_source: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -229,6 +248,14 @@ impl From<RawTraySession> for TraySession {
                 .proc_start
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty()),
+            name: raw
+                .name
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
+            name_source: raw
+                .name_source
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
         }
     }
 }
@@ -284,6 +311,65 @@ fn session_project_name(cwd: &str) -> String {
         .filter(|name| !name.trim().is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| cwd.to_string())
+}
+
+/// 提取用于托盘 UI 消歧展示的 8 位短会话标识（如 `sessionId = "7dd0ffff-4e38..."` -> `"#7dd0ffff"`）。
+/// 过滤连字符后按字符截取前 8 位并拼接 "#" 前缀；对标准 UUID 输入与 statusline 的 `${session_id:0:8}` 展示一致，
+/// 且按字符截取可杜绝多字节 UTF-8 切片 panic。若 session_id 为空则返回空串。
+fn session_short_id(session_id: &str) -> String {
+    let trimmed = session_id.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let clean: String = trimmed.chars().filter(|c| *c != '-').take(8).collect();
+    if clean.is_empty() {
+        String::new()
+    } else {
+        format!("#{clean}")
+    }
+}
+
+/// 识别会话是否由用户显式命名（如通过 `/rename feat-auth` 自定义名称）。
+/// 严格仅在 `nameSource == "user"` 时返回自定义名称，避免将 `.dotfiles`
+/// 等隐藏目录生成的派生名（`dotfiles-d4`）误判为自定义重命名。
+fn session_custom_name(session: &TraySession) -> Option<&str> {
+    if session.name_source.as_deref() != Some("user") {
+        return None;
+    }
+    let name = session.name.as_deref()?.trim();
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
+}
+
+/// 获取会话的基础主标识：`{project_name} #{short_id}`（如 `.dotfiles #7dd0ffff`）。
+fn session_project_tag(session: &TraySession) -> String {
+    let project = session_project_name(&session.cwd);
+    let short_id = session_short_id(&session.session_id);
+    match (!project.is_empty(), !short_id.is_empty()) {
+        (true, true) => format!("{project} {short_id}"),
+        (true, false) => project,
+        (false, true) => short_id,
+        (false, false) => String::new(),
+    }
+}
+
+/// 获取会话展示名（用于系统通知与汇总）：
+/// - 默认会话：`{project} #{short_id}`（如 `.dotfiles #7dd0ffff`）
+/// - 用户自定义命名会话：`{project} #{short_id} · {custom_name}`（如 `code-manager #f0093a43 · feat-auth`）
+fn session_display_name(session: &TraySession) -> String {
+    let tag = session_project_tag(session);
+    if let Some(custom) = session_custom_name(session) {
+        if !tag.is_empty() {
+            format!("{tag} · {custom}")
+        } else {
+            custom.to_string()
+        }
+    } else {
+        tag
+    }
 }
 
 fn session_status_label(status: &str, language: &str) -> String {
@@ -566,7 +652,7 @@ fn build_pending_session_notification(
     interaction: PendingSessionNotificationInteraction,
 ) -> PendingSessionNotification {
     let is_en = language == "en";
-    let project_name = session_project_name(&session.cwd);
+    let display_name = session_display_name(session);
     let title = if is_en {
         "Claude session needs attention"
     } else {
@@ -576,14 +662,14 @@ fn build_pending_session_notification(
     let body = match (is_en, session.waiting_for.as_deref()) {
         (_, Some(waiting_for)) => format!(
             "{} · {}",
-            crate::utils::truncate(&project_name, 48),
-            crate::utils::truncate(waiting_for, SESSION_MENU_LABEL_MAX_CHARS)
+            crate::utils::truncate(&display_name, 48),
+            crate::utils::truncate(waiting_for, SESSION_NOTIFICATION_WAITING_FOR_MAX_CHARS)
         ),
         (true, None) => format!(
             "{} needs attention",
-            crate::utils::truncate(&project_name, 48)
+            crate::utils::truncate(&display_name, 48)
         ),
-        (false, None) => format!("{} 需要处理", crate::utils::truncate(&project_name, 48)),
+        (false, None) => format!("{} 需要处理", crate::utils::truncate(&display_name, 48)),
     };
     let focus_target = (interaction == PendingSessionNotificationInteraction::FocusTerminal)
         .then(|| session.proc_start.clone())
@@ -616,19 +702,19 @@ fn build_pending_sessions_summary_notification(
         "多个 Claude 会话待处理"
     }
     .to_string();
-    let project_names = sessions
+    let display_names = sessions
         .iter()
-        .map(|session| crate::utils::truncate(&session_project_name(&session.cwd), 32))
+        .map(|session| crate::utils::truncate(&session_display_name(session), 32))
         .collect::<Vec<_>>()
         .join(", ");
     let body = if is_en {
         format!(
             "{} sessions need attention: {}",
             sessions.len(),
-            project_names
+            display_names
         )
     } else {
-        format!("{} 个会话需要处理：{}", sessions.len(), project_names)
+        format!("{} 个会话需要处理：{}", sessions.len(), display_names)
     };
 
     PendingSessionNotification {
@@ -640,15 +726,23 @@ fn build_pending_sessions_summary_notification(
 }
 
 fn session_menu_item_label(session: &TraySession, language: &str) -> String {
-    let mut parts = vec![
-        crate::utils::truncate(&session_project_name(&session.cwd), 32),
-        session_status_label(&session.status, language),
-    ];
+    let tag = session_project_tag(session);
+    let mut parts = Vec::new();
+    if !tag.is_empty() {
+        parts.push(crate::utils::truncate(&tag, SESSION_MENU_TAG_MAX_CHARS));
+    }
+    if let Some(custom_name) = session_custom_name(session) {
+        parts.push(crate::utils::truncate(
+            custom_name,
+            SESSION_MENU_CUSTOM_NAME_MAX_CHARS,
+        ));
+    }
+    parts.push(session_status_label(&session.status, language));
     if is_waiting_session_status(&session.status) {
         if let Some(waiting_for) = &session.waiting_for {
             parts.push(crate::utils::truncate(
                 waiting_for,
-                SESSION_MENU_LABEL_MAX_CHARS,
+                SESSION_MENU_WAITING_FOR_MAX_CHARS,
             ));
         }
     }
@@ -1512,10 +1606,10 @@ mod tests {
         get_tray_title, is_running_session_status, is_starting_session_status,
         is_waiting_session_status, load_tray_sessions_from_dir, main_tray_navigation_items,
         parse_session_menu_item_id, pending_session_notification_interaction,
-        pick_focus_target_session, session_focus_available_for_platform,
+        pick_focus_target_session, session_display_name, session_focus_available_for_platform,
         session_focus_failure_notification_enabled, session_menu_item_id, session_menu_item_label,
-        session_project_name, session_status_emoji, session_status_label, sessions_tray_title,
-        should_pulse, tick_pulse, to_superscript, tray_labels_for_language,
+        session_project_name, session_short_id, session_status_emoji, session_status_label,
+        sessions_tray_title, should_pulse, tick_pulse, to_superscript, tray_labels_for_language,
         PendingSessionFocusTarget, PendingSessionNotificationInteraction, PendingSessionNotifier,
         PulsePhase, PulseState, RawTraySession, TraySession, SESSION_STATUS_WAITING_DIM_EMOJI,
         SESSION_STATUS_WAITING_EMOJI,
@@ -1538,6 +1632,7 @@ mod tests {
     const VALID_PROC_START: &str = "Wed Aug 12 15:27:23 2026";
 
     fn test_session(cwd: &str, status: &str, updated_at: u64) -> TraySession {
+        let name = session_project_name(cwd);
         TraySession {
             pid: GHOST_PID,
             session_id: "session-1".to_string(),
@@ -1546,6 +1641,8 @@ mod tests {
             updated_at,
             waiting_for: None,
             proc_start: Some(VALID_PROC_START.to_string()),
+            name: if name.is_empty() { None } else { Some(name) },
+            name_source: None,
         }
     }
 
@@ -1994,11 +2091,11 @@ mod tests {
 
         assert_eq!(
             session_menu_item_label(&session, "zh"),
-            "🔴 code-manager · 待处理 · approve Bash"
+            "🔴 code-manager #session1 · 待处理 · approve Bash"
         );
         assert_eq!(
             session_menu_item_label(&session, "en"),
-            "🔴 code-manager · Waiting · approve Bash"
+            "🔴 code-manager #session1 · Waiting · approve Bash"
         );
     }
 
@@ -2045,7 +2142,10 @@ mod tests {
 
         assert_eq!(first_notifications.len(), 1);
         assert_eq!(first_notifications[0].title, "Claude 会话待处理");
-        assert_eq!(first_notifications[0].body, "code-manager · approve Bash");
+        assert_eq!(
+            first_notifications[0].body,
+            "code-manager #session1 · approve Bash"
+        );
         assert!(first_notifications[0].focus_target.is_none());
         assert!(repeated_notifications.is_empty());
     }
@@ -2243,6 +2343,8 @@ mod tests {
             updated_at: 2000,
             waiting_for: None,
             proc_start: Some(VALID_PROC_START.to_string()),
+            name: None,
+            name_source: None,
         };
 
         let notification = build_pending_session_notification(
@@ -2382,6 +2484,8 @@ mod tests {
                 updated_at: 0,
                 waiting_for: None,
                 proc_start: Some(VALID_PROC_START.to_string()),
+                name: None,
+                name_source: None,
             };
             let id = session_menu_item_id(&session);
             assert!(id.starts_with("session_4242::"), "id 缺前缀: {id}");
@@ -2519,8 +2623,146 @@ mod tests {
         assert_eq!(session_project_name("/Users/demo/中文项目"), "中文项目");
     }
 
-    /// `From<RawTraySession>` 必须 trim 所有字符串字段，且把空白 / 空字符串的 `waiting_for`
-    /// 与 `proc_start` 规约为 None；否则下游菜单项会显示 ` · ` 这样的空段。
+    /// `session_short_id`：
+    /// 过滤连字符后截取前 8 位字符，带 "#" 前缀（如 "#7dd0ffff"），空 session_id 返回空串。
+    /// 对含多字节 UTF-8 字符、连字符、特殊符号能安全处理，不发生切片 panic。
+    #[test]
+    fn session_short_id_extracts_clean_eight_char_prefix() {
+        assert_eq!(
+            session_short_id("7dd0ffff-4e38-4ab6-8e94-a04156cc407a"),
+            "#7dd0ffff"
+        );
+        assert_eq!(
+            session_short_id("98a01864-a50b-4a28-8662-561aadefac2b"),
+            "#98a01864"
+        );
+        assert_eq!(session_short_id("abc"), "#abc");
+        assert_eq!(session_short_id(""), "");
+        assert_eq!(session_short_id("   "), "");
+        // 多字节 UTF-8 容错测试：按字符安全截取前 8 个字符，不发生切片 panic
+        assert_eq!(session_short_id("中文测试会话-123456"), "#中文测试会话12");
+        assert_eq!(session_short_id("特殊字符-测试"), "#特殊字符测试");
+    }
+
+    /// `session_display_name` 与 `session_project_tag`：
+    /// 1. 默认会话（derived 或无 custom_name）：`{project} #{short_id}`（如 `.dotfiles #7dd0ffff`）；
+    /// 2. 自定义重命名会话（user named）：`{project} #{short_id} · {custom_name}`（如 `.dotfiles #7dd0ffff · sync-zsh`）；
+    /// 3. 隐藏目录 `.dotfiles` 派生名 `dotfiles-d4` 在 `name_source: None` 时不误判为自定义名；
+    /// 4. 若 sessionId 为空则仅显示项目名。
+    #[test]
+    fn session_display_name_prefers_explicit_name_and_falls_back_to_short_id() {
+        // 场景 1：原生派生名（derived），展示项目名 + #短ID
+        let session_derived = TraySession {
+            pid: 1001,
+            session_id: "7dd0ffff-4e38-4ab6-8e94-a04156cc407a".to_string(),
+            cwd: "/Users/demo/.dotfiles".to_string(),
+            status: "idle".to_string(),
+            updated_at: 1000,
+            waiting_for: None,
+            proc_start: Some(VALID_PROC_START.to_string()),
+            name: Some("dotfiles-d4".to_string()),
+            name_source: Some("derived".to_string()),
+        };
+        assert_eq!(
+            session_display_name(&session_derived),
+            ".dotfiles #7dd0ffff"
+        );
+
+        // 场景 2：用户通过 /rename 设置的自定义会话名（user），追加自定义名
+        let session_renamed = TraySession {
+            name: Some("sync-zsh".to_string()),
+            name_source: Some("user".to_string()),
+            ..session_derived.clone()
+        };
+        assert_eq!(
+            session_display_name(&session_renamed),
+            ".dotfiles #7dd0ffff · sync-zsh"
+        );
+
+        // 场景 3：name 存在但 name_source 缺失（旧版文件），不盲目当作自定义名
+        let session_legacy_derived = TraySession {
+            name: Some("dotfiles-d4".to_string()),
+            name_source: None,
+            ..session_derived.clone()
+        };
+        assert_eq!(
+            session_display_name(&session_legacy_derived),
+            ".dotfiles #7dd0ffff"
+        );
+
+        // 场景 4：无 name，依然展示项目名 + #短ID
+        let session_no_name = TraySession {
+            name: None,
+            name_source: None,
+            ..session_derived.clone()
+        };
+        assert_eq!(
+            session_display_name(&session_no_name),
+            ".dotfiles #7dd0ffff"
+        );
+
+        // 场景 5：name 与 sessionId 均为空，回退到项目名
+        let session_empty_id = TraySession {
+            session_id: "".to_string(),
+            name: None,
+            name_source: None,
+            ..session_derived.clone()
+        };
+        assert_eq!(session_display_name(&session_empty_id), ".dotfiles");
+    }
+
+    /// 同一工作目录下多个会话在托盘菜单项中能通过 session_project_tag / 自定义名 互相区分
+    #[test]
+    fn session_menu_item_label_distinguishes_multiple_sessions_in_same_cwd() {
+        let s1 = TraySession {
+            pid: 75389,
+            session_id: "7dd0ffff-4e38-4ab6-8e94-a04156cc407a".to_string(),
+            cwd: "/Users/demo/.dotfiles".to_string(),
+            status: "idle".to_string(),
+            updated_at: 1000,
+            waiting_for: None,
+            proc_start: Some(VALID_PROC_START.to_string()),
+            name: Some("dotfiles-d4".to_string()),
+            name_source: Some("derived".to_string()),
+        };
+        let s2 = TraySession {
+            pid: 82357,
+            session_id: "98a01864-a50b-4a28-8662-561aadefac2b".to_string(),
+            cwd: "/Users/demo/.dotfiles".to_string(),
+            status: "idle".to_string(),
+            updated_at: 2000,
+            waiting_for: None,
+            proc_start: Some(VALID_PROC_START.to_string()),
+            name: Some("dotfiles-0d".to_string()),
+            name_source: Some("derived".to_string()),
+        };
+        let s3 = TraySession {
+            pid: 84863,
+            session_id: "f0093a43-4503-44d6-871c-e5b74a26689a".to_string(),
+            cwd: "/Users/demo/work/code-manager".to_string(),
+            status: "waiting".to_string(),
+            updated_at: 3000,
+            waiting_for: Some("approve Bash".to_string()),
+            proc_start: Some(VALID_PROC_START.to_string()),
+            name: Some("feat-auth".to_string()),
+            name_source: Some("user".to_string()),
+        };
+
+        let label1 = session_menu_item_label(&s1, "zh");
+        let label2 = session_menu_item_label(&s2, "zh");
+        let label3 = session_menu_item_label(&s3, "zh");
+
+        assert_eq!(label1, "⚪ .dotfiles #7dd0ffff · 空闲");
+        assert_eq!(label2, "⚪ .dotfiles #98a01864 · 空闲");
+        assert_eq!(
+            label3,
+            "🔴 code-manager #f0093a43 · feat-auth · 待处理 · approve Bash"
+        );
+        assert_ne!(label1, label2, "同目录多会话的菜单标签必须互不相同");
+    }
+
+    /// `From<RawTraySession>` 必须 trim 所有字符串字段，且把空白 / 空字符串的 `waiting_for`、
+    /// `proc_start`、`name` 与 `name_source` 规约为 None；否则下游菜单项会显示 ` · ` 这样的空段。
     #[test]
     fn from_raw_tray_session_trims_whitespace_and_filters_empty_waiting_for() {
         // 全 trim
@@ -2532,6 +2774,8 @@ mod tests {
             updated_at: 100,
             waiting_for: Some("   approve Bash   ".to_string()),
             proc_start: Some("  Wed Aug 12 15:27:23 2026  ".to_string()),
+            name: Some("  dotfiles-d4  ".to_string()),
+            name_source: Some("  derived  ".to_string()),
         };
         let session = TraySession::from(raw);
         assert_eq!(session.session_id, "s1");
@@ -2542,8 +2786,10 @@ mod tests {
             session.proc_start.as_deref(),
             Some("Wed Aug 12 15:27:23 2026")
         );
+        assert_eq!(session.name.as_deref(), Some("dotfiles-d4"));
+        assert_eq!(session.name_source.as_deref(), Some("derived"));
 
-        // 纯空白 waiting_for / proc_start 视为缺省
+        // 纯空白 waiting_for / proc_start / name / name_source 视为缺省
         let raw = RawTraySession {
             pid: 42,
             session_id: "s1".to_string(),
@@ -2552,12 +2798,16 @@ mod tests {
             updated_at: 0,
             waiting_for: Some("   ".to_string()),
             proc_start: Some("   ".to_string()),
+            name: Some("   ".to_string()),
+            name_source: Some("   ".to_string()),
         };
         let session = TraySession::from(raw);
         assert_eq!(session.waiting_for, None);
         assert_eq!(session.proc_start, None);
+        assert_eq!(session.name, None);
+        assert_eq!(session.name_source, None);
 
-        // None waiting_for / proc_start 直接保留为 None
+        // None waiting_for / proc_start / name / name_source 直接保留为 None
         let raw = RawTraySession {
             pid: 42,
             session_id: "s1".to_string(),
@@ -2566,10 +2816,14 @@ mod tests {
             updated_at: 0,
             waiting_for: None,
             proc_start: None,
+            name: None,
+            name_source: None,
         };
         let session = TraySession::from(raw);
         assert_eq!(session.waiting_for, None);
         assert_eq!(session.proc_start, None);
+        assert_eq!(session.name, None);
+        assert_eq!(session.name_source, None);
     }
 
     /// status 比对必须大小写不敏感、忽略前后空白；
@@ -2599,8 +2853,8 @@ mod tests {
 
     /// `session_menu_item_label`:
     /// - 非 waiting 状态：始终省略 waiting_for（即便后端误设也不渲染）；
-    /// - waiting 状态 + waiting_for=None：仅渲染项目名与状态；
-    /// - 项目名超过 32 字符必须截断。
+    /// - waiting 状态 + waiting_for=None：仅渲染主标识与状态；
+    /// - 主标识超过 24 字符必须截断。
     #[test]
     fn session_menu_item_label_omits_waiting_for_outside_waiting_and_when_absent() {
         // 非 waiting 状态 + 有 waiting_for：应忽略 waiting_for
@@ -2608,17 +2862,17 @@ mod tests {
         running.waiting_for = Some("不应渲染".to_string());
         assert_eq!(
             session_menu_item_label(&running, "zh"),
-            "🟢 code-manager · 运行中"
+            "🟢 code-manager #session1 · 运行中"
         );
 
         // waiting 状态但 waiting_for=None
         let waiting = test_session("/Users/demo/work/code-manager", "waiting", 2000);
         assert_eq!(
             session_menu_item_label(&waiting, "zh"),
-            "🔴 code-manager · 待处理"
+            "🔴 code-manager #session1 · 待处理"
         );
 
-        // 长项目名截断到 32 字符（truncate 在末尾追加 "..."）
+        // 长项目名截断到 24 字符（truncate 在末尾追加 "..."）
         let long = test_session(
             "/Users/demo/work/this-is-a-really-really-long-project-name-that-exceeds-limit",
             "idle",
@@ -2627,10 +2881,10 @@ mod tests {
         let label = session_menu_item_label(&long, "en");
         // 截断后应仍带状态后缀
         assert!(label.ends_with(" · Idle"));
-        // 去掉状态后缀和 "⚪ " emoji 前缀后，项目名不超过 32 + "..." 的截断长度
+        // 去掉状态后缀和 "⚪ " emoji 前缀后，项目名不超过 24 + "..." 的截断长度
         let project_part = label.trim_end_matches(" · Idle").trim_start_matches("⚪ ");
         assert!(
-            project_part.chars().count() <= 35,
+            project_part.chars().count() <= 27,
             "label 项目段过长: {project_part}"
         );
     }
