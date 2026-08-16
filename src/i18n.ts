@@ -1742,6 +1742,12 @@ const translations = {
     "codex.field.envKeyHint":
       "环境变量键名，写入 [model_providers.NAME].env_key；留空则把 API key 内联进 config.toml 的 experimental_bearer_token。不写入 ~/.codex/auth.json。",
     "codex.field.docUrl": "文档链接（可选）",
+    "codex.field.modelCatalog": "模型目录（可选）",
+    "codex.field.modelCatalogHint":
+      "模型清单对象：键为模型 id，值为 { context_window, display_name } 等字段；Apply 时生成 ~/.codex/models.json 供 Codex 模型下拉使用。",
+    "codex.field.modelCatalogEmpty": "未配置模型目录",
+    "codex.field.modelCatalogInvalid": "模型目录 JSON 无效",
+    "codex.field.modelCatalogCount": "共 {count} 个模型",
     "codex.toast.loadFailed": "加载 Codex 配置失败",
     "codex.toast.providerCreated": "Codex Provider 已创建",
     "codex.toast.providerUpdated": "Codex Provider 已更新",
@@ -3615,6 +3621,12 @@ const translations = {
     "codex.field.envKeyHint":
       "Env var key name, written to [model_providers.NAME].env_key; leave blank to inline the API key as experimental_bearer_token in config.toml. Never writes ~/.codex/auth.json.",
     "codex.field.docUrl": "Docs link (optional)",
+    "codex.field.modelCatalog": "Model catalog (optional)",
+    "codex.field.modelCatalogHint":
+      "Map of model ids to fields like { context_window, display_name }; written to ~/.codex/models.json on Apply for the Codex model picker.",
+    "codex.field.modelCatalogEmpty": "No model catalog configured",
+    "codex.field.modelCatalogInvalid": "Invalid model catalog JSON",
+    "codex.field.modelCatalogCount": "{count} models",
     "codex.toast.loadFailed": "Failed to load Codex config",
     "codex.toast.providerCreated": "Codex provider created",
     "codex.toast.providerUpdated": "Codex provider updated",

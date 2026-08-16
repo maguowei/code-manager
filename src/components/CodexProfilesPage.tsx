@@ -1,7 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CircleCheck, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import type { KeyboardEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -16,6 +16,7 @@ import type {
   CodexProviderInput,
   CodexWorkspace,
 } from "../types";
+import ConfigPreview from "./ConfigPreview";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
   CARD_ACTION_BAR_CLASS,
@@ -71,6 +72,88 @@ interface ProviderDraft {
   baseUrl: string;
   envKey: string;
   docUrl: string;
+  // 模型目录整体 JSON 文本草稿(空串 = 无);保存时解析为 modelCatalog
+  modelCatalogText: string;
+}
+
+// 模型目录解析状态:整体 JSON 输入,实时预览为模型列表(不做逐字段拆分)
+interface ModelCatalogModel {
+  id: string;
+  displayName?: string;
+  contextWindow?: number;
+}
+
+type ModelCatalogState =
+  | { kind: "empty" }
+  | { kind: "invalid"; detail: string }
+  | { kind: "ok"; models: ModelCatalogModel[] };
+
+function parseModelCatalog(text: string): ModelCatalogState {
+  const trimmed = text.trim();
+  if (trimmed === "") {
+    return { kind: "empty" };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (error) {
+    return {
+      kind: "invalid",
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
+    return { kind: "invalid", detail: "" };
+  }
+  const models = Object.entries(parsed as Record<string, unknown>).map(([id, value]) => {
+    const record = value as Record<string, unknown> | null;
+    return {
+      id,
+      displayName:
+        record !== null && typeof record.display_name === "string"
+          ? record.display_name
+          : undefined,
+      contextWindow:
+        record !== null && typeof record.context_window === "number"
+          ? record.context_window
+          : undefined,
+    };
+  });
+  return { kind: "ok", models };
+}
+
+function ModelCatalogPreview({ state }: { state: ModelCatalogState }) {
+  const { t } = useI18n();
+  if (state.kind === "empty") {
+    return <p className="text-xs text-muted-foreground">{t("codex.field.modelCatalogEmpty")}</p>;
+  }
+  if (state.kind === "invalid") {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <p className="text-sm text-destructive">{t("codex.field.modelCatalogInvalid")}</p>
+        {state.detail ? <p className="text-xs text-muted-foreground">{state.detail}</p> : null}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-xs text-muted-foreground">
+        {t("codex.field.modelCatalogCount").replace("{count}", String(state.models.length))}
+      </p>
+      <ul className="flex flex-col gap-1">
+        {state.models.map((model) => (
+          <li
+            key={model.id}
+            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground"
+          >
+            <span className="font-mono text-foreground">{model.id}</span>
+            {model.displayName ? <span>{model.displayName}</span> : null}
+            {model.contextWindow !== undefined ? <span>context: {model.contextWindow}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 interface ProfileDraft {
@@ -88,6 +171,7 @@ function emptyProviderDraft(): ProviderDraft {
     // envKey 可选(ADR 0005):留空则 apply 内联 experimental_bearer_token
     envKey: "",
     docUrl: "",
+    modelCatalogText: "",
   };
 }
 
@@ -98,6 +182,7 @@ function providerDraftFrom(p: CodexProvider): ProviderDraft {
     baseUrl: p.baseUrl,
     envKey: p.envKey ?? "",
     docUrl: p.docUrl ?? "",
+    modelCatalogText: p.modelCatalog ? JSON.stringify(p.modelCatalog, null, 2) : "",
   };
 }
 
@@ -204,6 +289,10 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
       // wire_api 恒为 responses(Codex 已移除 chat),后端负责落盘
       wireApi: WIRE_API_RESPONSES,
       docUrl: providerDraft.docUrl.trim() ? providerDraft.docUrl.trim() : undefined,
+      // 模型目录(整体 JSON 输入):空串不上送,否则解析为对象(valid 已保证可解析)
+      modelCatalog: providerDraft.modelCatalogText.trim()
+        ? JSON.parse(providerDraft.modelCatalogText)
+        : undefined,
     };
     setProviderSaving(true);
     try {
@@ -294,8 +383,17 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
     }
   };
 
+  // 模型目录整体 JSON 解析状态(实时预览 + 保存前校验)
+  const modelCatalogState = useMemo(
+    () => parseModelCatalog(providerDraft.modelCatalogText),
+    [providerDraft.modelCatalogText],
+  );
+
   const providerDraftValid =
-    providerDraft.name.trim() !== "" && providerDraft.baseUrl.trim() !== "";
+    providerDraft.name.trim() !== "" &&
+    providerDraft.baseUrl.trim() !== "" &&
+    // 模型目录为空或 JSON 合法才允许保存(无效 JSON 禁用保存)
+    modelCatalogState.kind !== "invalid";
   const profileDraftValid =
     profileDraft !== null &&
     profileDraft.name.trim() !== "" &&
@@ -806,6 +904,19 @@ export default function CodexProfilesPage({ onEditorExitGuardChange }: CodexProf
                     onChange={(e) => setProviderDraft({ ...providerDraft, docUrl: e.target.value })}
                     placeholder="https://docs.example.com"
                   />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>{t("codex.field.modelCatalog")}</FieldLabel>
+                <FieldDescription>{t("codex.field.modelCatalogHint")}</FieldDescription>
+                <FieldContent>
+                  <ConfigPreview
+                    content={providerDraft.modelCatalogText}
+                    onChange={(value) =>
+                      setProviderDraft({ ...providerDraft, modelCatalogText: value })
+                    }
+                  />
+                  <ModelCatalogPreview state={modelCatalogState} />
                 </FieldContent>
               </Field>
             </FieldGroup>

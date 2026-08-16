@@ -23,6 +23,17 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(),
 }));
 
+// ConfigPreview 内部懒加载 ConfigPreviewCodeEditor;mock 为可交互 textarea 以便整体输入模型目录 JSON
+vi.mock("@uiw/react-codemirror", () => ({
+  default: (props: { value: string; onChange?: (value: string) => void }) => (
+    <textarea
+      data-testid="codex-model-catalog-editor"
+      value={props.value}
+      onChange={(event) => props.onChange?.(event.target.value)}
+    />
+  ),
+}));
+
 vi.mock("../../hooks/useToast", () => ({
   useToast: () => ({
     showToast: showToastMock,
@@ -383,6 +394,8 @@ describe("CodexProfilesPage", () => {
           envKey: undefined,
           wireApi: "responses",
           docUrl: undefined,
+          // 模型目录留空则不上送
+          modelCatalog: undefined,
         },
       });
     });
@@ -488,5 +501,108 @@ describe("CodexProfilesPage", () => {
     await waitFor(() => {
       expect(screen.queryByText("新增 Codex 配置")).not.toBeInTheDocument();
     });
+  });
+
+  it("整体输入模型目录 JSON,预览模型列表,保存解析为对象上送", async () => {
+    stubInvoke(BUILTIN_WORKSPACE);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    await waitFor(() => {
+      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
+    });
+
+    // 填必填字段解除保存禁用
+    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
+      target: { value: "模型目录中转" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
+      target: { value: "https://m.example.com/v1" },
+    });
+
+    // 整体输入模型目录 JSON(CodeMirror mock 为可交互 textarea)
+    const catalogEditor = await screen.findByTestId("codex-model-catalog-editor");
+    fireEvent.change(catalogEditor, {
+      target: {
+        value: '{"deepseek-chat":{"context_window":128000,"display_name":"DeepSeek Chat"}}',
+      },
+    });
+
+    // 预览区实时展示模型条目与计数
+    expect(await screen.findByText("DeepSeek Chat")).toBeInTheDocument();
+    expect(screen.getByText("共 1 个模型")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("upsert_codex_provider", {
+        data: expect.objectContaining({
+          modelCatalog: {
+            "deepseek-chat": { context_window: 128000, display_name: "DeepSeek Chat" },
+          },
+        }),
+      });
+    });
+  });
+
+  it("模型目录留空时保存传 modelCatalog: undefined", async () => {
+    stubInvoke(BUILTIN_WORKSPACE);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    await waitFor(() => {
+      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
+      target: { value: "无目录中转" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
+      target: { value: "https://n.example.com/v1" },
+    });
+
+    // 未触碰模型目录输入:直接保存,modelCatalog 不上送(undefined)
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("upsert_codex_provider", {
+        data: expect.objectContaining({ modelCatalog: undefined }),
+      });
+    });
+  });
+
+  it("模型目录 JSON 无效时提示错误并禁用保存", async () => {
+    stubInvoke(BUILTIN_WORKSPACE);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增 Provider" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    await waitFor(() => {
+      expect(screen.getByText("新增 Codex Provider")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("例如：我的中转"), {
+      target: { value: "无效目录中转" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("https://api.example.com/v1"), {
+      target: { value: "https://bad.example.com/v1" },
+    });
+
+    const catalogEditor = await screen.findByTestId("codex-model-catalog-editor");
+    fireEvent.change(catalogEditor, { target: { value: "{ invalid" } });
+
+    // 预览区显示无效提示,保存按钮保持禁用
+    expect(screen.getByText("模型目录 JSON 无效")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "upsert_codex_provider",
+      expect.anything() as never,
+    );
   });
 });
