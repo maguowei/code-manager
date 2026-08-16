@@ -169,7 +169,7 @@ describe("CodexProfilesPage", () => {
     });
   });
 
-  it("点击新增配置打开抽屉，可选择预设并提交保存", async () => {
+  it("点击新增配置默认打开自定义片段模式，填写并提交保存", async () => {
     stubInvoke(MOCK_WORKSPACE);
     renderPage();
 
@@ -184,50 +184,13 @@ describe("CodexProfilesPage", () => {
       expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
     });
 
-    // 填写 API key 并保存
-    const apiKeyInput = screen.getByLabelText("API Key");
-    fireEvent.change(apiKeyInput, { target: { value: "sk-test-key-123" } });
-
-    const saveButton = screen.getByRole("button", { name: "保存" });
-    fireEvent.click(saveButton);
-
-    await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith(
-        "upsert_codex_profile",
-        expect.objectContaining({
-          data: expect.objectContaining({
-            providerId: "codex-builtin:deepseek",
-            apiKey: "sk-test-key-123",
-          }),
-        }),
-      );
-    });
-  });
-
-  it("创建自定义片段 Profile：切换到自定义模式，输入 toml 与 models.json 片段并保存", async () => {
-    stubInvoke(MOCK_WORKSPACE);
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
-    });
-
-    const addButton = screen.getByRole("button", { name: /新增配置/i });
-    fireEvent.click(addButton);
-
-    await waitFor(() => {
-      expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
-    });
-
-    // 切换到自定义片段模式
-    const customModeTab = screen.getByRole("button", { name: "自定义片段" });
-    fireEvent.click(customModeTab);
-
-    // 修改名称
+    // 默认即为自定义片段，填写名称、描述与 toml 片段
     const nameInput = screen.getByPlaceholderText("例如：DeepSeek 快速起步");
     fireEvent.change(nameInput, { target: { value: "我的自定义中转" } });
 
-    // 输入 toml 片段
+    const descInput = screen.getByLabelText("描述");
+    fireEvent.change(descInput, { target: { value: "我的常用代码配置" } });
+
     const tomlInput = screen.getByPlaceholderText(/model_provider = "my_provider"/i);
     fireEvent.change(tomlInput, {
       target: {
@@ -245,6 +208,7 @@ describe("CodexProfilesPage", () => {
         expect.objectContaining({
           data: expect.objectContaining({
             name: "我的自定义中转",
+            description: "我的常用代码配置",
             providerId: "custom",
             customConfigToml: expect.stringContaining('model_provider = "my_relay"'),
           }),

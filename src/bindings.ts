@@ -358,6 +358,7 @@ export type CodexProfileInput = {
 	/**  编辑时传入;新建时为 None。 */
 	id: string | null,
 	name: string,
+	description?: string | null,
 	providerId: string,
 	apiKey?: string,
 	model?: string | null,
@@ -374,6 +375,8 @@ export type CodexProfileInput = {
 export type CodexProfile_Deserialize = {
 	id: string,
 	name: string,
+	/**  可选备注描述 */
+	description?: string | null,
 	/**  引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom") */
 	providerId: string,
 	/**  API key(敏感,展示与日志需脱敏) */
@@ -398,6 +401,8 @@ export type CodexProfile_Deserialize = {
 export type CodexProfile_Serialize = {
 	id: string,
 	name: string,
+	/**  可选备注描述 */
+	description?: string | null,
 	/**  引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom") */
 	providerId: string,
 	/**  API key(敏感,展示与日志需脱敏) */

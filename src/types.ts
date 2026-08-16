@@ -211,6 +211,7 @@ export type CodexAuthMode = "chatGptLogin" | "apiKey";
 export interface CodexProfile {
   id: string;
   name: string;
+  description?: string | null;
   providerId: string;
   /** API key(敏感,展示与日志需脱敏) */
   apiKey: string;
@@ -254,6 +255,7 @@ export interface CodexApplyPreview {
 export interface CodexProfileInput {
   id?: string | null;
   name: string;
+  description?: string | null;
   providerId: string;
   apiKey: string;
   model?: string | null;

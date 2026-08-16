@@ -1,16 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  ArrowLeft,
-  Check,
-  Copy,
-  ExternalLink,
-  Pencil,
-  Plus,
-  SquareTerminal,
-  Trash2,
-} from "lucide-react";
+import { Copy, ExternalLink, Pencil, Plus, SquareTerminal, Trash2 } from "lucide-react";
 import type { DragEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useTauriEvent from "../hooks/useTauriEvent";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
@@ -24,6 +15,10 @@ import type {
   CodexProvider,
   CodexWorkspace,
 } from "../types";
+import CodexProfileEditor, {
+  type CodexProfileEditorHandle,
+  type CodexProfileEditorSaveData,
+} from "./CodexProfileEditor";
 import ConfigPreview from "./ConfigPreview";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
@@ -33,13 +28,6 @@ import {
 } from "./card-interaction-classes";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
-import {
-  EDITOR_CONTROL_SURFACE_CLASS,
-  EditorDescription,
-  EditorField,
-  EditorFieldGrid,
-  EditorSection,
-} from "./editor-layout";
 import LaunchCommandBlock from "./LaunchCommandBlock";
 import {
   LIST_DETAIL_DRAWER_OFFSET_CLASS,
@@ -48,7 +36,6 @@ import {
 } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import ProfileNameBadge from "./ProfileNameBadge";
-import SensitiveTextInput from "./profile-editor/SensitiveTextInput";
 import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
@@ -62,113 +49,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { SegmentedControl } from "./ui/segmented-control";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "./ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Textarea } from "./ui/textarea";
 
 const CODEX_BUILTIN_OPENAI_ID = "codex-builtin:openai";
 const isChatGptLogin = (providerId: string) => providerId === CODEX_BUILTIN_OPENAI_ID;
-
-type ProfileMode = "preset" | "custom";
-
-interface ProfileDraft {
-  id: string | null;
-  mode: ProfileMode;
-  name: string;
-  providerId: string;
-  apiKey: string;
-  model: string;
-  modelReasoningEffort: string;
-  customConfigToml: string;
-  customModelsJson: string;
-}
-
-function createEmptyDraft(defaultProvider?: CodexProvider): ProfileDraft {
-  const provider = defaultProvider;
-  return {
-    id: null,
-    mode: "preset",
-    name: provider ? `${provider.name} 快速起步` : "DeepSeek 快速起步",
-    providerId: provider ? provider.id : "codex-builtin:deepseek",
-    apiKey: "",
-    model: provider?.defaultModel ?? "",
-    modelReasoningEffort: provider?.defaultReasoningEffort ?? "",
-    customConfigToml: "",
-    customModelsJson: "",
-  };
-}
-
-function profileToDraft(profile: CodexProfile, providers: CodexProvider[]): ProfileDraft {
-  const matchedProvider = providers.find((p) => p.id === profile.providerId);
-  const isCustom =
-    profile.providerId === "custom" ||
-    (!matchedProvider && (Boolean(profile.customConfigToml) || Boolean(profile.customModelsJson)));
-  const mode: ProfileMode = isCustom ? "custom" : "preset";
-  const fallbackProvider = providers.find((p) => p.id === "codex-builtin:deepseek") ?? providers[0];
-  const activeProvider = matchedProvider ?? fallbackProvider;
-
-  return {
-    id: profile.id,
-    mode,
-    name: profile.name,
-    providerId: isCustom
-      ? "custom"
-      : (matchedProvider?.id ?? activeProvider?.id ?? "codex-builtin:deepseek"),
-    apiKey: "", // 编辑时留空表示保留已有 key
-    model: profile.model ?? (isCustom ? "" : (activeProvider?.defaultModel ?? "")),
-    modelReasoningEffort:
-      profile.modelReasoningEffort ??
-      (isCustom ? "" : (activeProvider?.defaultReasoningEffort ?? "")),
-    customConfigToml: profile.customConfigToml ?? "",
-    customModelsJson: profile.customModelsJson ?? "",
-  };
-}
-
-function draftToInput(draft: ProfileDraft): CodexProfileInput {
-  if (draft.mode === "custom") {
-    return {
-      id: draft.id,
-      name: draft.name.trim(),
-      providerId: "custom",
-      apiKey: "",
-      model: null,
-      modelReasoningEffort: null,
-      customConfigToml: draft.customConfigToml.trim() ? draft.customConfigToml : null,
-      customModelsJson: draft.customModelsJson.trim() ? draft.customModelsJson : null,
-    };
-  }
-
-  return {
-    id: draft.id,
-    name: draft.name.trim(),
-    providerId: draft.providerId,
-    apiKey: draft.apiKey,
-    model: draft.model.trim() ? draft.model.trim() : null,
-    modelReasoningEffort: draft.modelReasoningEffort.trim()
-      ? draft.modelReasoningEffort.trim()
-      : null,
-    customConfigToml: null,
-    customModelsJson: null,
-  };
-}
-
-function isDraftEqual(a: ProfileDraft, b: ProfileDraft): boolean {
-  return (
-    a.id === b.id &&
-    a.mode === b.mode &&
-    a.name === b.name &&
-    a.providerId === b.providerId &&
-    a.apiKey === b.apiKey &&
-    a.model === b.model &&
-    a.modelReasoningEffort === b.modelReasoningEffort &&
-    a.customConfigToml === b.customConfigToml &&
-    a.customModelsJson === b.customModelsJson
-  );
-}
 
 function buildCodexLaunchCommand(profile: CodexProfile, provider?: CodexProvider): string {
   const model = profile.model || provider?.defaultModel;
@@ -191,15 +76,10 @@ export default function CodexProfilesPage({
   const [workspace, setWorkspace] = useState<CodexWorkspace | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Profile 编辑抽屉状态
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [profileDraft, setProfileDraft] = useState<ProfileDraft | null>(null);
-  const initialDraftRef = useRef<ProfileDraft | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // 实时配置预览状态
-  const [livePreview, setLivePreview] = useState<CodexApplyPreview | null>(null);
-  const [livePreviewError, setLivePreviewError] = useState<string | null>(null);
+  // 抽屉与正在编辑的 Profile
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<CodexProfile | null>(null);
+  const profileEditorRef = useRef<CodexProfileEditorHandle | null>(null);
 
   // 删除 Profile 确认对话框
   const [deleteTarget, setDeleteTarget] = useState<CodexProfile | null>(null);
@@ -255,30 +135,22 @@ export default function CodexProfilesPage({
     void fetchWorkspace();
   });
 
-  const isDraftDirty = useMemo(() => {
-    if (!profileDraft || !initialDraftRef.current) return false;
-    return !isDraftEqual(profileDraft, initialDraftRef.current);
-  }, [profileDraft]);
-
-  const requestExitGuard = useCallback(
-    (onDiscard: () => void): boolean => {
-      if (isDraftDirty) {
-        pendingExitActionRef.current = onDiscard;
-        setIsUnsavedChangesAlertOpen(true);
-        return false;
-      }
-      onDiscard();
-      return true;
-    },
-    [isDraftDirty],
-  );
+  const requestExitGuard = useCallback((onDiscard: () => void): boolean => {
+    if (profileEditorRef.current?.isDirty()) {
+      pendingExitActionRef.current = onDiscard;
+      setIsUnsavedChangesAlertOpen(true);
+      return false;
+    }
+    onDiscard();
+    return true;
+  }, []);
 
   useEffect(() => {
     if (!onEditorExitGuardChange) return;
-    if (isEditorOpen && isDraftDirty) {
+    if (isDrawerOpen) {
       onEditorExitGuardChange({
         id: "codex-profile-editor",
-        canExit: () => requestExitGuard(() => setIsEditorOpen(false)),
+        canExit: () => requestExitGuard(() => setIsDrawerOpen(false)),
       });
     } else {
       onEditorExitGuardChange(null);
@@ -286,96 +158,63 @@ export default function CodexProfilesPage({
     return () => {
       onEditorExitGuardChange(null);
     };
-  }, [isEditorOpen, isDraftDirty, onEditorExitGuardChange, requestExitGuard]);
+  }, [isDrawerOpen, onEditorExitGuardChange, requestExitGuard]);
 
   // 打开创建 Profile 抽屉
   const handleOpenCreate = useCallback(() => {
-    const defaultProvider =
-      workspace?.providers.find((p) => p.id === "codex-builtin:deepseek") ??
-      workspace?.providers[0];
-    const draft = createEmptyDraft(defaultProvider);
-    initialDraftRef.current = draft;
-    setProfileDraft(draft);
-    setIsEditorOpen(true);
-  }, [workspace]);
+    requestExitGuard(() => {
+      setEditingProfile(null);
+      setIsDrawerOpen(true);
+    });
+  }, [requestExitGuard]);
 
   // 打开编辑 Profile 抽屉
   const handleOpenEdit = useCallback(
     (profile: CodexProfile) => {
-      if (!workspace) return;
-      const draft = profileToDraft(profile, workspace.providers);
-      initialDraftRef.current = draft;
-      setProfileDraft(draft);
-      setIsEditorOpen(true);
+      requestExitGuard(() => {
+        setEditingProfile(profile);
+        setIsDrawerOpen(true);
+      });
     },
-    [workspace],
+    [requestExitGuard],
   );
 
   const handleCloseEditor = useCallback(() => {
     requestExitGuard(() => {
-      setIsEditorOpen(false);
-      setProfileDraft(null);
-      initialDraftRef.current = null;
-      setLivePreview(null);
-      setLivePreviewError(null);
+      setIsDrawerOpen(false);
+      setEditingProfile(null);
     });
   }, [requestExitGuard]);
 
-  // 实时预览防抖更新
-  useEffect(() => {
-    if (!isEditorOpen || !profileDraft) {
-      setLivePreview(null);
-      setLivePreviewError(null);
-      return;
-    }
+  // 保存 Profile 回调
+  const handleSave = async (data: CodexProfileEditorSaveData): Promise<boolean> => {
+    const isCustom = data.providerId === "custom";
+    const input: CodexProfileInput = {
+      id: data.id ?? null,
+      name: data.name.trim(),
+      description: data.description.trim() ? data.description.trim() : null,
+      providerId: data.providerId,
+      apiKey: data.apiKey,
+      model: !isCustom && data.model.trim() ? data.model.trim() : null,
+      modelReasoningEffort:
+        !isCustom && data.modelReasoningEffort.trim() ? data.modelReasoningEffort.trim() : null,
+      customConfigToml: isCustom && data.customConfigToml.trim() ? data.customConfigToml : null,
+      customModelsJson: isCustom && data.customModelsJson.trim() ? data.customModelsJson : null,
+    };
 
-    const timer = setTimeout(() => {
-      const input = draftToInput(profileDraft);
-      ipc
-        .previewCodexInput(input)
-        .then((preview) => {
-          setLivePreview(preview);
-          setLivePreviewError(null);
-        })
-        .catch((err) => {
-          setLivePreview(null);
-          setLivePreviewError(err instanceof Error ? err.message : String(err));
-        });
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [isEditorOpen, profileDraft]);
-
-  // 保存 Profile
-  const handleSaveProfile = async () => {
-    if (!profileDraft) return;
-    const name = profileDraft.name.trim();
-    if (!name) return;
-
-    if (profileDraft.mode === "preset") {
-      const isChatGpt = isChatGptLogin(profileDraft.providerId);
-      if (!isChatGpt && !profileDraft.id && !profileDraft.apiKey.trim()) {
-        showToast(t("codex.field.apiKey"), "error");
-        return;
-      }
-    }
-
-    setSaving(true);
     try {
-      const input = draftToInput(profileDraft);
       await ipc.upsertCodexProfile(input);
       showToast(
-        profileDraft.id ? t("codex.toast.profileUpdated") : t("codex.toast.profileCreated"),
+        data.id ? t("codex.toast.profileUpdated") : t("codex.toast.profileCreated"),
         "success",
       );
-      setIsEditorOpen(false);
-      setProfileDraft(null);
-      initialDraftRef.current = null;
+      setIsDrawerOpen(false);
+      setEditingProfile(null);
       await fetchWorkspace();
+      return true;
     } catch (error) {
       showOperationError(showToast, t("codex.toast.profileSaveFailed"), error);
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -385,6 +224,7 @@ export default function CodexProfilesPage({
       const input: CodexProfileInput = {
         id: null,
         name: `${profile.name} (副本)`,
+        description: profile.description,
         providerId: profile.providerId,
         apiKey: profile.apiKey,
         model: profile.model,
@@ -444,25 +284,6 @@ export default function CodexProfilesPage({
     } finally {
       setApplying(false);
     }
-  };
-
-  // 切换预设供应商时联动模型与名称
-  const handleSelectPresetProvider = (provider: CodexProvider) => {
-    if (!profileDraft) return;
-    const isPreviousDefaultName = workspace?.providers.some(
-      (p) => profileDraft.name === `${p.name} 快速起步`,
-    );
-
-    setProfileDraft((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        providerId: provider.id,
-        name: isPreviousDefaultName || !prev.name ? `${provider.name} 快速起步` : prev.name,
-        model: provider.defaultModel ?? "",
-        modelReasoningEffort: provider.defaultReasoningEffort ?? "",
-      };
-    });
   };
 
   // 拖拽排序逻辑
@@ -532,29 +353,19 @@ export default function CodexProfilesPage({
   );
 
   const activeProfileId = workspace?.bindings.codexProfileId;
-  const currentSelectedPresetProvider = useMemo(() => {
-    if (!workspace || !profileDraft || profileDraft.mode !== "preset") return undefined;
-    return (
-      workspace.providers.find((p) => p.id === profileDraft.providerId) ??
-      workspace.providers.find((p) => p.id === "codex-builtin:deepseek") ??
-      workspace.providers[0]
-    );
-  }, [workspace, profileDraft]);
 
   return (
     <div className="flex h-full w-full">
       {/* 左侧 Master 列表栏 */}
       <div
         className={cn(
-          "relative flex flex-col transition-[width] duration-300 ease-in-out",
-          isEditorOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
+          "list-section scrollbar-none flex shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-secondary transition-[width] duration-300 max-[1000px]:fixed max-[1000px]:inset-y-0 max-[1000px]:right-0 max-[1000px]:left-[60px] max-[1000px]:z-50 max-[1000px]:w-auto max-[700px]:left-[48px]",
+          isDrawerOpen && "compressed",
+          isDrawerOpen ? LIST_PANEL_COMPRESSED_WIDTH_CLASS : LIST_PANEL_WIDTH_CLASS,
         )}
+        data-slot="codex-profiles-list-scroll"
       >
-        <PageHeader
-          title={t("codex.pageTitle")}
-          description={t("codex.pageDescription")}
-          actions={null}
-        />
+        <PageHeader title={t("codex.pageTitle")} surface="secondary" variant="list" />
 
         {/* 列表顶部大号主按钮 */}
         <Button
@@ -594,7 +405,7 @@ export default function CodexProfilesPage({
               const isCustom = profile.providerId === "custom";
               const provider = workspace.providers.find((p) => p.id === profile.providerId);
               const isActive = activeProfileId === profile.id;
-              const isEditing = isEditorOpen && profileDraft?.id === profile.id;
+              const isEditing = isDrawerOpen && editingProfile?.id === profile.id;
               const targetModel = profile.model || provider?.defaultModel;
               const targetEffort = profile.modelReasoningEffort || provider?.defaultReasoningEffort;
 
@@ -624,13 +435,13 @@ export default function CodexProfilesPage({
                   }
                   draggable
                   onClick={() => {
-                    requestExitGuard(() => handleOpenEdit(profile));
+                    handleOpenEdit(profile);
                   }}
                   onKeyDown={(event) => {
                     if (event.target !== event.currentTarget) return;
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      requestExitGuard(() => handleOpenEdit(profile));
+                      handleOpenEdit(profile);
                     }
                   }}
                   onDragStart={(event) => handleDragStart(event, index)}
@@ -655,6 +466,11 @@ export default function CodexProfilesPage({
                             : (provider?.name ?? profile.providerId)}
                         </Badge>
                       </div>
+                      {profile.description ? (
+                        <p className="mt-1.5 line-clamp-2 text-sm leading-normal text-muted-foreground">
+                          {profile.description}
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -799,7 +615,7 @@ export default function CodexProfilesPage({
                       className={CARD_ACTION_BUTTON_CLASS}
                       onClick={(e) => {
                         e.stopPropagation();
-                        requestExitGuard(() => handleOpenEdit(profile));
+                        handleOpenEdit(profile);
                       }}
                       title={t("codex.edit")}
                     >
@@ -828,7 +644,7 @@ export default function CodexProfilesPage({
       </div>
 
       {/* 右侧 Detail 编辑抽屉 */}
-      {isEditorOpen && (
+      {isDrawerOpen && workspace && (
         <Sheet open onOpenChange={(open) => !open && handleCloseEditor()}>
           <SheetContent
             side="right"
@@ -843,351 +659,14 @@ export default function CodexProfilesPage({
               {t("codex.profileEditorDescription")}
             </SheetDescription>
 
-            <div
-              data-slot="profile-editor-panel"
-              className="flex h-full min-h-0 w-full min-w-[560px] flex-col overflow-hidden bg-secondary"
-            >
-              {/* 顶部工具条 */}
-              <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-card/95 px-5 shadow-toolbar">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={handleCloseEditor}
-                  aria-label={t("common.close")}
-                >
-                  <ArrowLeft className="size-4" aria-hidden="true" />
-                </Button>
-                <h2 className={cn("min-w-0 flex-1 truncate", TYPOGRAPHY.drawerTitle)}>
-                  {profileDraft?.id ? t("codex.editProfile") : t("codex.createProfile")}
-                </h2>
-                <Button
-                  type="button"
-                  disabled={saving || !profileDraft?.name.trim()}
-                  onClick={() => {
-                    void handleSaveProfile();
-                  }}
-                >
-                  {saving ? t("codex.loading") : t("codex.save")}
-                </Button>
-              </div>
-
-              {/* 抽屉主体 */}
-              {profileDraft ? (
-                <div
-                  data-slot="profile-editor-body"
-                  className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto bg-secondary px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]"
-                >
-                  <ProfileNameBadge name={profileDraft.name} size="lg" fallbackChar="C" />
-
-                  {/* 模式选择 */}
-                  <EditorSection title={t("codex.selectPresetTitle")}>
-                    <div className="flex flex-col gap-3">
-                      <SegmentedControl
-                        ariaLabel={t("codex.modePreset")}
-                        value={profileDraft.mode}
-                        onValueChange={(val) => {
-                          const nextMode = val as ProfileMode;
-                          setProfileDraft((prev) => {
-                            if (!prev) return null;
-                            if (nextMode === "custom") {
-                              return {
-                                ...prev,
-                                mode: "custom",
-                                providerId: "custom",
-                              };
-                            }
-                            const defaultP =
-                              workspace?.providers.find((p) => p.id === "codex-builtin:deepseek") ??
-                              workspace?.providers[0];
-                            const targetP =
-                              workspace?.providers.find((p) => p.id === prev.providerId) ??
-                              defaultP;
-                            return {
-                              ...prev,
-                              mode: "preset",
-                              providerId: targetP ? targetP.id : "codex-builtin:deepseek",
-                              model: prev.model || (targetP?.defaultModel ?? ""),
-                              modelReasoningEffort:
-                                prev.modelReasoningEffort ||
-                                (targetP?.defaultReasoningEffort ?? ""),
-                            };
-                          });
-                        }}
-                        items={[
-                          { value: "preset", label: t("codex.modePreset") },
-                          { value: "custom", label: t("codex.modeCustom") },
-                        ]}
-                      />
-
-                      {profileDraft.mode === "preset" ? (
-                        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                          {workspace?.providers.map((p) => {
-                            const isSelected = profileDraft.providerId === p.id;
-                            return (
-                              <Button
-                                key={p.id}
-                                type="button"
-                                variant="ghost"
-                                onClick={() => handleSelectPresetProvider(p)}
-                                className={cn(
-                                  "flex h-auto flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all",
-                                  isSelected
-                                    ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                    : "border-border hover:border-muted-foreground/40 hover:bg-muted/40",
-                                )}
-                              >
-                                <div className="flex w-full items-center justify-between">
-                                  <span className="text-sm font-semibold text-foreground">
-                                    {p.name}
-                                  </span>
-                                  {isSelected ? <Check className="size-4 text-primary" /> : null}
-                                </div>
-                                <span className="text-xs text-muted-foreground truncate max-w-full font-normal">
-                                  {p.defaultModel ?? p.slug}
-                                </span>
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
-                  </EditorSection>
-
-                  {/* 基本信息 */}
-                  <EditorSection title={t("profiles.editor.sections.basicInfo")}>
-                    <EditorFieldGrid>
-                      <EditorField>
-                        <Label htmlFor="codex-profile-name">{t("codex.field.profileName")}</Label>
-                        <Input
-                          id="codex-profile-name"
-                          className={EDITOR_CONTROL_SURFACE_CLASS}
-                          value={profileDraft.name}
-                          onChange={(e) =>
-                            setProfileDraft((prev) =>
-                              prev ? { ...prev, name: e.target.value } : null,
-                            )
-                          }
-                          placeholder={t("codex.field.profileNamePlaceholder")}
-                        />
-                      </EditorField>
-                    </EditorFieldGrid>
-                  </EditorSection>
-
-                  {/* 预设模式表单项 */}
-                  {profileDraft.mode === "preset" && currentSelectedPresetProvider ? (
-                    <>
-                      {/* 模型与推理 */}
-                      <EditorSection title={t("profiles.summary.modelTitle")}>
-                        <EditorFieldGrid>
-                          <EditorField>
-                            <Label htmlFor="codex-target-model">{t("codex.field.model")}</Label>
-                            <div className="flex flex-col gap-2">
-                              {currentSelectedPresetProvider.models.length > 0 ? (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {currentSelectedPresetProvider.models.map((m) => {
-                                    const isCurrent = profileDraft.model === m.id;
-                                    return (
-                                      <Button
-                                        key={m.id}
-                                        type="button"
-                                        variant={isCurrent ? "secondary" : "outline"}
-                                        size="xs"
-                                        onClick={() =>
-                                          setProfileDraft((prev) =>
-                                            prev ? { ...prev, model: m.id } : null,
-                                          )
-                                        }
-                                        className={cn(
-                                          "font-mono text-xs",
-                                          isCurrent &&
-                                            "border-primary bg-primary/10 text-primary font-semibold",
-                                        )}
-                                      >
-                                        {m.name || m.id}
-                                      </Button>
-                                    );
-                                  })}
-                                </div>
-                              ) : null}
-                              <Input
-                                id="codex-target-model"
-                                className={cn("font-mono text-xs", EDITOR_CONTROL_SURFACE_CLASS)}
-                                value={profileDraft.model}
-                                onChange={(e) =>
-                                  setProfileDraft((prev) =>
-                                    prev ? { ...prev, model: e.target.value } : null,
-                                  )
-                                }
-                                placeholder={t("codex.field.modelPlaceholder")}
-                              />
-                            </div>
-                            <EditorDescription>{t("codex.field.modelHint")}</EditorDescription>
-                          </EditorField>
-
-                          <EditorField>
-                            <Label htmlFor="codex-reasoning-effort">
-                              {t("codex.field.reasoningEffort")}
-                            </Label>
-                            <Select
-                              value={profileDraft.modelReasoningEffort || "none"}
-                              onValueChange={(val) =>
-                                setProfileDraft((prev) =>
-                                  prev
-                                    ? { ...prev, modelReasoningEffort: val === "none" ? "" : val }
-                                    : null,
-                                )
-                              }
-                            >
-                              <SelectTrigger
-                                id="codex-reasoning-effort"
-                                className={EDITOR_CONTROL_SURFACE_CLASS}
-                              >
-                                <SelectValue
-                                  placeholder={t("codex.field.reasoningEffortPlaceholder")}
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">默认 (Default)</SelectItem>
-                                <SelectItem value="low">low</SelectItem>
-                                <SelectItem value="medium">medium</SelectItem>
-                                <SelectItem value="high">high</SelectItem>
-                                <SelectItem value="max">max</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <EditorDescription>
-                              {t("codex.field.reasoningEffortHint")}
-                            </EditorDescription>
-                          </EditorField>
-                        </EditorFieldGrid>
-
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/80 pt-3 text-xs text-muted-foreground">
-                          <span className="truncate">
-                            Base URL:{" "}
-                            <code className="font-mono text-foreground">
-                              {currentSelectedPresetProvider.baseUrl}
-                            </code>
-                          </span>
-                          {currentSelectedPresetProvider.docUrl ? (
-                            <Button
-                              type="button"
-                              variant="link"
-                              size="xs"
-                              onClick={() =>
-                                currentSelectedPresetProvider.docUrl &&
-                                void openUrl(currentSelectedPresetProvider.docUrl)
-                              }
-                              className="h-auto p-0 text-xs text-primary hover:underline"
-                            >
-                              <ExternalLink className="size-3" />
-                              <span>{t("codex.openDocs")}</span>
-                            </Button>
-                          ) : null}
-                        </div>
-                      </EditorSection>
-
-                      {/* 认证设置 */}
-                      <EditorSection title={t("profiles.editor.sections.auth")}>
-                        {isChatGptLogin(profileDraft.providerId) ? (
-                          <div className="rounded-md border border-border/60 bg-background/80 p-3 text-xs text-muted-foreground">
-                            {t("codex.field.chatgptLoginHint")}
-                          </div>
-                        ) : (
-                          <EditorField>
-                            <Label htmlFor="codex-profile-api-key">{t("codex.field.apiKey")}</Label>
-                            <SensitiveTextInput
-                              id="codex-profile-api-key"
-                              ariaLabel={t("codex.field.apiKey")}
-                              showLabel={t("codex.field.showApiKey")}
-                              hideLabel={t("codex.field.hideApiKey")}
-                              value={profileDraft.apiKey}
-                              onChange={(val) =>
-                                setProfileDraft((prev) => (prev ? { ...prev, apiKey: val } : null))
-                              }
-                              placeholder={
-                                profileDraft.id
-                                  ? t("codex.field.apiKeyKeepHint")
-                                  : t("codex.field.apiKeyPlaceholder")
-                              }
-                            />
-                            <EditorDescription>{t("codex.field.apiKeyHint")}</EditorDescription>
-                          </EditorField>
-                        )}
-                      </EditorSection>
-                    </>
-                  ) : null}
-
-                  {/* 自定义模式表单项 */}
-                  {profileDraft.mode === "custom" ? (
-                    <>
-                      <EditorSection title={t("codex.field.customToml")}>
-                        <EditorField>
-                          <Textarea
-                            id="codex-custom-toml"
-                            value={profileDraft.customConfigToml}
-                            onChange={(e) =>
-                              setProfileDraft((prev) =>
-                                prev ? { ...prev, customConfigToml: e.target.value } : null,
-                              )
-                            }
-                            placeholder={t("codex.field.customTomlPlaceholder")}
-                            className="font-mono text-xs min-h-[160px]"
-                          />
-                          <EditorDescription>{t("codex.field.customTomlHint")}</EditorDescription>
-                        </EditorField>
-                      </EditorSection>
-
-                      <EditorSection title={t("codex.field.customJson")}>
-                        <EditorField>
-                          <Textarea
-                            id="codex-custom-json"
-                            value={profileDraft.customModelsJson}
-                            onChange={(e) =>
-                              setProfileDraft((prev) =>
-                                prev ? { ...prev, customModelsJson: e.target.value } : null,
-                              )
-                            }
-                            placeholder={t("codex.field.customJsonPlaceholder")}
-                            className="font-mono text-xs min-h-[120px]"
-                          />
-                          <EditorDescription>{t("codex.field.customJsonHint")}</EditorDescription>
-                        </EditorField>
-                      </EditorSection>
-                    </>
-                  ) : null}
-
-                  {/* 实时配置预览 */}
-                  <EditorSection title={t("codex.previewLiveTitle")}>
-                    <EditorDescription>{t("codex.previewLiveHint")}</EditorDescription>
-
-                    {livePreviewError ? (
-                      <p className="text-xs text-destructive">{livePreviewError}</p>
-                    ) : livePreview ? (
-                      <Tabs defaultValue="toml" className="mt-1">
-                        <TabsList className="h-8">
-                          <TabsTrigger value="toml" className="text-xs">
-                            config.toml
-                          </TabsTrigger>
-                          {livePreview.modelsJsonPreview ? (
-                            <TabsTrigger value="models" className="text-xs">
-                              models.json
-                            </TabsTrigger>
-                          ) : null}
-                        </TabsList>
-                        <TabsContent value="toml" className="mt-2">
-                          <ConfigPreview content={livePreview.configTomlPreview} />
-                        </TabsContent>
-                        {livePreview.modelsJsonPreview ? (
-                          <TabsContent value="models" className="mt-2">
-                            <ConfigPreview content={livePreview.modelsJsonPreview} />
-                          </TabsContent>
-                        ) : null}
-                      </Tabs>
-                    ) : null}
-                  </EditorSection>
-                </div>
-              ) : null}
-            </div>
+            <CodexProfileEditor
+              key={editingProfile?.id ?? "new-codex-profile"}
+              ref={profileEditorRef}
+              profile={editingProfile}
+              providers={workspace.providers}
+              onSave={handleSave}
+              onClose={handleCloseEditor}
+            />
           </SheetContent>
         </Sheet>
       )}
@@ -1346,7 +825,7 @@ export default function CodexProfilesPage({
       {/* 未保存修改拦截对话框 */}
       {isUnsavedChangesAlertOpen ? (
         <UnsavedChangesAlertDialog
-          canSave={Boolean(profileDraft?.name.trim())}
+          canSave={profileEditorRef.current?.canSave() ?? false}
           onCancel={() => setIsUnsavedChangesAlertOpen(false)}
           onDiscard={() => {
             setIsUnsavedChangesAlertOpen(false);
@@ -1358,11 +837,13 @@ export default function CodexProfilesPage({
           }}
           onSaveAndExit={async () => {
             setIsUnsavedChangesAlertOpen(false);
-            await handleSaveProfile();
-            if (pendingExitActionRef.current) {
-              const action = pendingExitActionRef.current;
-              pendingExitActionRef.current = null;
-              action();
+            if (profileEditorRef.current) {
+              const saved = await profileEditorRef.current.save();
+              if (saved && pendingExitActionRef.current) {
+                const action = pendingExitActionRef.current;
+                pendingExitActionRef.current = null;
+                action();
+              }
             }
           }}
         />

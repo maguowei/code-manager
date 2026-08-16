@@ -285,6 +285,9 @@ fn default_codex_wire_api() -> String {
 pub struct CodexProfile {
     pub id: String,
     pub name: String,
+    /// 可选备注描述
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// 引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom")
     pub provider_id: String,
     /// API key(敏感,展示与日志需脱敏)
@@ -550,6 +553,8 @@ pub struct CodexProfileInput {
     /// 编辑时传入;新建时为 None。
     pub id: Option<String>,
     pub name: String,
+    #[serde(default)]
+    pub description: Option<String>,
     pub provider_id: String,
     #[serde(default)]
     pub api_key: String,
@@ -3128,6 +3133,11 @@ fn upsert_codex_profile_in_registry(
         .clone()
         .unwrap_or_else(|| Uuid::new_v4().to_string());
 
+    let description = data
+        .description
+        .map(|d| d.trim().to_string())
+        .filter(|d| !d.is_empty());
+
     let profile = if let Some(existing) = registry
         .codex
         .profiles
@@ -3135,6 +3145,7 @@ fn upsert_codex_profile_in_registry(
         .find(|p| p.id == profile_id)
     {
         existing.name = name;
+        existing.description = description;
         existing.provider_id = data.provider_id;
         // 空 key 表示保留已有值(编辑场景未重新输入)
         if !data.api_key.trim().is_empty() {
@@ -3150,6 +3161,7 @@ fn upsert_codex_profile_in_registry(
         let profile = CodexProfile {
             id: profile_id,
             name,
+            description,
             provider_id: data.provider_id,
             api_key: data.api_key,
             model: data.model,
@@ -3229,6 +3241,7 @@ pub fn preview_codex_input(data: CodexProfileInput) -> Result<CodexApplyPreview,
     let profile = CodexProfile {
         id: data.id.unwrap_or_default(),
         name: data.name.clone(),
+        description: data.description,
         provider_id: data.provider_id.clone(),
         api_key: data.api_key,
         model: data.model,
@@ -4966,6 +4979,7 @@ mod tests {
         registry.codex.profiles.push(CodexProfile {
             id: "codex-1".to_string(),
             name: "Codex One".to_string(),
+            description: None,
             provider_id: "codex-builtin:deepseek".to_string(),
             api_key: "sk-secret".to_string(),
             model: Some("deepseek-v4-flash".to_string()),
@@ -5027,6 +5041,7 @@ args = [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]
         let profile = CodexProfile {
             id: "p1".to_string(),
             name: "DeepSeek Flash".to_string(),
+            description: None,
             provider_id: "codex-builtin:deepseek".to_string(),
             api_key: "sk-deepseek-key".to_string(),
             model: Some("deepseek-v4-flash".to_string()),
@@ -5120,6 +5135,7 @@ wire_api = \"responses\"
         let profile = CodexProfile {
             id: "custom-p1".to_string(),
             name: "My Custom".to_string(),
+            description: None,
             provider_id: "custom".to_string(),
             api_key: String::new(),
             model: None,
@@ -5204,6 +5220,7 @@ wire_api = \"responses\"
         let profile = CodexProfile {
             id: "openai-p1".to_string(),
             name: "OpenAI 官方".to_string(),
+            description: None,
             provider_id: "codex-builtin:openai".to_string(),
             api_key: String::new(),
             model: Some("gpt-5.4".to_string()),
@@ -5244,6 +5261,7 @@ wire_api = \"responses\"
             CodexProfileInput {
                 id: None,
                 name: "P1".to_string(),
+                description: None,
                 provider_id: "codex-builtin:deepseek".to_string(),
                 api_key: String::new(),
                 model: None,
@@ -5259,6 +5277,7 @@ wire_api = \"responses\"
             CodexProfileInput {
                 id: None,
                 name: "P1".to_string(),
+                description: Some("测试描述".to_string()),
                 provider_id: "codex-builtin:deepseek".to_string(),
                 api_key: "testkey-secret-12345".to_string(),
                 model: Some("deepseek-v4-flash".to_string()),
@@ -5269,6 +5288,7 @@ wire_api = \"responses\"
         )
         .unwrap();
         assert_eq!(created.api_key, "testkey-secret-12345");
+        assert_eq!(created.description.as_deref(), Some("测试描述"));
         assert_eq!(registry.codex.profiles.len(), 1);
 
         // 引用不存在的 provider 被拒
@@ -5277,6 +5297,7 @@ wire_api = \"responses\"
             CodexProfileInput {
                 id: None,
                 name: "Bad".to_string(),
+                description: None,
                 provider_id: "codex-builtin:missing".to_string(),
                 api_key: "test-x".to_string(),
                 model: None,
@@ -5293,6 +5314,7 @@ wire_api = \"responses\"
             CodexProfileInput {
                 id: Some(created.id.clone()),
                 name: "P1 改名".to_string(),
+                description: Some("更新后的描述".to_string()),
                 provider_id: "codex-builtin:deepseek".to_string(),
                 api_key: String::new(),
                 model: Some("deepseek-v4-pro".to_string()),
@@ -5303,6 +5325,7 @@ wire_api = \"responses\"
         )
         .unwrap();
         assert_eq!(preserved.name, "P1 改名");
+        assert_eq!(preserved.description.as_deref(), Some("更新后的描述"));
         assert_eq!(preserved.model.as_deref(), Some("deepseek-v4-pro"));
         assert_eq!(
             preserved.api_key, "testkey-secret-12345",
