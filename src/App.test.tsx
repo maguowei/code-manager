@@ -745,6 +745,11 @@ describe("App", () => {
   }, 10_000);
 
   it("toggles the settings drawer from the sidebar settings button", async () => {
+    // 预加载 SettingsDrawer 的 lazy 模块：本用例是首个打开设置抽屉的测试，
+    // 慢 CI runner（尤其 windows）首次点击时才 import 大依赖树可能超过
+    // asyncUtilTimeout(5s)，导致 dialog 未及时渲染的 flake；预加载后点击即命中缓存。
+    await import("./components/SettingsDrawer");
+
     renderApp();
 
     const settingsButton = await screen.findByRole("button", { name: "设置" });
