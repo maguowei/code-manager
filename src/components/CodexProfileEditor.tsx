@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Eye } from "lucide-react";
 import {
   forwardRef,
   useCallback,
@@ -68,6 +68,7 @@ interface CodexProfileEditorProps {
   providers: CodexProvider[];
   onSave: (data: CodexProfileEditorSaveData) => Promise<boolean> | boolean;
   onClose: () => void;
+  onViewBuiltinProviders?: () => void;
 }
 
 function profileToSaveData(
@@ -156,7 +157,10 @@ function saveDataToInput(data: CodexProfileEditorSaveData): CodexProfileInput {
 }
 
 const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEditorProps>(
-  function CodexProfileEditor({ profile, providers, onSave, onClose }, ref) {
+  function CodexProfileEditor(
+    { profile, providers, onSave, onClose, onViewBuiltinProviders },
+    ref,
+  ) {
     const { t } = useI18n();
 
     const [draft, setDraft] = useState<CodexProfileEditorSaveData>(() =>
@@ -332,6 +336,17 @@ const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEdit
                 <Label htmlFor="codex-profile-provider">
                   {t("profiles.editor.fields.provider")}
                 </Label>
+                {onViewBuiltinProviders ? (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto gap-1.5 p-0 text-xs font-semibold text-primary hover:text-primary"
+                    onClick={onViewBuiltinProviders}
+                  >
+                    <Eye className="size-3.5" aria-hidden="true" />
+                    <span>{t("codex.actions.viewBuiltinProviders")}</span>
+                  </Button>
+                ) : null}
               </EditorLabelRow>
               <div className="grid max-w-full grid-cols-[minmax(0,520px)_max-content] items-center gap-3 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:items-stretch">
                 <div className="min-w-0">

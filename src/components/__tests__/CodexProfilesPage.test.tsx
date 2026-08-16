@@ -342,4 +342,27 @@ describe("CodexProfilesPage", () => {
       expect(invokeMock).toHaveBeenCalledWith("delete_codex_profile", { id: "profile-1" });
     });
   });
+
+  it("在编辑抽屉中点击查看内置供应商，展开只读预设抽屉", async () => {
+    stubInvoke(MOCK_WORKSPACE);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument();
+    });
+
+    const addButton = screen.getByRole("button", { name: /新增配置/i });
+    fireEvent.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("新增 Codex 配置")).toBeInTheDocument();
+    });
+
+    const viewBuiltinBtn = screen.getByRole("button", { name: /查看内置供应商/i });
+    fireEvent.click(viewBuiltinBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("codex-builtin:deepseek")).toBeInTheDocument();
+    });
+  });
 });

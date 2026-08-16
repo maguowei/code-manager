@@ -19,6 +19,7 @@ import CodexProfileEditor, {
   type CodexProfileEditorHandle,
   type CodexProfileEditorSaveData,
 } from "./CodexProfileEditor";
+import CodexProvidersPage from "./CodexProvidersPage";
 import ConfigPreview from "./ConfigPreview";
 import ConfirmAlertDialog from "./ConfirmAlertDialog";
 import {
@@ -80,6 +81,9 @@ export default function CodexProfilesPage({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<CodexProfile | null>(null);
   const profileEditorRef = useRef<CodexProfileEditorHandle | null>(null);
+
+  // 内置供应商只读抽屉
+  const [isBuiltinProvidersOpen, setIsBuiltinProvidersOpen] = useState(false);
 
   // 删除 Profile 确认对话框
   const [deleteTarget, setDeleteTarget] = useState<CodexProfile | null>(null);
@@ -666,6 +670,29 @@ export default function CodexProfilesPage({
               providers={workspace.providers}
               onSave={handleSave}
               onClose={handleCloseEditor}
+              onViewBuiltinProviders={() => setIsBuiltinProvidersOpen(true)}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* 内置供应商只读抽屉 */}
+      {isBuiltinProvidersOpen && workspace && (
+        <Sheet open onOpenChange={(open) => setIsBuiltinProvidersOpen(open)}>
+          <SheetContent
+            side="right"
+            className={cn(
+              LIST_DETAIL_DRAWER_OFFSET_CLASS,
+              "w-auto border-l-0 bg-secondary p-0 shadow-floating sm:max-w-none",
+            )}
+          >
+            <SheetTitle className="sr-only">{t("codex.builtinProvidersTitle")}</SheetTitle>
+            <SheetDescription className="sr-only">
+              {t("codex.builtinProvidersDescription")}
+            </SheetDescription>
+            <CodexProvidersPage
+              providers={workspace.providers}
+              onClose={() => setIsBuiltinProvidersOpen(false)}
             />
           </SheetContent>
         </Sheet>

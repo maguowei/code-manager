@@ -1782,6 +1782,10 @@ const translations = {
     "codex.badges.editing": "编辑中",
     "codex.actions.copyLaunchCommand": "复制启动命令",
     "codex.actions.duplicate": "复制配置",
+    "codex.actions.viewBuiltinProviders": "查看内置供应商",
+    "codex.builtinProvidersTitle": "Codex 内置供应商",
+    "codex.builtinProvidersDescription":
+      "只读查看 OpenAI Codex 支持的主流厂商预设推荐模型、Base URL 与 Model Catalog。",
     "codex.launchCommandTitle": "Codex 启动命令",
     "codex.launchCommandDescription":
       "复制并在终端运行以下命令以使用「{name}」配置启动 Codex CLI：",
@@ -3661,6 +3665,10 @@ const translations = {
     "codex.badges.editing": "Editing",
     "codex.actions.copyLaunchCommand": "Copy Launch Command",
     "codex.actions.duplicate": "Duplicate Profile",
+    "codex.actions.viewBuiltinProviders": "View Built-in Providers",
+    "codex.builtinProvidersTitle": "Codex Built-in Providers",
+    "codex.builtinProvidersDescription":
+      "Read-only catalog of OpenAI Codex supported vendor preset models, Base URLs, and Model Catalogs.",
     "codex.launchCommandTitle": "Codex Launch Command",
     "codex.launchCommandDescription":
       'Copy and run the following command in terminal to start Codex CLI with "{name}":',
