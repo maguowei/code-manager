@@ -1,7 +1,7 @@
 use crate::config::{EDITOR_APPS, TERMINAL_APPS};
 use serde::Serialize;
 use std::env;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -612,15 +612,20 @@ fn open_path_with_windows_editor(path: &Path, command: &str) -> Result<(), Strin
 }
 
 fn command_exists(command: &str) -> bool {
+    let paths = env::var_os("PATH");
+    command_exists_in_path(command, paths.as_deref())
+}
+
+fn command_exists_in_path(command: &str, paths: Option<&OsStr>) -> bool {
     let command_path = Path::new(command);
     if command_path.components().count() > 1 {
         return command_path.is_file();
     }
 
-    let Some(paths) = env::var_os("PATH") else {
+    let Some(paths) = paths else {
         return false;
     };
-    env::split_paths(&paths)
+    env::split_paths(paths)
         .any(|dir| executable_candidates(command).any(|name| dir.join(name).is_file()))
 }
 
@@ -1186,20 +1191,23 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn command_exists_searches_path_and_handles_missing_path_env() {
-        let _guard = crate::utils::TEST_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|error| error.into_inner());
         let root = tempfile::tempdir().expect("应可创建临时目录");
         let command_path = root.path().join("code-manager-test-path-command");
         fs::write(&command_path, "").expect("应可写入测试命令文件");
-        let _path_guard = EnvVarGuard::capture("PATH");
+        let search_path = env::join_paths([root.path()]).expect("应可构造测试 PATH");
 
-        env::set_var("PATH", root.path());
-        assert!(command_exists("code-manager-test-path-command"));
-        assert!(!command_exists("code-manager-missing-path-command"));
-
-        env::remove_var("PATH");
-        assert!(!command_exists("code-manager-test-path-command"));
+        assert!(command_exists_in_path(
+            "code-manager-test-path-command",
+            Some(&search_path)
+        ));
+        assert!(!command_exists_in_path(
+            "code-manager-missing-path-command",
+            Some(&search_path)
+        ));
+        assert!(!command_exists_in_path(
+            "code-manager-test-path-command",
+            None
+        ));
     }
 
     #[test]
