@@ -4,11 +4,12 @@ import PageHeader from "../PageHeader";
 import { Button } from "../ui/button";
 
 describe("PageHeader", () => {
-  it("renders title, description, and actions in a shared responsive shell", () => {
+  it("renders title, description, navigation, and actions in a shared responsive shell", () => {
     render(
       <PageHeader
         title="配置"
         description="管理 Claude Code 的本地配置"
+        navigation={<button type="button">Codex</button>}
         actions={
           <Button type="button" size="sm" variant="outline">
             刷新
@@ -29,6 +30,10 @@ describe("PageHeader", () => {
     expect(within(header).getByRole("heading", { name: "配置" })).toHaveClass("page-title");
     expect(within(header).getByText("管理 Claude Code 的本地配置")).toHaveClass(
       "text-muted-foreground",
+    );
+    expect(within(header).getByRole("button", { name: "Codex" }).parentElement).toHaveClass(
+      "page-header-navigation",
+      "ml-auto",
     );
     expect(within(header).getByRole("button", { name: "刷新" })).toBeInTheDocument();
   });

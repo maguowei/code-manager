@@ -32,6 +32,7 @@ import {
 } from "./layout-size-classes";
 import PageHeader from "./PageHeader";
 import ProfileNameBadge from "./ProfileNameBadge";
+import ProfileProductSwitcher, { type ProfileProduct } from "./ProfileProductSwitcher";
 import { TYPOGRAPHY } from "./typography-classes";
 import UnsavedChangesAlertDialog from "./UnsavedChangesAlertDialog";
 import { Badge } from "./ui/badge";
@@ -53,10 +54,12 @@ const isChatGptLogin = (providerId: string) => providerId === CODEX_BUILTIN_OPEN
 
 interface CodexProfilesPageProps {
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
+  onProductChange?: (product: ProfileProduct) => void;
 }
 
 export default function CodexProfilesPage({
   onEditorExitGuardChange,
+  onProductChange,
 }: CodexProfilesPageProps = {}) {
   const { language, t } = useI18n();
   const { showToast } = useToast();
@@ -372,7 +375,17 @@ export default function CodexProfilesPage({
         )}
         data-slot="codex-profiles-list-scroll"
       >
-        <PageHeader title={t("codex.pageTitle")} surface="secondary" variant="list" />
+        <PageHeader
+          title={t("profiles.title")}
+          surface="secondary"
+          variant="list"
+          navigation={
+            <ProfileProductSwitcher
+              value="codex"
+              onValueChange={(product) => onProductChange?.(product)}
+            />
+          }
+        />
 
         {/* 列表顶部大号主按钮 */}
         <Button

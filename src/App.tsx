@@ -10,6 +10,7 @@ import {
   LIST_PANEL_COMPRESSED_WIDTH_CLASS,
   LIST_PANEL_WIDTH_CLASS,
 } from "./components/layout-size-classes";
+import type { ProfileProduct } from "./components/ProfileProductSwitcher";
 import Sidebar from "./components/Sidebar";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { UpdaterProvider } from "./components/UpdaterProvider";
@@ -98,6 +99,7 @@ function App() {
   // 递增令牌：仅唤醒 ProfilesPage 去 peek 后端队列，URL 权威源在 Rust pending
   const [deepLinkWakeToken, setDeepLinkWakeToken] = useState(0);
   const previousContentTabRef = useRef<TabType>("configs");
+  const lastProfilesTabRef = useRef<"configs" | "codex">("configs");
   const editorExitGuardRef = useRef<EditorExitGuard | null>(null);
   const historyProjectRequestIdRef = useRef(0);
   const usageProjectRequestIdRef = useRef(0);
@@ -224,10 +226,21 @@ function App() {
     } else {
       previousContentTabRef.current = nextTab;
     }
+    if (nextTab === "configs" || nextTab === "codex") {
+      lastProfilesTabRef.current = nextTab;
+    }
     setActiveTab(nextTab);
     setIsDetailDrawerOpen(false);
   }, []);
   activateTabRef.current = activateTab;
+
+  const handleProfileProductChange = useCallback(
+    (product: ProfileProduct) => {
+      const nextTab = product === "claude" ? "configs" : "codex";
+      runWithEditorExitGuard(() => activateTab(nextTab));
+    },
+    [activateTab, runWithEditorExitGuard],
+  );
 
   useEffect(() => {
     if (activeTab !== "history") {
@@ -351,7 +364,8 @@ function App() {
             activeTab={activeTab}
             collapseSidebarByDefault={workspace.app.collapseSidebarByDefault}
             onTabChange={(tab) => {
-              runWithEditorExitGuard(() => activateTab(tab));
+              const nextTab = tab === "configs" ? lastProfilesTabRef.current : tab;
+              runWithEditorExitGuard(() => activateTab(nextTab));
             }}
             onClaudeOverviewClick={handleClaudeOverviewClick}
             onSettingsClick={handleSettingsClick}
@@ -392,12 +406,16 @@ function App() {
                 ) : activeTab === "history" ? (
                   <HistoryPage projectRequest={historyProjectRequest} />
                 ) : activeTab === "codex" ? (
-                  <CodexProfilesPage onEditorExitGuardChange={setEditorExitGuard} />
+                  <CodexProfilesPage
+                    onEditorExitGuardChange={setEditorExitGuard}
+                    onProductChange={handleProfileProductChange}
+                  />
                 ) : activeTab === "configs" ? (
                   <ProfilesPage
                     workspace={workspace}
                     onWorkspaceChange={loadWorkspace}
                     onEditorExitGuardChange={setEditorExitGuard}
+                    onProductChange={handleProfileProductChange}
                     deepLinkWakeToken={deepLinkWakeToken}
                   />
                 ) : (

@@ -490,6 +490,36 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
   bindings: {},
 };
 
+const WORKSPACE_WITH_PROFILE_FIXTURE: ConfigWorkspace = {
+  ...WORKSPACE_FIXTURE,
+  builtinProviders: [
+    {
+      id: "builtin:openrouter",
+      name: "OpenRouter",
+      localizedName: { zh: "开放路由", en: "OpenRouter" },
+      description: "OpenRouter",
+      modelSuggestions: ["claude-sonnet-4-6"],
+      env: {},
+    },
+  ],
+  profiles: [
+    {
+      id: "user-openrouter",
+      name: "OpenRouter User",
+      description: "默认用户配置",
+      providerId: "builtin:openrouter",
+      settings: {
+        env: {
+          ANTHROPIC_AUTH_TOKEN: "token",
+          ANTHROPIC_MODEL: "claude-sonnet-4-6",
+        },
+      },
+      createdAt: "2026-04-18T12:00:00Z",
+      updatedAt: "2026-04-18T12:00:00Z",
+    },
+  ],
+};
+
 class ResizeObserverMock {
   observe() {}
   unobserve() {}
@@ -708,6 +738,64 @@ describe("App", () => {
     });
   }
 
+  it("uses one profiles sidebar entry and switches products from the page header", async () => {
+    renderApp();
+
+    const navigation = await screen.findByRole("navigation", { name: "主导航" });
+    const profilesNavigationButton = within(navigation).getByRole("button", { name: "配置" });
+    expect(within(navigation).queryByRole("button", { name: "Codex" })).not.toBeInTheDocument();
+
+    const productSwitcher = await screen.findByRole("group", { name: "配置类型" });
+    expect(within(productSwitcher).getByRole("button", { name: "Claude Code" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.click(within(productSwitcher).getByRole("button", { name: "Codex" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("group", { name: "配置类型" })).toHaveTextContent("Codex");
+      expect(screen.getByRole("button", { name: "Codex" })).toHaveAttribute("aria-pressed", "true");
+    });
+    expect(profilesNavigationButton).toHaveAttribute("aria-current", "page");
+  });
+
+  it("guards the product switch while the Claude profile editor has unsaved changes", async () => {
+    enableTauriEvents();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_config_workspace") {
+        return WORKSPACE_WITH_PROFILE_FIXTURE;
+      }
+      if (command === "peek_pending_profile_import_deep_link") {
+        return null;
+      }
+      if (command === "count_pending_profile_import_deep_links") {
+        return 0;
+      }
+      return null;
+    });
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "OpenRouter User" }, { timeout: 5000 }),
+    );
+    fireEvent.change(await screen.findByDisplayValue("OpenRouter User"), {
+      target: { value: "OpenRouter User Draft" },
+    });
+
+    const productSwitcher = screen.getByRole("group", { name: "配置类型", hidden: true });
+    fireEvent.click(within(productSwitcher).getByRole("button", { name: "Codex", hidden: true }));
+
+    expect(screen.getByRole("heading", { name: "存在未保存的更改" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("OpenRouter User Draft")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "不保存退出" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Codex" })).toHaveAttribute("aria-pressed", "true");
+    });
+  });
+
   it("passes the selected project to token usage navigation", async () => {
     enableTauriEvents();
     const workspaceWithEditor: ConfigWorkspace = {
@@ -812,40 +900,11 @@ describe("App", () => {
 
   it("defers deep-link drain while a dirty profile editor is open and drains after exit", async () => {
     enableTauriEvents();
-    const workspaceWithProfile: ConfigWorkspace = {
-      ...WORKSPACE_FIXTURE,
-      builtinProviders: [
-        {
-          id: "builtin:openrouter",
-          name: "OpenRouter",
-          localizedName: { zh: "开放路由", en: "OpenRouter" },
-          description: "OpenRouter",
-          modelSuggestions: ["claude-sonnet-4-6"],
-          env: {},
-        },
-      ],
-      profiles: [
-        {
-          id: "user-openrouter",
-          name: "OpenRouter User",
-          description: "默认用户配置",
-          providerId: "builtin:openrouter",
-          settings: {
-            env: {
-              ANTHROPIC_AUTH_TOKEN: "token",
-              ANTHROPIC_MODEL: "claude-sonnet-4-6",
-            },
-          },
-          createdAt: "2026-04-18T12:00:00Z",
-          updatedAt: "2026-04-18T12:00:00Z",
-        },
-      ],
-    };
     let peekCount = 0;
     let pendingHead: string | null = null;
     invokeMock.mockImplementation(async (command, args) => {
       if (command === "get_config_workspace") {
-        return workspaceWithProfile;
+        return WORKSPACE_WITH_PROFILE_FIXTURE;
       }
       if (command === "peek_pending_profile_import_deep_link") {
         peekCount += 1;

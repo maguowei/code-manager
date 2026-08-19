@@ -8,6 +8,7 @@ type PageHeaderVariant = "default" | "list";
 interface PageHeaderProps {
   title: ReactNode;
   description?: ReactNode;
+  navigation?: ReactNode;
   actions?: ReactNode;
   surface?: PageHeaderSurface;
   variant?: PageHeaderVariant;
@@ -27,6 +28,7 @@ const SURFACE_CLASS: Record<PageHeaderSurface, string> = {
 function PageHeader({
   title,
   description,
+  navigation,
   actions,
   surface = "background",
   variant = "default",
@@ -69,6 +71,11 @@ function PageHeader({
           >
             {description}
           </p>
+        ) : null}
+        {navigation ? (
+          <div className="page-header-navigation ml-auto flex shrink-0 items-center">
+            {navigation}
+          </div>
         ) : null}
       </div>
       {actions ? (

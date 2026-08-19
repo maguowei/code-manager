@@ -37,7 +37,15 @@ describe("Sidebar", () => {
 
       expect(within(button).getByText(label)).toBeInTheDocument();
     }
+    expect(screen.queryByRole("button", { name: "Codex" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "供应商" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the unified profiles entry active while viewing Codex profiles", () => {
+    renderSidebar({ activeTab: "codex" });
+
+    expect(screen.getByRole("button", { name: "配置" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("button", { name: "Codex" })).not.toBeInTheDocument();
   });
 
   it("keeps the sidebar labels collapsible at the existing narrow breakpoint", () => {

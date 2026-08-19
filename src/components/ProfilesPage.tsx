@@ -67,6 +67,7 @@ import {
 import PageHeader from "./PageHeader";
 import ProfileEditor, { type ProfileEditorHandle } from "./ProfileEditor";
 import ProfileNameBadge from "./ProfileNameBadge";
+import ProfileProductSwitcher, { type ProfileProduct } from "./ProfileProductSwitcher";
 import { readPermissionsDefaultMode } from "./profile-editor/PermissionsEditor";
 import type {
   SettingsMismatchDiffFile,
@@ -110,6 +111,7 @@ interface ProfilesPageProps {
   workspace: ConfigWorkspace;
   onWorkspaceChange: () => Promise<void>;
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
+  onProductChange?: (product: ProfileProduct) => void;
   /**
    * App 在确认后端仍有 pending deep link 后递增的唤醒令牌。
    * ProfilesPage 据此 peek 队头；URL 权威源在 Rust，ack 前切页不丢。
@@ -278,6 +280,7 @@ function ProfilesPage({
   workspace,
   onWorkspaceChange,
   onEditorExitGuardChange,
+  onProductChange,
   deepLinkWakeToken = 0,
 }: ProfilesPageProps) {
   const { language, t } = useI18n();
@@ -1715,6 +1718,12 @@ function ProfilesPage({
           title={t("profiles.title")}
           surface="secondary"
           variant="list"
+          navigation={
+            <ProfileProductSwitcher
+              value="claude"
+              onValueChange={(product) => onProductChange?.(product)}
+            />
+          }
           actions={
             <>
               <Button

@@ -1,7 +1,6 @@
 import {
   BarChart3,
   BookOpen,
-  Boxes,
   Brain,
   Clock,
   DollarSign,
@@ -34,7 +33,6 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { key: "configs", label: "nav.configs", icon: SlidersHorizontal },
-  { key: "codex", label: "nav.codex", icon: Boxes },
   { key: "memory", label: "nav.memory", icon: Brain },
   { key: "skills", label: "nav.skills", icon: Zap },
   { key: "projects", label: "nav.projects", icon: FolderOpen },
@@ -73,7 +71,8 @@ function Sidebar({
 
   // 渲染单个导航项
   const renderNavItem = ({ key, label, icon: Icon, testId }: NavItem) => {
-    const active = activeTab === key;
+    const active =
+      key === "configs" ? activeTab === "configs" || activeTab === "codex" : activeTab === key;
     return (
       <Tooltip key={key}>
         <TooltipTrigger asChild>
