@@ -14,6 +14,7 @@ import { ipc } from "../ipc";
 import { cn } from "../lib/utils";
 import type { CodexApplyPreview, CodexProfile, CodexProfileInput, CodexProvider } from "../types";
 import ConfigPreview from "./ConfigPreview";
+import { providerDisplayName } from "./config-workspace-utils";
 import {
   EDITOR_CONTROL_SURFACE_CLASS,
   EditorDescription,
@@ -69,6 +70,7 @@ interface CodexProfileEditorProps {
   onSave: (data: CodexProfileEditorSaveData) => Promise<boolean> | boolean;
   onClose: () => void;
   onViewBuiltinProviders?: () => void;
+  isActive?: boolean;
 }
 
 function profileToSaveData(
@@ -158,10 +160,10 @@ function saveDataToInput(data: CodexProfileEditorSaveData): CodexProfileInput {
 
 const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEditorProps>(
   function CodexProfileEditor(
-    { profile, providers, onSave, onClose, onViewBuiltinProviders },
+    { profile, providers, onSave, onClose, onViewBuiltinProviders, isActive = false },
     ref,
   ) {
-    const { t } = useI18n();
+    const { language, t } = useI18n();
 
     const [draft, setDraft] = useState<CodexProfileEditorSaveData>(() =>
       profileToSaveData(profile, providers),
@@ -186,12 +188,14 @@ const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEdit
       if (!name) return false;
       if (!isCustom) {
         const isChatGpt = isChatGptLogin(draft.providerId);
-        if (!isChatGpt && !draft.id && !draft.apiKey.trim()) {
+        const providerChanged = Boolean(draft.id && profile?.providerId !== draft.providerId);
+        const needsInlineApiKey = !isChatGpt && !currentProvider?.envKey;
+        if (needsInlineApiKey && (!draft.id || providerChanged) && !draft.apiKey.trim()) {
           return false;
         }
       }
       return true;
-    }, [draft, isCustom]);
+    }, [currentProvider?.envKey, draft, isCustom, profile?.providerId]);
 
     const isDirty = useCallback(() => {
       return !saveDataEquals(draft, initialDraftRef.current);
@@ -253,28 +257,26 @@ const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEdit
       const provider = providers.find((p) => p.id === providerId);
       if (!provider) return;
 
-      const getCleanShortName = (p: CodexProvider) => {
-        if (p.id === "codex-builtin:openai") return "OpenAI";
-        if (p.id === "codex-builtin:zhipu") return "智谱GLM";
-        if (p.id === "codex-builtin:minimax") return "MiniMax";
-        if (p.id === "codex-builtin:mimo") return "小米MiMo";
-        if (p.id === "codex-builtin:deepseek") return "DeepSeek";
-        return p.name;
-      };
-
       const isPreviousDefaultName =
         !draft.name ||
         providers.some(
-          (p) =>
-            draft.name === `${p.name} 快速起步` ||
-            draft.name === `${getCleanShortName(p)}-日常开发` ||
-            draft.name === `${p.name}-日常开发`,
+          (item) =>
+            draft.name ===
+            t("codex.defaultProfileName").replace(
+              "{provider}",
+              providerDisplayName(item, language),
+            ),
         );
+      const defaultName = t("codex.defaultProfileName").replace(
+        "{provider}",
+        providerDisplayName(provider, language),
+      );
 
       setDraft((prev) => ({
         ...prev,
         providerId: provider.id,
-        name: isPreviousDefaultName ? `${getCleanShortName(provider)}-日常开发` : prev.name,
+        name: isPreviousDefaultName ? defaultName : prev.name,
+        apiKey: "",
         model: provider.defaultModel ?? "",
         modelReasoningEffort: provider.defaultReasoningEffort ?? "",
       }));
@@ -316,6 +318,12 @@ const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEdit
           className="flex min-h-0 flex-1 flex-col items-center gap-5 overflow-y-auto bg-secondary px-6 py-6 pb-6 [&>*]:shrink-0 [&>:not([data-slot=profile-name-badge])]:w-[min(100%,880px)]"
         >
           <ProfileNameBadge name={draft.name || "C"} size="lg" fallbackChar="C" />
+
+          {isActive ? (
+            <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              {t("codex.activeEditAutoApplyHint")}
+            </div>
+          ) : null}
 
           {/* 基本信息 */}
           <EditorSection title={t("profiles.editor.sections.basicInfo")}>
@@ -378,11 +386,11 @@ const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEdit
                     <SelectContent>
                       <SelectGroup>
                         <SelectItem value={CUSTOM_PROVIDER_ID}>
-                          {t("codex.customBadge")} (自定义配置片段)
+                          {t("codex.customModeLabel")}
                         </SelectItem>
                         {providers.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
-                            {p.name}
+                            {providerDisplayName(p, language)}
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -507,7 +515,9 @@ const CodexProfileEditor = forwardRef<CodexProfileEditorHandle, CodexProfileEdit
                       <SelectValue placeholder={t("codex.field.reasoningEffortPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">默认 (Default)</SelectItem>
+                      <SelectItem value="none">
+                        {t("codex.field.reasoningEffortDefault")}
+                      </SelectItem>
                       <SelectItem value="low">low</SelectItem>
                       <SelectItem value="medium">medium</SelectItem>
                       <SelectItem value="high">high</SelectItem>

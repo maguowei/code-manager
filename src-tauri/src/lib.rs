@@ -39,12 +39,14 @@ use claude_directory::{
     rename_claude_directory_entry,
 };
 use config::{
-    apply_codex_profile, apply_profile, delete_codex_profile, delete_profile, duplicate_profile,
-    export_profile, get_codex_workspace, get_config_workspace, import_profile_from_file,
-    import_profile_from_settings_json, import_user_settings_profile, install_status_line_preset,
+    apply_codex_profile, apply_profile, delete_codex_profile, delete_profile,
+    duplicate_codex_profile, duplicate_profile, export_profile, get_codex_workspace,
+    get_config_workspace, import_profile_from_file, import_profile_from_settings_json,
+    import_user_settings_profile, install_status_line_preset, prepare_codex_profile_launch,
     prepare_profile_launch, preview_codex_apply, preview_codex_input, preview_profile,
-    preview_profile_export, preview_profile_import, reorder_profiles, set_app_preferences,
-    sync_shared_profile_settings, test_profile_model, upsert_codex_profile, upsert_profile,
+    preview_profile_export, preview_profile_import, reorder_codex_profiles, reorder_profiles,
+    set_app_preferences, sync_shared_profile_settings, test_profile_model, upsert_codex_profile,
+    upsert_profile,
 };
 use deep_link::{
     ack_profile_import_deep_link, build_profile_import_deep_link,
@@ -109,10 +111,13 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             apply_profile,
             get_codex_workspace,
             upsert_codex_profile,
+            duplicate_codex_profile,
+            reorder_codex_profiles,
             delete_codex_profile,
             apply_codex_profile,
             preview_codex_apply,
             preview_codex_input,
+            prepare_codex_profile_launch,
             import_user_settings_profile,
             install_status_line_preset,
             preview_profile,

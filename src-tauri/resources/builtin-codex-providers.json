@@ -2,6 +2,7 @@
   {
     "id": "codex-builtin:openai",
     "name": "OpenAI 官方",
+    "localizedName": { "zh": "OpenAI 官方", "en": "OpenAI Official" },
     "slug": "openai",
     "baseUrl": "https://api.openai.com/v1",
     "docUrl": "https://learn.chatgpt.com/docs/codex",
@@ -17,6 +18,7 @@
   {
     "id": "codex-builtin:deepseek",
     "name": "DeepSeek",
+    "localizedName": { "zh": "DeepSeek", "en": "DeepSeek" },
     "slug": "deepseek",
     "baseUrl": "https://api.deepseek.com/",
     "docUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/agent_integrations/codex",
@@ -90,6 +92,7 @@
   {
     "id": "codex-builtin:zhipu",
     "name": "智谱 GLM Coding Plan",
+    "localizedName": { "zh": "智谱 GLM Coding Plan", "en": "Zhipu GLM Coding Plan" },
     "slug": "ZAI",
     "baseUrl": "https://open.bigmodel.cn/api/v1",
     "docUrl": "https://docs.bigmodel.cn/cn/coding-plan/tool/codex",
@@ -153,6 +156,7 @@
   {
     "id": "codex-builtin:minimax",
     "name": "MiniMax Token Plan",
+    "localizedName": { "zh": "MiniMax Token Plan", "en": "MiniMax Token Plan" },
     "slug": "minimax",
     "baseUrl": "https://api.minimaxi.com/v1",
     "docUrl": "https://platform.minimaxi.com/docs/token-plan/codex",
@@ -193,6 +197,7 @@
   {
     "id": "codex-builtin:xiaomi-mimo",
     "name": "小米 MiMo Token Plan",
+    "localizedName": { "zh": "小米 MiMo Token Plan", "en": "Xiaomi MiMo Token Plan" },
     "slug": "mimo",
     "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
     "docUrl": "https://mimo.mi.com/docs/zh-CN/tokenplan/integration/codex-configuration",

@@ -187,6 +187,7 @@ export interface CodexProviderModel {
 export interface CodexProvider {
   id: string;
   name: string;
+  localizedName?: LocalizedText;
   slug: string;
   baseUrl: string;
   /** 读取 API key 的环境变量名(`env_key`);可选,留空则 apply 内联 experimental_bearer_token(ADR 0005) */
@@ -240,7 +241,7 @@ export interface CodexWorkspace {
 export interface CodexApplyPreview {
   profileId: string;
   profileName: string;
-  providerName: string;
+  providerId: string;
   currentModelProvider: string | null;
   nextModelProvider: string;
   /** 认证模式(ADR 0005):内置 openai 为 ChatGPT 登录,其余为 API key */
@@ -249,9 +250,16 @@ export interface CodexApplyPreview {
   targetReasoningEffort: string | null;
   configTomlPreview: string;
   modelsJsonPreview: string | null;
+  warnings: CodexApplyWarning[];
 }
 
-/** 新建/编辑 Codex Profile 的输入。apiKey 为空表示编辑时保留已有 key。 */
+export type CodexApplyWarning = "legacyApiKeyMayOverrideChatGptLogin";
+
+export interface CodexProfileLaunchPayload {
+  command: string;
+}
+
+/** 新建/编辑 Codex Profile 的输入。同 Provider 编辑时，apiKey 为空表示保留已有 key。 */
 export interface CodexProfileInput {
   id: string | null;
   name: string;

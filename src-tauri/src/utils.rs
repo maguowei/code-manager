@@ -161,25 +161,82 @@ pub fn write_pair_atomic(
     second_path: &Path,
     second_content: &str,
 ) -> Result<(), String> {
+    write_pair_atomic_with_rollback_hook(
+        first_path,
+        first_content,
+        second_path,
+        second_content,
+        || {},
+    )
+}
+
+fn write_pair_atomic_with_rollback_hook<F>(
+    first_path: &Path,
+    first_content: &str,
+    second_path: &Path,
+    second_content: &str,
+    before_rollback: F,
+) -> Result<(), String>
+where
+    F: FnOnce(),
+{
     let first_temp = stage_temp_file(first_path, first_content)?;
-    let second_temp = stage_temp_file(second_path, second_content)?;
+    let second_temp = match stage_temp_file(second_path, second_content) {
+        Ok(path) => path,
+        Err(error) => {
+            let _ = fs::remove_file(&first_temp);
+            return Err(error);
+        }
+    };
 
-    // 备份第一个文件的原内容，供第二个文件替换失败时回滚
-    let first_backup = fs::read_to_string(first_path).ok();
+    // 备份第一个文件的原内容，供第二个文件替换失败时回滚；已有文件读失败不能误判为新文件。
+    let first_backup = if first_path.exists() {
+        match fs::read_to_string(first_path) {
+            Ok(content) => Some(content),
+            Err(error) => {
+                let _ = fs::remove_file(&first_temp);
+                let _ = fs::remove_file(&second_temp);
+                return Err(format!("备份第一个文件失败 {:?}: {}", first_path, error));
+            }
+        }
+    } else {
+        None
+    };
 
-    replace_file_with_temp(first_path, &first_temp)
-        .map_err(|e| format!("写入第一个文件失败 {:?}: {}", first_path, e))?;
+    if let Err(error) = replace_file_with_temp(first_path, &first_temp) {
+        let _ = fs::remove_file(&first_temp);
+        let _ = fs::remove_file(&second_temp);
+        return Err(format!("写入第一个文件失败 {:?}: {}", first_path, error));
+    }
 
     if let Err(e) = replace_file_with_temp(second_path, &second_temp) {
         // 清理未替换的第二个临时文件
         let _ = fs::remove_file(&second_temp);
+        before_rollback();
         // 回滚第一个文件：恢复原内容；原文件不存在则删除新建的文件
-        if let Some(backup) = &first_backup {
-            if let Ok(temp) = stage_temp_file(first_path, backup) {
-                let _ = replace_file_with_temp(first_path, &temp);
+        let rollback_result = if let Some(backup) = &first_backup {
+            match stage_temp_file(first_path, backup) {
+                Ok(temp) => match replace_file_with_temp(first_path, &temp) {
+                    Ok(()) => Ok(()),
+                    Err(error) => {
+                        let _ = fs::remove_file(&temp);
+                        Err(error)
+                    }
+                },
+                Err(error) => Err(error),
             }
         } else {
-            let _ = fs::remove_file(first_path);
+            match fs::remove_file(first_path) {
+                Ok(()) => Ok(()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(error) => Err(format!("删除新建的第一个文件失败: {error}")),
+            }
+        };
+        if let Err(rollback_error) = rollback_result {
+            return Err(format!(
+                "写入第二个文件失败 {:?}: {}; 回滚第一个文件失败: {}",
+                second_path, e, rollback_error
+            ));
         }
         return Err(format!(
             "写入第二个文件失败 {:?}: {}（第一个文件已回滚）",
@@ -211,8 +268,10 @@ fn stage_temp_file(path: &Path, content: &str) -> Result<PathBuf, String> {
         .unwrap_or_else(|| Path::new("."))
         .join(temp_name);
 
-    fs::write(&temp_path, content)
-        .map_err(|e| format!("写入临时文件失败 {:?}: {}", temp_path, e))?;
+    if let Err(error) = fs::write(&temp_path, content) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(format!("写入临时文件失败 {:?}: {}", temp_path, error));
+    }
 
     #[cfg(unix)]
     {
@@ -399,6 +458,20 @@ pub fn normalize_path_for_display(path: &Path) -> String {
 mod tests {
     use super::*;
 
+    fn temp_artifacts(root: &Path) -> Vec<PathBuf> {
+        fs::read_dir(root)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.contains(".tmp-"))
+            })
+            .collect()
+    }
+
     #[test]
     fn strip_windows_verbatim_prefix_handles_common_shapes() {
         // 普通路径在所有平台上保持原样
@@ -465,6 +538,74 @@ mod tests {
             "original"
         );
 
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn write_pair_atomic_cleans_first_temp_when_second_staging_fails() {
+        let root = std::env::temp_dir().join(format!(
+            "code-manager-utils-pair-stage-{}-{}",
+            std::process::id(),
+            current_timestamp()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("blocked-parent"), "not-a-directory").unwrap();
+
+        let result = write_pair_atomic(
+            &root.join("first.toml"),
+            "first",
+            &root.join("blocked-parent").join("second.json"),
+            "second",
+        );
+
+        assert!(result.is_err());
+        assert!(temp_artifacts(&root).is_empty());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn write_pair_atomic_cleans_all_temps_when_first_replace_fails() {
+        let root = std::env::temp_dir().join(format!(
+            "code-manager-utils-pair-first-{}-{}",
+            std::process::id(),
+            current_timestamp()
+        ));
+        fs::create_dir_all(root.join("first.toml")).unwrap();
+
+        let result = write_pair_atomic(
+            &root.join("first.toml"),
+            "first",
+            &root.join("second.json"),
+            "second",
+        );
+
+        assert!(result.is_err());
+        assert!(temp_artifacts(&root).is_empty());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn write_pair_atomic_reports_rollback_failure_and_cleans_rollback_temp() {
+        let root = std::env::temp_dir().join(format!(
+            "code-manager-utils-pair-rollback-{}-{}",
+            std::process::id(),
+            current_timestamp()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let first = root.join("first.toml");
+        let second = root.join("second.json");
+        fs::write(&first, "old").unwrap();
+        fs::create_dir_all(&second).unwrap();
+
+        let result = write_pair_atomic_with_rollback_hook(&first, "new", &second, "second", || {
+            fs::remove_file(&first).unwrap();
+            fs::create_dir(&first).unwrap();
+        });
+
+        let error = result.unwrap_err();
+        assert!(error.contains("回滚第一个文件失败"), "实际错误: {error}");
+        assert!(!error.contains("已回滚"));
+        assert!(temp_artifacts(&root).is_empty());
         let _ = fs::remove_dir_all(root);
     }
 

@@ -4,21 +4,20 @@ Status: accepted
 
 ## Context
 
-Codex 配置切换 v1（ADR 0004）把认证锁死为 ApiKey-only：每次 apply 往 `~/.codex/auth.json` 写 `OPENAI_API_KEY`，自定义 Provider 走 `env_key` 环境变量。对照官方 DeepSeek/GLM 接入文档与 cc-switch 的 preserve-on 路径，发现两条硬伤：① 官方第三方接入根本不碰 auth.json，key 内联进 config.toml 的 `experimental_bearer_token`；② `env_key` 要求用户 shell 里 export 环境变量，GUI 切换后往往 401。而目标用户画像（用 ChatGPT 账号在 Codex 上工作、偶尔切 DeepSeek 中转）要求**切第三方时不破坏 `codex login` 的 ChatGPT 登录态**——v1「写 auth.json」的行为恰恰会污染它。
+Codex CLI 的 ChatGPT 登录态由 `codex login` 持久化到 `~/.codex/auth.json`。第三方 Provider 则可以在 `config.toml` 的 `[model_providers.*]` 中使用 `experimental_bearer_token` 或 `env_key`。若 Code Manager 写 `auth.json`，会污染并可能覆盖 Codex 自己维护的登录态；若结构化 Profile 在切换 Provider 时错误沿用旧 key，又会把凭据发给错误的服务端。
 
 ## Decision
 
-1. **Code Manager 永远不拥有 `~/.codex/auth.json`**：移除 `render_codex_auth` 写入；auth.json 是 `codex login` 的领域。ADR 0004 决策 #3 当初排除 OAuth 的核心理由（自刷新 token 与 Apply/Binding/Mismatch 语义冲突）因此从根上消失，无需 cc-switch 式 account+generation 防漂移。
-2. **认证模式从 Provider 推导**：内置 OpenAI 官方 = ChatGPT 登录（免 key，apply 只写 `model_provider="openai"`）；自定义第三方 = API key（key 内联 `experimental_bearer_token`）。Profile 不新增用户可选的认证字段，避免选错。
-3. **内置官方 Profile 即恢复点（候选 A）**：apply 内置 openai profile = 一键复原官方配置，不引入独立「恢复」概念/按钮；不清理残留 provider 段（外科补丁不删除）。
-4. **不写全局认证字段**：否决 `preferred_auth_method` / `forced_login_method`——它们是全局顶层键，apply 第三方写入后会在切回官方时残留、强制 apikey 路径，破坏 ChatGPT 登录。纯靠 provider 段内联 token 区分认证。
-5. **不做 apply 前快照备份**：外科补丁只动 provider 相关键 + `write_pair_atomic` 已有失败回滚，「一键复原官方」即兜底；官方 DeepSeek 脚本的备份针对首次整体初始化，不适用本场景。
-6. **模型目录（机制就绪）**：`CodexProvider.model_catalog` 字段 + apply 生成 `~/.codex/models.json` + 原子边界扩到第三文件；内置静态清单与前端 UI 编辑**延后**，第一版仅程序化 / registry 直写，无输入入口。
-7. **`env_key` 降级为可选**：自定义 Provider 可选用环境变量键名，默认内联 key。
+1. **`auth.json` 永远只读**：Apply、预览和原生启动都不得修改它。
+2. **认证模式从内置 Provider 推导**：OpenAI 官方使用 ChatGPT 登录，不存 API key、不生成 `[model_providers.openai]`；内置第三方使用 API key 或 Provider 预设的 `env_key`。
+3. **密钥切换规则**：仅当编辑同一个 inline-key Provider 时，空 key 才表示保留。切换到另一个 inline-key Provider 必须提供新 key；切换到 OpenAI、`env_key` Provider 或高级片段模式时清除旧 key。
+4. **预览单独脱敏**：Apply 和 launch 使用真实渲染结果；预览对 TOML 与 models JSON 递归脱敏，复用统一敏感键规则，不能返回 token、secret、password、api_key 或 authorization 明文。
+5. **双凭据提示**：预览 OpenAI Profile 时只读 `auth.json`。同时存在非空 `OPENAI_API_KEY` 和 `tokens` 时返回计费风险 warning；不自动删除或改写任何字段。
+6. **不写全局认证选择键**：不写 `preferred_auth_method` / `forced_login_method`，避免从第三方切回 OpenAI 后残留强制 API-key 路径。
 
 ## Consequences
 
-- `render_codex_auth` 移除；`CodexApplyPreview.api_key_will_set` 语义改为「是否内联 bearer token」。
-- CodexProvider / CodexProfile 结构体、前端表单、i18n、config.rs 的 codex 单测、CodexProfilesPage 测试需同步改写。
-- CONTEXT.md 新增「Codex 认证模式」「Codex 模型目录」术语，修订「Codex 应用」定义。
-- 已知不处理：用户 shell 中 `OPENAI_API_KEY` 环境变量会令 Codex 优先 API 计费而非 OAuth（Code Manager 无法控制）。
+- 内置 OpenAI Profile 是回到官方 ChatGPT 登录路径的结构化配置，但历史第三方 Provider 段继续保留。
+- Profile 复制必须在后端 registry 内复制真实密钥，前端只能接收脱敏对象。
+- 预览与 Apply 的输出不再能共用同一可展示字符串；脱敏是只发生在 preview 边界的转换。
+- Code Manager 只能提示 `auth.json` 中的潜在 API 计费风险，不能替用户修复登录态。

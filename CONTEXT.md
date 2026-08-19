@@ -32,23 +32,27 @@ _Avoid_: 冲突、不同步、脏配置
 
 ### Codex 配置(Codex Config System)
 
-与 [配置系统](#配置系统config-system) 概念平行但**类型独立**的一套链,目标是 `~/.codex/`(OpenAI Codex CLI),而非 `~/.claude/`。两侧共享 Provider/Profile/Apply/Binding 的**心智骨架**,但因底层格式(TOML + 独立 `auth.json`)与所有权语义不同,**不共享类型、不共享定义**。存储上复用同一个 `config-registry.json` 的 `codex` 段,不与 Claude 侧互相引用。**Code Manager 永远不拥有 `~/.codex/auth.json`**:认证归 `codex login` 管理,Apply 只动 `config.toml`(ADR 0005)。
+与 [配置系统](#配置系统config-system) 概念平行但**类型独立**的一套链,目标是 `~/.codex/`(OpenAI Codex CLI),而非 `~/.claude/`。两侧共享 Provider/Profile/Apply/Binding 的**心智骨架**,但因底层格式(TOML + 独立 `auth.json`)与所有权语义不同,**不共享类型、不共享定义**。存储上复用同一个 `config-registry.json` 的 `codex` 段,不与 Claude 侧互相引用。**Code Manager 永远不拥有 `~/.codex/auth.json`**:认证归 `codex login` 管理,Apply 只动 `config.toml` 与可选模型目录(ADR 0005)。
 
 **Codex Provider(Codex 供应商)**:
-承载一条 Codex `[model_providers.*]` 的客观连接信息:`base_url`、可选 `env_key`(密钥所在环境变量名)、`wire_api`、展示名/docUrl。**与 [Provider](#provider供应商) 分家的关键**:Codex Provider **允许用户自定义**(内置只读项仅作快速起步预设),因为切换私有中转/自建网关是 Codex 的主力场景。**不含密钥。**
+承载一条 Codex `[model_providers.*]` 的客观连接信息:`base_url`、可选 `env_key`(密钥所在环境变量名)、`wire_api`、默认模型/推理档位、模型目录与展示元数据。Codex Provider **全部内置只读,没有自定义 registry 或 CRUD,且不含密钥**。私有中转、自建网关和未来未知字段统一由 [Codex 配置](#codex-配置codex-profile) 的高级片段表达。
 _Avoid_: Provider(裸用会与 Claude 的内置只读 Provider 混淆)、model_provider(那是 config.toml 里的选择键,不是本概念)
 
 **Codex 认证模式(Codex Auth Mode)**:
-从 [Codex Provider](#codex-providercodex-供应商) **推导**的认证形态,不是用户可选项:内置 OpenAI 官方 = **ChatGPT 登录**(profile 免 key,apply 只写 `model_provider="openai"`,认证走 `~/.codex/auth.json` 里 `codex login` 维护的登录态);自定义第三方 = **API key**(profile 持有 key,apply 内联进 `[model_providers.SLUG].experimental_bearer_token`)。
+从 [Codex Provider](#codex-providercodex-供应商) **推导**的认证形态,不是用户可选项:内置 OpenAI 官方 = **ChatGPT 登录**(profile 免 key,认证走 `~/.codex/auth.json` 里 `codex login` 维护的登录态);内置第三方 = **API key**(profile 持有 key,apply 内联进 `[model_providers.SLUG].experimental_bearer_token`,或按预设使用 `env_key`)。高级片段直接声明其认证键,不另设认证模式。
 _Avoid_: auth_mode(config.toml 里 Codex 自己的键,别混淆)、认证开关(它不可选)
 
 **Codex 配置(Codex Profile)**:
-引用一个 [Codex Provider](#codex-providercodex-供应商),按其 [Codex 认证模式](#codex-认证模式codex-auth-mode) 叠加凭据:内置官方 profile **免 key**(ChatGPT 登录),自定义第三方 profile 持有**一个 API key**。**与 [配置](#配置profile) 分家的关键**:它不是「一份完整设置单元」,而是**一层 provider+认证覆盖**——[Codex 应用](#codex-应用codex-apply) 时只写入 provider 选择与凭据,不托管 `config.toml` 全文。内置官方 profile 兼作**恢复点**:apply 它即一键复原官方配置,不引入独立「恢复」概念。
+有两种互斥表达。**结构化 Profile** 引用一个 [Codex Provider](#codex-providercodex-供应商),拥有 Provider、认证、`model` 与 `model_reasoning_effort`;字段留空时使用 Provider 预设默认值,预设也无值时清理旧值。**高级 Profile** 保存用户提供的 config.toml / models.json 片段,片段里显式出现的任意键都是有意覆盖,未出现的键保持原样。已绑定 Profile 保存后立即重新 [Codex 应用](#codex-应用codex-apply)。
 _Avoid_: 配置/Profile(裸用会与 Claude 的全量托管 Profile 混淆)、Codex 快照(它不整体拥有 config.toml)
 
 **Codex 应用(Codex Apply)**:
-把一份 [Codex 配置](#codex-配置codex-profile) 落盘的动作,**外科补丁式**:只改写 `~/.codex/config.toml` 的 `model_provider` 与对应 `[model_providers.NAME]`(API key 模式内联 `experimental_bearer_token`);**不写 `~/.codex/auth.json`**,也不写全局认证字段。`config.toml` 其余键(`model`、`approval_policy`、`sandbox_mode`、`[mcp_servers.*]`、注释、顺序)以及切换前的旧 provider 段**一律原样保留、不做删除**。`wire_api` 固定为 `responses`(Codex CLI 已移除 `chat`,存量 `chat` 自动规整)。可选地生成 [Codex 模型目录](#codex-模型目录codex-model-catalog)。落盘目标是 **config.toml(+ 可选 models.json)**、TOML 需保真 round-trip,区别于 [应用](#应用apply) 对单个 JSON 的全量原子重写。
+把一份 [Codex 配置](#codex-配置codex-profile) 落盘的动作,**外科补丁式**:结构化 Profile 改写 `model_provider`、`model`、`model_reasoning_effort` 与对应 `[model_providers.NAME]`;高级 Profile 改写片段中显式声明的任意键。两种模式都保留未拥有的键、注释、顺序与旧 Provider 段。API key 模式内联 `experimental_bearer_token`;`wire_api` 固定为 `responses`。Apply **不写 `~/.codex/auth.json`**,但 OpenAI Profile 预览会只读检测旧 API key 与 ChatGPT tokens 并提示潜在计费风险。可选地生成 [Codex 模型目录](#codex-模型目录codex-model-catalog)。
 _Avoid_: 应用(裸用会与 Claude 的全量重写 Apply 混淆)、全量写入、覆盖 config.toml
+
+**Codex 原生启动配置(Codex Native Launch Profile)**:
+Code Manager 为任意 Codex Profile 按需生成 `~/.codex/code-manager-<uuid>.config.toml` 与可选的同 ID `.models.json`,并返回 `codex --profile code-manager-<uuid>`。该 TOML 只含 Profile 覆盖层,Codex CLI 会先加载基础 `config.toml` 再叠加它。编辑或删除 Profile 会清理旧启动产物,再次打开启动弹窗时重新生成。
+_Avoid_: 启动快照(不会复制基础 config.toml)、`codex -m`(只选模型,不代表完整 Profile)
 
 **Codex 模型目录(Codex Model Catalog)**:
 可选生成 `~/.codex/models.json`,apply 时经 `model_catalog_json` 指向,供 Codex 模型下拉/推理档位使用。来源 = 内置静态清单 + 用户自定义覆盖。

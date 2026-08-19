@@ -33,6 +33,7 @@ const MOCK_PROVIDERS = [
   {
     id: "codex-builtin:openai",
     name: "OpenAI 官方",
+    localizedName: { zh: "OpenAI 官方", en: "OpenAI Official" },
     slug: "openai",
     baseUrl: "https://api.openai.com/v1",
     wireApi: "responses",
@@ -43,6 +44,7 @@ const MOCK_PROVIDERS = [
   {
     id: "codex-builtin:deepseek",
     name: "DeepSeek",
+    localizedName: { zh: "DeepSeek", en: "DeepSeek" },
     slug: "deepseek",
     baseUrl: "https://api.deepseek.com/",
     wireApi: "responses",
@@ -82,7 +84,7 @@ function stubInvoke(workspace: CodexWorkspace) {
       return {
         profileId: "preview-id",
         profileName: "Preview",
-        providerName: "DeepSeek",
+        providerId: "codex-builtin:deepseek",
         currentModelProvider: "openai",
         nextModelProvider: "deepseek",
         authMode: "apiKey",
@@ -90,13 +92,14 @@ function stubInvoke(workspace: CodexWorkspace) {
         targetReasoningEffort: "high",
         configTomlPreview: 'model_provider = "deepseek"\nmodel = "deepseek-v4-flash"',
         modelsJsonPreview: '{"deepseek-v4-flash": {}}',
+        warnings: [],
       };
     }
     if (command === "preview_codex_apply") {
       return {
         profileId: "profile-1",
         profileName: "DeepSeek 快速起步",
-        providerName: "DeepSeek",
+        providerId: "codex-builtin:deepseek",
         currentModelProvider: "openai",
         nextModelProvider: "deepseek",
         authMode: "apiKey",
@@ -104,6 +107,7 @@ function stubInvoke(workspace: CodexWorkspace) {
         targetReasoningEffort: "high",
         configTomlPreview: 'model_provider = "deepseek"\nmodel = "deepseek-v4-flash"',
         modelsJsonPreview: '{"deepseek-v4-flash": {}}',
+        warnings: [],
       };
     }
     if (command === "upsert_codex_profile") {
@@ -119,6 +123,10 @@ function stubInvoke(workspace: CodexWorkspace) {
       };
     }
     if (command === "delete_codex_profile" || command === "apply_codex_profile") return null;
+    if (command === "duplicate_codex_profile" || command === "reorder_codex_profiles") return null;
+    if (command === "prepare_codex_profile_launch") {
+      return { command: "codex --profile code-manager-profile-1" };
+    }
     return null;
   });
 }
@@ -265,7 +273,10 @@ describe("CodexProfilesPage", () => {
 
     await waitFor(() => {
       expect(screen.getAllByText("Codex 启动命令").length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(/codex -m deepseek-v4-flash/i)).toBeInTheDocument();
+      expect(screen.getByText(/codex --profile code-manager-profile-1/i)).toBeInTheDocument();
+      expect(invokeMock).toHaveBeenCalledWith("prepare_codex_profile_launch", {
+        id: "profile-1",
+      });
     });
   });
 
@@ -281,16 +292,68 @@ describe("CodexProfilesPage", () => {
     fireEvent.click(copyBtn);
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith(
-        "upsert_codex_profile",
-        expect.objectContaining({
-          data: expect.objectContaining({
-            name: "DeepSeek 快速起步 (副本)",
-            providerId: "codex-builtin:deepseek",
-          }),
-        }),
+      expect(invokeMock).toHaveBeenCalledWith("duplicate_codex_profile", {
+        id: "profile-1",
+        nameSuffix: " 副本",
+      });
+    });
+  });
+
+  it("拖拽排序调用后端，失败时刷新工作区并提示", async () => {
+    const workspace: CodexWorkspace = {
+      ...MOCK_WORKSPACE,
+      profiles: [
+        ...MOCK_WORKSPACE.profiles,
+        {
+          ...MOCK_WORKSPACE.profiles[0],
+          id: "profile-2",
+          name: "Second Profile",
+        },
+      ],
+    };
+    stubInvoke(workspace);
+    const baseImplementation = invokeMock.getMockImplementation();
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "reorder_codex_profiles") throw new Error("persist failed");
+      return baseImplementation?.(command, args);
+    });
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Second Profile")).toBeInTheDocument());
+    const cards = screen.getAllByRole("button", { name: /Profile|DeepSeek 快速起步/ });
+    const firstCard = cards.find((item) => item.getAttribute("data-slot") === "profile-card");
+    const secondCard = screen.getByText("Second Profile").closest('[data-slot="profile-card"]');
+    expect(firstCard).toBeTruthy();
+    expect(secondCard).toBeTruthy();
+    if (!firstCard || !secondCard) return;
+    vi.spyOn(secondCard, "getBoundingClientRect").mockReturnValue({
+      top: 0,
+      bottom: 100,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    fireEvent.dragStart(firstCard);
+    fireEvent.dragOver(secondCard, { clientY: 75 });
+    fireEvent.drop(secondCard, { clientY: 75 });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("reorder_codex_profiles", {
+        ids: ["profile-2", "profile-1"],
+      });
+      expect(showToastMock).toHaveBeenCalledWith(
+        expect.stringContaining("保存 Codex 配置顺序失败"),
+        "error",
+        expect.objectContaining({ description: "persist failed" }),
       );
     });
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "get_codex_workspace").length,
+    ).toBeGreaterThan(1);
   });
 
   it("点击应用触发 Preview 对话框并确认 Apply", async () => {
@@ -317,6 +380,30 @@ describe("CodexProfilesPage", () => {
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("apply_codex_profile", { id: "profile-1" });
+    });
+  });
+
+  it("Apply 预览展示 auth.json 双凭据计费风险", async () => {
+    const inactiveWorkspace: CodexWorkspace = { ...MOCK_WORKSPACE, bindings: {} };
+    stubInvoke(inactiveWorkspace);
+    const baseImplementation = invokeMock.getMockImplementation();
+    invokeMock.mockImplementation(async (command, args) => {
+      const result = await baseImplementation?.(command, args);
+      if (command === "preview_codex_apply" && result && typeof result === "object") {
+        return {
+          ...result,
+          warnings: ["legacyApiKeyMayOverrideChatGptLogin"],
+        };
+      }
+      return result;
+    });
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("DeepSeek 快速起步")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "应用" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/可能改用 API Key 计费/)).toBeInTheDocument();
     });
   });
 

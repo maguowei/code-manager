@@ -20,6 +20,8 @@ export const commands = {
 	applyProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_profile", { id })),
 	getCodexWorkspace: () => typedError<CodexWorkspace_Serialize, string>(__TAURI_INVOKE("get_codex_workspace")),
 	upsertCodexProfile: (data: CodexProfileInput) => typedError<CodexProfile_Serialize, string>(__TAURI_INVOKE("upsert_codex_profile", { data })),
+	duplicateCodexProfile: (id: string, nameSuffix: string) => typedError<CodexProfile_Serialize, string>(__TAURI_INVOKE("duplicate_codex_profile", { id, nameSuffix })),
+	reorderCodexProfiles: (ids: string[]) => typedError<null, string>(__TAURI_INVOKE("reorder_codex_profiles", { ids })),
 	deleteCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("delete_codex_profile", { id })),
 	/**  应用 Codex Profile:外科补丁写 config.toml (+ 可选 models.json),更新 codex.bindings 激活态。 */
 	applyCodexProfile: (id: string) => typedError<null, string>(__TAURI_INVOKE("apply_codex_profile", { id })),
@@ -27,6 +29,7 @@ export const commands = {
 	previewCodexApply: (id: string) => typedError<CodexApplyPreview, string>(__TAURI_INVOKE("preview_codex_apply", { id })),
 	/**  针对未保存的输入进行实时配置预览(不写盘)。 */
 	previewCodexInput: (data: CodexProfileInput) => typedError<CodexApplyPreview, string>(__TAURI_INVOKE("preview_codex_input", { data })),
+	prepareCodexProfileLaunch: (id: string) => typedError<CodexProfileLaunchPayload, string>(__TAURI_INVOKE("prepare_codex_profile_launch", { id })),
 	importUserSettingsProfile: (data: UserSettingsImportInput) => typedError<ConfigProfile_Serialize, string>(__TAURI_INVOKE("import_user_settings_profile", { data })),
 	installStatusLinePreset: (presetId: string, overwrite: boolean) => typedError<StatusLinePresetInstallResult, string>(__TAURI_INVOKE("install_status_line_preset", { presetId, overwrite })),
 	previewProfile: (data: ProfileInput) => typedError<string, string>(__TAURI_INVOKE("preview_profile", { data })),
@@ -302,8 +305,8 @@ export type CodexApplyPreview = {
 	profileId: string,
 	/**  目标 profile 名称。 */
 	profileName: string,
-	/**  供应商展示名。 */
-	providerName: string,
+	/**  供应商 ID；展示名由前端结合当前语言解析。 */
+	providerId: string,
 	/**  切换前的活跃 model_provider(读自现有 config.toml,无则 None)。 */
 	currentModelProvider: string | null,
 	/**  将写入的 model_provider(slug)。 */
@@ -318,13 +321,20 @@ export type CodexApplyPreview = {
 	configTomlPreview: string,
 	/**  可选 models.json 文本预览。 */
 	modelsJsonPreview: string | null,
+	/**  Apply 前需要用户注意但不阻断操作的风险提示。 */
+	warnings: CodexApplyWarning[],
 };
+
+/**  Codex Apply 预览提示。 */
+export type CodexApplyWarning =
+/**  auth.json 同时含旧版 OPENAI_API_KEY 与 ChatGPT tokens，可能走 API 计费。 */
+"legacyApiKeyMayOverrideChatGptLogin";
 
 /**
  *  Codex 认证模式(ADR 0005):从 Provider 推导,不是用户可选项。
  *  内置 OpenAI 官方 = ChatGPT 登录(免 key,apply 只写 `model_provider="openai"`,
  *  认证走 `~/.codex/auth.json` 里 `codex login` 维护的登录态);
- *  自定义第三方 = API key(apply 内联进 `[model_providers.SLUG].experimental_bearer_token`)。
+ *  内置第三方 = API key(apply 内联进 `[model_providers.SLUG].experimental_bearer_token`)。
  */
 export type CodexAuthMode = "chatGptLogin" | "apiKey";
 
@@ -352,7 +362,7 @@ export type CodexProfile = CodexProfile_Serialize | CodexProfile_Deserialize;
 
 /**
  *  Codex Profile 的新建/编辑输入。
- *  `api_key` 为空字符串表示「保留已有 key」(编辑场景)。
+ *  `api_key` 仅在编辑同一 inline-key Provider 时可为空并保留旧值。
  */
 export type CodexProfileInput = {
 	/**  编辑时传入;新建时为 None。 */
@@ -367,6 +377,11 @@ export type CodexProfileInput = {
 	customModelsJson?: string | null,
 };
 
+/**  Codex 原生 profile 启动命令载荷，不包含任何认证密钥。 */
+export type CodexProfileLaunchPayload = {
+	command: string,
+};
+
 /**
  *  Codex Profile。与 Claude 的 Profile 分家(ADR 0004):它是「一层 provider + 认证覆盖」或「自定义配置片段」。
  *  认证模式从 provider 推导(ADR 0005):内置 openai 用 ChatGPT 登录(免 key),内置第三方用 API key。
@@ -377,7 +392,7 @@ export type CodexProfile_Deserialize = {
 	name: string,
 	/**  可选备注描述 */
 	description?: string | null,
-	/**  引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom") */
+	/**  引用的内置 Codex Provider id；高级配置片段模式使用保留值 "custom"。 */
 	providerId: string,
 	/**  API key(敏感,展示与日志需脱敏) */
 	apiKey?: string,
@@ -403,7 +418,7 @@ export type CodexProfile_Serialize = {
 	name: string,
 	/**  可选备注描述 */
 	description?: string | null,
-	/**  引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom") */
+	/**  引用的内置 Codex Provider id；高级配置片段模式使用保留值 "custom"。 */
 	providerId: string,
 	/**  API key(敏感,展示与日志需脱敏) */
 	apiKey: string,
@@ -432,6 +447,7 @@ export type CodexProviderModel = {
 export type CodexProvider_Deserialize = {
 	id: string,
 	name: string,
+	localizedName?: LocalizedText | null,
 	slug: string,
 	/**  对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url` */
 	baseUrl: string,
@@ -454,6 +470,7 @@ export type CodexProvider_Deserialize = {
 export type CodexProvider_Serialize = {
 	id: string,
 	name: string,
+	localizedName?: LocalizedText | null,
 	slug: string,
 	/**  对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url` */
 	baseUrl: string,

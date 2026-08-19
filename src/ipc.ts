@@ -94,9 +94,11 @@ type CompatibleIpcOverrides = {
     scope: AppTypes.ProjectClaudeSettingsScope,
   ): Promise<null>;
   deleteClaudeDirectoryEntry(path: string): Promise<null>;
-  deleteCodexProvider(id: string): Promise<null>;
   deleteCodexProfile(id: string): Promise<null>;
   applyCodexProfile(id: string): Promise<null>;
+  duplicateCodexProfile(id: string, nameSuffix: string): Promise<AppTypes.CodexProfile>;
+  reorderCodexProfiles(ids: string[]): Promise<null>;
+  prepareCodexProfileLaunch(id: string): Promise<AppTypes.CodexProfileLaunchPayload>;
   previewCodexApply(id: string): Promise<AppTypes.CodexApplyPreview>;
   deleteMemory(id: string): Promise<AppTypes.MemoryState>;
   deleteProfile(id: string): Promise<null>;

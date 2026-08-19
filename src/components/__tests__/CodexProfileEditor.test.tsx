@@ -22,6 +22,7 @@ const MOCK_PROVIDERS: CodexProvider[] = [
   {
     id: "codex-builtin:openai",
     name: "OpenAI 官方",
+    localizedName: { zh: "OpenAI 官方", en: "OpenAI Official" },
     slug: "openai",
     baseUrl: "https://api.openai.com/v1",
     wireApi: "responses",
@@ -32,6 +33,7 @@ const MOCK_PROVIDERS: CodexProvider[] = [
   {
     id: "codex-builtin:deepseek",
     name: "DeepSeek",
+    localizedName: { zh: "DeepSeek", en: "DeepSeek" },
     slug: "deepseek",
     baseUrl: "https://api.deepseek.com/",
     wireApi: "responses",
@@ -65,11 +67,15 @@ describe("CodexProfileEditor", () => {
         return {
           profileId: "prev",
           profileName: "Prev",
-          providerName: "DeepSeek",
+          providerId: "codex-builtin:deepseek",
           currentModelProvider: "openai",
           nextModelProvider: "deepseek",
           authMode: "apiKey",
           configTomlPreview: 'model_provider = "deepseek"',
+          modelsJsonPreview: null,
+          targetModel: "deepseek-v4-flash",
+          targetReasoningEffort: "high",
+          warnings: [],
         };
       }
       return null;
@@ -78,6 +84,7 @@ describe("CodexProfileEditor", () => {
 
   afterEach(() => {
     cleanup();
+    localStorage.removeItem("code-manager-settings");
   });
 
   it("渲染已有 Profile 的数据与描述", async () => {
@@ -167,5 +174,42 @@ describe("CodexProfileEditor", () => {
     fireEvent.click(chatChip);
 
     expect(screen.getByDisplayValue("deepseek-chat")).toBeInTheDocument();
+  });
+
+  it("激活配置编辑器提示保存后立即重新应用", () => {
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <CodexProfileEditor
+            profile={MOCK_PROFILE}
+            providers={MOCK_PROVIDERS}
+            onSave={vi.fn()}
+            onClose={vi.fn()}
+            isActive
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByText(/保存后会立即重新应用/)).toBeInTheDocument();
+  });
+
+  it("英文界面的自定义模式标签不包含新增中文硬编码", () => {
+    localStorage.setItem("code-manager-settings", JSON.stringify({ language: "en" }));
+    render(
+      <ThemeProvider>
+        <I18nProvider>
+          <CodexProfileEditor
+            profile={null}
+            providers={MOCK_PROVIDERS}
+            onSave={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </I18nProvider>
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByText("Custom configuration snippet")).toBeInTheDocument();
+    expect(screen.queryByText(/自定义配置片段|日常开发|默认/)).not.toBeInTheDocument();
   });
 });

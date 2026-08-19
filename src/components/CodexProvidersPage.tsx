@@ -4,6 +4,7 @@ import { showOperationError } from "@/lib/user-facing-error";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n";
 import type { CodexProvider } from "../types";
+import { providerDisplayName } from "./config-workspace-utils";
 import PageHeader from "./PageHeader";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -20,7 +21,7 @@ const PROVIDER_CHIP_CLASS =
   "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";
 
 export default function CodexProvidersPage({ providers, onClose }: CodexProvidersPageProps) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const { showToast } = useToast();
 
   async function copyProviderId(id: string) {
@@ -76,7 +77,9 @@ export default function CodexProvidersPage({ providers, onClose }: CodexProvider
             <Card key={provider.id} className={PROVIDER_CARD_CLASS} data-slot="preset-card">
               <div className="preset-card-head flex items-start justify-between gap-3 max-[700px]:flex-wrap">
                 <div className="preset-card-title-block min-w-0 flex-1">
-                  <h3 className="text-base leading-snug font-semibold">{provider.name}</h3>
+                  <h3 className="text-base leading-snug font-semibold">
+                    {providerDisplayName(provider, language)}
+                  </h3>
                 </div>
               </div>
 

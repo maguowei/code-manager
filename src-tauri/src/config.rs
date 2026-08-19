@@ -225,7 +225,7 @@ pub struct BindingState {
 /// Codex 认证模式(ADR 0005):从 Provider 推导,不是用户可选项。
 /// 内置 OpenAI 官方 = ChatGPT 登录(免 key,apply 只写 `model_provider="openai"`,
 /// 认证走 `~/.codex/auth.json` 里 `codex login` 维护的登录态);
-/// 自定义第三方 = API key(apply 内联进 `[model_providers.SLUG].experimental_bearer_token`)。
+/// 内置第三方 = API key(apply 内联进 `[model_providers.SLUG].experimental_bearer_token`)。
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CodexAuthMode {
@@ -247,6 +247,8 @@ pub struct CodexProviderModel {
 pub struct CodexProvider {
     pub id: String,
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub localized_name: Option<LocalizedText>,
     pub slug: String,
     /// 对应 `~/.codex/config.toml` 的 `[model_providers.NAME].base_url`
     pub base_url: String,
@@ -288,7 +290,7 @@ pub struct CodexProfile {
     /// 可选备注描述
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// 引用的 Codex Provider id(内置预设如 "codex-builtin:deepseek",自定义为 "custom")
+    /// 引用的内置 Codex Provider id；高级配置片段模式使用保留值 "custom"。
     pub provider_id: String,
     /// API key(敏感,展示与日志需脱敏)
     #[serde(default)]
@@ -545,7 +547,7 @@ pub struct ModelTestInput {
 }
 
 /// Codex Profile 的新建/编辑输入。
-/// `api_key` 为空字符串表示「保留已有 key」(编辑场景)。
+/// `api_key` 仅在编辑同一 inline-key Provider 时可为空并保留旧值。
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
@@ -585,8 +587,8 @@ pub struct CodexApplyPreview {
     pub profile_id: String,
     /// 目标 profile 名称。
     pub profile_name: String,
-    /// 供应商展示名。
-    pub provider_name: String,
+    /// 供应商 ID；展示名由前端结合当前语言解析。
+    pub provider_id: String,
     /// 切换前的活跃 model_provider(读自现有 config.toml,无则 None)。
     pub current_model_provider: Option<String>,
     /// 将写入的 model_provider(slug)。
@@ -601,6 +603,23 @@ pub struct CodexApplyPreview {
     pub config_toml_preview: String,
     /// 可选 models.json 文本预览。
     pub models_json_preview: Option<String>,
+    /// Apply 前需要用户注意但不阻断操作的风险提示。
+    pub warnings: Vec<CodexApplyWarning>,
+}
+
+/// Codex Apply 预览提示。
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum CodexApplyWarning {
+    /// auth.json 同时含旧版 OPENAI_API_KEY 与 ChatGPT tokens，可能走 API 计费。
+    LegacyApiKeyMayOverrideChatGptLogin,
+}
+
+/// Codex 原生 profile 启动命令载荷，不包含任何认证密钥。
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexProfileLaunchPayload {
+    pub command: String,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -768,6 +787,13 @@ fn codex_config_path() -> Result<PathBuf, String> {
         .join("config.toml"))
 }
 
+/// Codex CLI 登录态文件；Code Manager 始终只读，不修改。
+fn codex_auth_path() -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?
+        .join(".codex")
+        .join("auth.json"))
+}
+
 /// 内置只读 Codex Provider 列表（从 builtin-codex-providers.json 静态加载预设）。
 fn builtin_codex_providers() -> Vec<CodexProvider> {
     let raw = include_str!("../resources/builtin-codex-providers.json");
@@ -865,16 +891,26 @@ pub fn render_codex_config(
     config_path: &Path,
     profile: &CodexProfile,
 ) -> Result<(String, Option<String>), String> {
-    use toml_edit::{DocumentMut, Item, Table};
-
-    let mut doc: DocumentMut = if config_path.exists() {
+    let doc: toml_edit::DocumentMut = if config_path.exists() {
         let raw =
             fs::read_to_string(config_path).map_err(|e| format!("读取 config.toml 失败: {}", e))?;
-        raw.parse::<DocumentMut>()
+        raw.parse::<toml_edit::DocumentMut>()
             .map_err(|e| format!("解析 config.toml 失败: {}", e))?
     } else {
-        DocumentMut::new()
+        toml_edit::DocumentMut::new()
     };
+
+    render_codex_document(doc, profile, "~/.codex/models.json", false)
+}
+
+/// 把 Profile 覆盖写入给定 TOML 文档；Apply 传入基础配置，原生 launch 传入空文档。
+fn render_codex_document(
+    mut doc: toml_edit::DocumentMut,
+    profile: &CodexProfile,
+    model_catalog_path: &str,
+    force_model_catalog_path: bool,
+) -> Result<(String, Option<String>), String> {
+    use toml_edit::{DocumentMut, Item, Table};
 
     if profile.provider_id == "custom" {
         let mut models_json_str = None;
@@ -913,8 +949,8 @@ pub fn render_codex_config(
             if !trimmed.is_empty() {
                 let _: Value = serde_json::from_str(trimmed)
                     .map_err(|e| format!("自定义 models.json 解析失败: {}", e))?;
-                if doc.get("model_catalog_json").is_none() {
-                    doc["model_catalog_json"] = toml_edit::value("~/.codex/models.json");
+                if force_model_catalog_path || doc.get("model_catalog_json").is_none() {
+                    doc["model_catalog_json"] = toml_edit::value(model_catalog_path);
                 }
                 models_json_str = Some(trimmed.to_string());
             }
@@ -938,6 +974,8 @@ pub fn render_codex_config(
         .or(provider.default_model.as_deref());
     if let Some(model_name) = target_model {
         doc["model"] = toml_edit::value(model_name);
+    } else {
+        doc.remove("model");
     }
 
     // 3) 根键 model_reasoning_effort（用户指定优先，其次预设默认）
@@ -949,6 +987,8 @@ pub fn render_codex_config(
         .or(provider.default_reasoning_effort.as_deref());
     if let Some(effort) = target_effort {
         doc["model_reasoning_effort"] = toml_edit::value(effort);
+    } else {
+        doc.remove("model_reasoning_effort");
     }
 
     let mut models_json_str = None;
@@ -991,7 +1031,7 @@ pub fn render_codex_config(
 
             // 模型目录
             if let Some(model_catalog) = &provider.model_catalog {
-                doc["model_catalog_json"] = toml_edit::value("~/.codex/models.json");
+                doc["model_catalog_json"] = toml_edit::value(model_catalog_path);
                 models_json_str = Some(render_codex_models(model_catalog)?);
             }
         }
@@ -3088,8 +3128,12 @@ pub fn upsert_codex_profile(
     let result = (|| {
         let _lock = crate::utils::lock_config()?;
         let mut registry = load_registry()?;
-        let profile = upsert_codex_profile_in_registry(&mut registry, data)?;
+        let edited_id = data.id.clone();
+        let profile = upsert_codex_profile_and_apply_in_registry(&mut registry, data)?;
         save_registry(&registry)?;
+        if edited_id.is_some() {
+            remove_codex_launch_files(&profile.id);
+        }
         let _ = app_handle.emit("codex-workspace-changed", ());
         // 返回脱敏后的 profile(展示用),真实 key 留在 registry
         let mut masked = profile;
@@ -3102,18 +3146,61 @@ pub fn upsert_codex_profile(
     result
 }
 
+/// 在 registry 副本上完成编辑与自动 Apply，任一步失败都不改变调用方持有的绑定和 Profile。
+fn upsert_codex_profile_and_apply_in_registry(
+    registry: &mut ConfigRegistry,
+    data: CodexProfileInput,
+) -> Result<CodexProfile, String> {
+    let mut next = registry.clone();
+    let profile = upsert_codex_profile_in_registry(&mut next, data)?;
+    if next.codex.bindings.codex_profile_id.as_deref() == Some(&profile.id) {
+        codex_apply_to_registry(&mut next, &profile.id)?;
+    }
+    *registry = next;
+    Ok(profile)
+}
+
 /// Codex Profile 新建/编辑的 registry 变更(非加锁、非命令,可单测)。
-/// `api_key` 为空表示编辑时保留已有 key。provider_id 必须为内置项或 "custom"。
+/// `api_key` 仅在编辑同一 inline-key Provider 时可为空并保留旧值。
 fn upsert_codex_profile_in_registry(
     registry: &mut ConfigRegistry,
+    data: CodexProfileInput,
+) -> Result<CodexProfile, String> {
+    let profile = build_codex_profile_from_input(registry, data)?;
+    if let Some(index) = registry
+        .codex
+        .profiles
+        .iter()
+        .position(|existing| existing.id == profile.id)
+    {
+        registry.codex.profiles[index] = profile.clone();
+    } else {
+        registry.codex.profiles.push(profile.clone());
+    }
+    Ok(profile)
+}
+
+/// 将前端输入解析为持久化 Profile，统一处理 Provider 切换时的密钥保留与清理规则。
+fn build_codex_profile_from_input(
+    registry: &ConfigRegistry,
     data: CodexProfileInput,
 ) -> Result<CodexProfile, String> {
     let name = data.name.trim().to_string();
     if name.is_empty() {
         return Err("Codex Profile 名称不能为空".to_string());
     }
+
+    let existing = data.id.as_deref().and_then(|id| {
+        registry
+            .codex
+            .profiles
+            .iter()
+            .find(|profile| profile.id == id)
+    });
     let is_custom = data.provider_id == "custom";
-    if !is_custom {
+    let api_key = if is_custom {
+        String::new()
+    } else {
         let provider = resolve_codex_provider_by_id(&data.provider_id)?;
         let is_api_key_mode = codex_auth_mode(&provider) == CodexAuthMode::ApiKey;
         let uses_env_key = provider
@@ -3122,10 +3209,18 @@ fn upsert_codex_profile_in_registry(
             .map(str::trim)
             .filter(|k| !k.is_empty())
             .is_some();
-        if is_api_key_mode && !uses_env_key && data.id.is_none() && data.api_key.trim().is_empty() {
-            return Err("新建 Codex Profile 必须提供 API key".to_string());
+        if !is_api_key_mode || uses_env_key {
+            String::new()
+        } else if !data.api_key.trim().is_empty() {
+            data.api_key.trim().to_string()
+        } else if let Some(existing) =
+            existing.filter(|profile| profile.provider_id == data.provider_id)
+        {
+            existing.api_key.clone()
+        } else {
+            return Err("Codex Profile 必须提供 API key".to_string());
         }
-    }
+    };
 
     let now = crate::utils::current_rfc3339_timestamp();
     let profile_id = data
@@ -3137,44 +3232,117 @@ fn upsert_codex_profile_in_registry(
         .description
         .map(|d| d.trim().to_string())
         .filter(|d| !d.is_empty());
+    let created_at = existing
+        .map(|profile| profile.created_at.clone())
+        .unwrap_or_else(|| now.clone());
 
-    let profile = if let Some(existing) = registry
+    Ok(CodexProfile {
+        id: profile_id,
+        name,
+        description,
+        provider_id: data.provider_id,
+        api_key,
+        model: data.model,
+        model_reasoning_effort: data.model_reasoning_effort,
+        custom_config_toml: data.custom_config_toml,
+        custom_models_json: data.custom_models_json,
+        created_at,
+        updated_at: now,
+    })
+}
+
+fn duplicate_codex_profile_in_registry(
+    registry: &mut ConfigRegistry,
+    id: &str,
+    name_suffix: &str,
+) -> Result<CodexProfile, String> {
+    let index = registry
         .codex
         .profiles
-        .iter_mut()
-        .find(|p| p.id == profile_id)
-    {
-        existing.name = name;
-        existing.description = description;
-        existing.provider_id = data.provider_id;
-        // 空 key 表示保留已有值(编辑场景未重新输入)
-        if !data.api_key.trim().is_empty() {
-            existing.api_key = data.api_key;
-        }
-        existing.model = data.model;
-        existing.model_reasoning_effort = data.model_reasoning_effort;
-        existing.custom_config_toml = data.custom_config_toml;
-        existing.custom_models_json = data.custom_models_json;
-        existing.updated_at = now;
-        existing.clone()
-    } else {
-        let profile = CodexProfile {
-            id: profile_id,
-            name,
-            description,
-            provider_id: data.provider_id,
-            api_key: data.api_key,
-            model: data.model,
-            model_reasoning_effort: data.model_reasoning_effort,
-            custom_config_toml: data.custom_config_toml,
-            custom_models_json: data.custom_models_json,
-            created_at: now.clone(),
-            updated_at: now,
-        };
-        registry.codex.profiles.push(profile.clone());
-        profile
+        .iter()
+        .position(|profile| profile.id == id)
+        .ok_or_else(|| "未找到要复制的 Codex Profile".to_string())?;
+    let original = registry.codex.profiles[index].clone();
+    let now = crate::utils::current_rfc3339_timestamp();
+    let duplicate = CodexProfile {
+        id: Uuid::new_v4().to_string(),
+        name: format!("{}{}", original.name, name_suffix),
+        description: original.description,
+        provider_id: original.provider_id,
+        api_key: original.api_key,
+        model: original.model,
+        model_reasoning_effort: original.model_reasoning_effort,
+        custom_config_toml: original.custom_config_toml,
+        custom_models_json: original.custom_models_json,
+        created_at: now.clone(),
+        updated_at: now,
     };
-    Ok(profile)
+    registry.codex.profiles.insert(index + 1, duplicate.clone());
+    Ok(duplicate)
+}
+
+fn reorder_codex_profiles_in_registry(registry: &mut ConfigRegistry, ids: &[String]) {
+    let profile_map: HashMap<String, CodexProfile> = registry
+        .codex
+        .profiles
+        .iter()
+        .map(|profile| (profile.id.clone(), profile.clone()))
+        .collect();
+    let mut seen = HashSet::new();
+    let mut reordered: Vec<CodexProfile> = ids
+        .iter()
+        .filter(|id| seen.insert(id.as_str()))
+        .filter_map(|id| profile_map.get(id).cloned())
+        .collect();
+    let requested_ids: HashSet<&str> = ids.iter().map(String::as_str).collect();
+    reordered.extend(
+        registry
+            .codex
+            .profiles
+            .iter()
+            .filter(|profile| !requested_ids.contains(profile.id.as_str()))
+            .cloned(),
+    );
+    registry.codex.profiles = reordered;
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn duplicate_codex_profile(
+    app_handle: AppHandle,
+    id: String,
+    name_suffix: String,
+) -> Result<CodexProfile, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        let mut duplicate = duplicate_codex_profile_in_registry(&mut registry, &id, &name_suffix)?;
+        save_registry(&registry)?;
+        let _ = app_handle.emit("codex-workspace-changed", ());
+        duplicate.api_key = mask_codex_api_key(&duplicate.api_key);
+        Ok(duplicate)
+    })();
+    crate::logging::log_command_result("codex.profile.duplicate", &result, |profile| {
+        format!("source_id={id} profile_id={}", profile.id)
+    });
+    result
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn reorder_codex_profiles(app_handle: AppHandle, ids: Vec<String>) -> Result<(), String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let mut registry = load_registry()?;
+        reorder_codex_profiles_in_registry(&mut registry, &ids);
+        save_registry(&registry)?;
+        let _ = app_handle.emit("codex-workspace-changed", ());
+        Ok(())
+    })();
+    crate::logging::log_command_result("codex.profile.reorder", &result, |_| {
+        format!("requested_count={}", ids.len())
+    });
+    result
 }
 
 #[tauri::command]
@@ -3194,6 +3362,7 @@ pub fn delete_codex_profile(app_handle: AppHandle, id: String) -> Result<(), Str
             registry.codex.bindings.codex_last_applied_at = None;
         }
         save_registry(&registry)?;
+        remove_codex_launch_files(&id);
         let _ = app_handle.emit("codex-workspace-changed", ());
         Ok(())
     })();
@@ -3235,62 +3404,17 @@ pub fn preview_codex_apply(
 #[specta::specta]
 pub fn preview_codex_input(data: CodexProfileInput) -> Result<CodexApplyPreview, String> {
     let _lock = crate::utils::lock_config()?;
+    let registry = load_registry()?;
     let config_path = codex_config_path()?;
-    let current_provider = read_current_codex_model_provider(&config_path);
-
-    let profile = CodexProfile {
-        id: data.id.unwrap_or_default(),
-        name: data.name.clone(),
-        description: data.description,
-        provider_id: data.provider_id.clone(),
-        api_key: data.api_key,
-        model: data.model,
-        model_reasoning_effort: data.model_reasoning_effort,
-        custom_config_toml: data.custom_config_toml,
-        custom_models_json: data.custom_models_json,
-        created_at: String::new(),
-        updated_at: String::new(),
-    };
-
-    let (config_toml_preview, models_json_preview) = render_codex_config(&config_path, &profile)?;
-
-    if profile.provider_id == "custom" {
-        return Ok(CodexApplyPreview {
-            profile_id: profile.id,
-            profile_name: data.name,
-            provider_name: "自定义配置".to_string(),
-            current_model_provider: current_provider,
-            next_model_provider: "custom".to_string(),
-            auth_mode: CodexAuthMode::ApiKey,
-            target_model: None,
-            target_reasoning_effort: None,
-            config_toml_preview,
-            models_json_preview,
-        });
+    let auth_path = codex_auth_path()?;
+    let original_name = data.name.clone();
+    let mut preview_data = data;
+    if preview_data.name.trim().is_empty() {
+        preview_data.name = "__preview__".to_string();
     }
-
-    let provider = resolve_codex_provider_by_id(&profile.provider_id)?;
-    let target_model = profile
-        .model
-        .clone()
-        .or_else(|| provider.default_model.clone());
-    let target_effort = profile
-        .model_reasoning_effort
-        .clone()
-        .or_else(|| provider.default_reasoning_effort.clone());
-
-    Ok(CodexApplyPreview {
-        profile_id: profile.id,
-        profile_name: data.name,
-        provider_name: provider.name.clone(),
-        current_model_provider: current_provider,
-        next_model_provider: provider.slug.clone(),
-        auth_mode: codex_auth_mode(&provider),
-        target_model,
-        target_reasoning_effort: target_effort,
-        config_toml_preview,
-        models_json_preview,
-    })
+    let mut profile = build_codex_profile_from_input(&registry, preview_data)?;
+    profile.name = original_name;
+    build_codex_apply_preview(&profile, &config_path, &auth_path)
 }
 
 /// Codex Apply 预览的 registry 变更计算(非加锁、非命令,可单测)。只读不写。
@@ -3305,15 +3429,27 @@ fn preview_codex_apply_inner(
         .find(|p| p.id == id)
         .cloned()
         .ok_or_else(|| format!("未找到 Codex Profile '{}'", id))?;
-    let config_path = codex_config_path()?;
-    let current_provider = read_current_codex_model_provider(&config_path);
-    let (config_toml_preview, models_json_preview) = render_codex_config(&config_path, &profile)?;
+    build_codex_apply_preview(&profile, &codex_config_path()?, &codex_auth_path()?)
+}
+
+fn build_codex_apply_preview(
+    profile: &CodexProfile,
+    config_path: &Path,
+    auth_path: &Path,
+) -> Result<CodexApplyPreview, String> {
+    let current_provider = read_current_codex_model_provider(config_path);
+    let (config_toml, models_json) = render_codex_config(config_path, profile)?;
+    let config_toml_preview = redact_codex_toml_preview(&config_toml)?;
+    let models_json_preview = models_json
+        .as_deref()
+        .map(redact_codex_json_preview)
+        .transpose()?;
 
     if profile.provider_id == "custom" {
         return Ok(CodexApplyPreview {
-            profile_id: profile.id,
-            profile_name: profile.name,
-            provider_name: "自定义配置".to_string(),
+            profile_id: profile.id.clone(),
+            profile_name: profile.name.clone(),
+            provider_id: "custom".to_string(),
             current_model_provider: current_provider,
             next_model_provider: "custom".to_string(),
             auth_mode: CodexAuthMode::ApiKey,
@@ -3321,31 +3457,224 @@ fn preview_codex_apply_inner(
             target_reasoning_effort: None,
             config_toml_preview,
             models_json_preview,
+            warnings: Vec::new(),
         });
     }
 
     let provider = resolve_codex_provider_by_id(&profile.provider_id)?;
+    let auth_mode = codex_auth_mode(&provider);
     let target_model = profile
         .model
-        .clone()
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
         .or_else(|| provider.default_model.clone());
-    let target_effort = profile
+    let target_reasoning_effort = profile
         .model_reasoning_effort
-        .clone()
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
         .or_else(|| provider.default_reasoning_effort.clone());
 
     Ok(CodexApplyPreview {
-        profile_id: profile.id,
-        profile_name: profile.name,
-        provider_name: provider.name.clone(),
+        profile_id: profile.id.clone(),
+        profile_name: profile.name.clone(),
+        provider_id: provider.id.clone(),
         current_model_provider: current_provider,
         next_model_provider: provider.slug.clone(),
-        auth_mode: codex_auth_mode(&provider),
+        auth_mode,
         target_model,
-        target_reasoning_effort: target_effort,
+        target_reasoning_effort,
         config_toml_preview,
         models_json_preview,
+        warnings: codex_auth_warnings(auth_path, auth_mode),
     })
+}
+
+fn redact_codex_toml_preview(content: &str) -> Result<String, String> {
+    let mut doc = content
+        .parse::<toml_edit::DocumentMut>()
+        .map_err(|error| format!("解析 Codex 预览失败: {error}"))?;
+    redact_codex_toml_table(doc.as_table_mut());
+    Ok(doc.to_string())
+}
+
+fn redact_codex_toml_table(table: &mut toml_edit::Table) {
+    for (key, item) in table.iter_mut() {
+        if is_sensitive_settings_key(key.get()) {
+            *item = toml_edit::value(REDACTED_SECRET_VALUE);
+        } else {
+            redact_codex_toml_item(item);
+        }
+    }
+}
+
+fn redact_codex_toml_item(item: &mut toml_edit::Item) {
+    match item {
+        toml_edit::Item::Value(value) => redact_codex_toml_value(value),
+        toml_edit::Item::Table(table) => redact_codex_toml_table(table),
+        toml_edit::Item::ArrayOfTables(tables) => {
+            for table in tables.iter_mut() {
+                redact_codex_toml_table(table);
+            }
+        }
+        toml_edit::Item::None => {}
+    }
+}
+
+fn redact_codex_toml_value(value: &mut toml_edit::Value) {
+    match value {
+        toml_edit::Value::Array(items) => {
+            for item in items.iter_mut() {
+                redact_codex_toml_value(item);
+            }
+        }
+        toml_edit::Value::InlineTable(table) => {
+            for (key, child) in table.iter_mut() {
+                if is_sensitive_settings_key(key.get()) {
+                    *child = toml_edit::Value::from(REDACTED_SECRET_VALUE);
+                } else {
+                    redact_codex_toml_value(child);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn redact_codex_json_preview(content: &str) -> Result<String, String> {
+    let mut value: Value = serde_json::from_str(content)
+        .map_err(|error| format!("解析 Codex JSON 预览失败: {error}"))?;
+    redact_model_test_json_value(&mut value);
+    serde_json::to_string_pretty(&value).map_err(|error| error.to_string())
+}
+
+fn codex_auth_warnings(auth_path: &Path, auth_mode: CodexAuthMode) -> Vec<CodexApplyWarning> {
+    if auth_mode != CodexAuthMode::ChatGptLogin || !auth_path.exists() {
+        return Vec::new();
+    }
+    let auth: Value = match fs::read_to_string(auth_path)
+        .map_err(|error| error.to_string())
+        .and_then(|content| serde_json::from_str(&content).map_err(|error| error.to_string()))
+    {
+        Ok(value) => value,
+        Err(error) => {
+            log::warn!("event=codex.auth.preview status=read_failed error={error}");
+            return Vec::new();
+        }
+    };
+    let has_legacy_key = auth
+        .get("OPENAI_API_KEY")
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty());
+    let has_tokens = auth.get("tokens").is_some_and(|tokens| match tokens {
+        Value::Null => false,
+        Value::String(value) => !value.trim().is_empty(),
+        Value::Array(values) => !values.is_empty(),
+        Value::Object(values) => !values.is_empty(),
+        _ => true,
+    });
+    if has_legacy_key && has_tokens {
+        vec![CodexApplyWarning::LegacyApiKeyMayOverrideChatGptLogin]
+    } else {
+        Vec::new()
+    }
+}
+
+fn codex_launch_profile_name(id: &str) -> Result<String, String> {
+    Uuid::parse_str(id).map_err(|_| format!("Codex Profile ID '{}' 不是有效 UUID", id))?;
+    Ok(format!("code-manager-{id}"))
+}
+
+fn codex_launch_config_path(id: &str) -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?
+        .join(".codex")
+        .join(format!("{}.config.toml", codex_launch_profile_name(id)?)))
+}
+
+fn codex_launch_models_path(id: &str) -> Result<PathBuf, String> {
+    Ok(crate::utils::get_home_dir()?
+        .join(".codex")
+        .join(format!("{}.models.json", codex_launch_profile_name(id)?)))
+}
+
+/// 删除原生 launch 的 TOML/models 配对文件；文件不存在时视为成功。
+fn remove_codex_launch_files(id: &str) {
+    if let Ok(path) = codex_launch_config_path(id) {
+        let _ = fs::remove_file(path);
+    }
+    if let Ok(path) = codex_launch_models_path(id) {
+        let _ = fs::remove_file(path);
+    }
+}
+
+#[cfg(unix)]
+fn set_codex_launch_permissions(path: &Path) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|error| format!("设置 Codex 启动文件权限失败 {:?}: {error}", path))
+}
+
+#[cfg(not(unix))]
+fn set_codex_launch_permissions(_path: &Path) -> Result<(), String> {
+    Ok(())
+}
+
+fn prepare_codex_profile_launch_in_registry(
+    registry: &ConfigRegistry,
+    id: &str,
+) -> Result<CodexProfileLaunchPayload, String> {
+    let profile = registry
+        .codex
+        .profiles
+        .iter()
+        .find(|profile| profile.id == id)
+        .ok_or_else(|| format!("未找到 Codex Profile '{}'", id))?;
+    let profile_name = codex_launch_profile_name(&profile.id)?;
+    let config_path = codex_launch_config_path(&profile.id)?;
+    let models_path = codex_launch_models_path(&profile.id)?;
+    let models_path_string = crate::utils::normalize_path_for_display(&models_path);
+    let (config_content, models_content) = render_codex_document(
+        toml_edit::DocumentMut::new(),
+        profile,
+        &models_path_string,
+        true,
+    )?;
+
+    if let Some(models_content) = models_content {
+        crate::utils::write_pair_atomic(
+            &config_path,
+            &config_content,
+            &models_path,
+            &models_content,
+        )?;
+        set_codex_launch_permissions(&config_path)?;
+        set_codex_launch_permissions(&models_path)?;
+    } else {
+        crate::utils::ensure_dir_and_write_atomic(&config_path, &config_content)?;
+        set_codex_launch_permissions(&config_path)?;
+        let _ = fs::remove_file(models_path);
+    }
+
+    Ok(CodexProfileLaunchPayload {
+        command: format!("codex --profile {profile_name}"),
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn prepare_codex_profile_launch(id: String) -> Result<CodexProfileLaunchPayload, String> {
+    let result = (|| {
+        let _lock = crate::utils::lock_config()?;
+        let registry = load_registry()?;
+        prepare_codex_profile_launch_in_registry(&registry, &id)
+    })();
+    crate::logging::log_command_result("codex.profile.prepare_launch", &result, |_| {
+        format!("profile_id={id}")
+    });
+    result
 }
 
 /// 只读现有 config.toml 的 `model_provider`(文件不存在或不可解析时 None)。
@@ -3774,6 +4103,22 @@ mod tests {
     fn clear_test_env() {
         std::env::remove_var("CODE_MANAGER_HOME_OVERRIDE");
         std::env::remove_var("CODE_MANAGER_APP_DATA_DIR_OVERRIDE");
+    }
+
+    fn sample_codex_profile(id: &str, provider_id: &str, api_key: &str) -> CodexProfile {
+        CodexProfile {
+            id: id.to_string(),
+            name: format!("Profile {id}"),
+            description: Some(format!("Description {id}")),
+            provider_id: provider_id.to_string(),
+            api_key: api_key.to_string(),
+            model: Some("test-model".to_string()),
+            model_reasoning_effort: Some("high".to_string()),
+            custom_config_toml: None,
+            custom_models_json: None,
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            updated_at: "2026-01-01T00:00:00Z".to_string(),
+        }
     }
 
     // 敏感键判定与前端 isSensitiveSettingsKey 逐条一致，但两端各自内联维护
@@ -5197,6 +5542,12 @@ wire_api = \"responses\"
             first_content
         );
         assert!(!first_content.contains("new-key"));
+        let temp_files: Vec<_> = fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp-"))
+            .collect();
+        assert!(temp_files.is_empty(), "失败后不得残留临时文件");
 
         clear_test_env();
     }
@@ -5245,6 +5596,29 @@ wire_api = \"responses\"
         assert!(patched.contains("[model_providers.deepseek]"));
 
         clear_test_env();
+    }
+
+    #[test]
+    fn structured_codex_profile_removes_stale_owned_values_when_provider_has_no_default() {
+        let root = temp_root("codex-owned-model-values");
+        let config_path = root.join("config.toml");
+        fs::write(
+            &config_path,
+            "model = \"stale-model\"\nmodel_reasoning_effort = \"stale-effort\"\n",
+        )
+        .unwrap();
+        let profile = sample_codex_profile("minimax", "codex-builtin:minimax", "minimax-secret");
+        let profile = CodexProfile {
+            model: None,
+            model_reasoning_effort: None,
+            ..profile
+        };
+
+        let (rendered, _) = render_codex_config(&config_path, &profile).unwrap();
+
+        assert!(rendered.contains("model = \"MiniMax-M3\""));
+        assert!(!rendered.contains("stale-model"));
+        assert!(!rendered.contains("model_reasoning_effort"));
     }
 
     // Codex Profile 增删改 + api_key 脱敏 + 空 key 保留。
@@ -5345,6 +5719,304 @@ wire_api = \"responses\"
         assert_eq!(mask_codex_api_key("abc"), "••••");
         assert_eq!(mask_codex_api_key(""), "");
 
+        clear_test_env();
+    }
+
+    #[test]
+    fn codex_profile_switch_requires_a_new_inline_api_key_and_clears_irrelevant_keys() {
+        let mut registry = ConfigRegistry::default();
+        registry.codex.profiles.push(sample_codex_profile(
+            "p1",
+            "codex-builtin:deepseek",
+            "deepseek-secret",
+        ));
+
+        let missing_key = upsert_codex_profile_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: Some("p1".to_string()),
+                name: "Switched".to_string(),
+                description: None,
+                provider_id: "codex-builtin:zhipu".to_string(),
+                api_key: String::new(),
+                model: None,
+                model_reasoning_effort: None,
+                custom_config_toml: None,
+                custom_models_json: None,
+            },
+        )
+        .unwrap_err();
+        assert!(missing_key.contains("API key"));
+        assert_eq!(registry.codex.profiles[0].api_key, "deepseek-secret");
+
+        let openai = upsert_codex_profile_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: Some("p1".to_string()),
+                name: "OpenAI".to_string(),
+                description: None,
+                provider_id: "codex-builtin:openai".to_string(),
+                api_key: "must-not-survive".to_string(),
+                model: None,
+                model_reasoning_effort: None,
+                custom_config_toml: None,
+                custom_models_json: None,
+            },
+        )
+        .unwrap();
+        assert!(openai.api_key.is_empty());
+
+        let custom = upsert_codex_profile_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: Some("p1".to_string()),
+                name: "Advanced".to_string(),
+                description: None,
+                provider_id: "custom".to_string(),
+                api_key: "must-not-survive".to_string(),
+                model: None,
+                model_reasoning_effort: None,
+                custom_config_toml: Some("model = \"custom\"".to_string()),
+                custom_models_json: None,
+            },
+        )
+        .unwrap();
+        assert!(custom.api_key.is_empty());
+    }
+
+    #[test]
+    fn editing_active_codex_profile_reapplies_and_failed_apply_keeps_registry_and_disk() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-active-edit");
+        set_test_env(&root);
+        let id = "12345678-1234-1234-1234-123456789abc";
+        let mut registry = ConfigRegistry::default();
+        registry.codex.profiles.push(sample_codex_profile(
+            id,
+            "codex-builtin:deepseek",
+            "active-secret",
+        ));
+        registry.codex.bindings.codex_profile_id = Some(id.to_string());
+
+        let edited = upsert_codex_profile_and_apply_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: Some(id.to_string()),
+                name: "Active edited".to_string(),
+                description: None,
+                provider_id: "codex-builtin:deepseek".to_string(),
+                api_key: String::new(),
+                model: Some("deepseek-v4-pro".to_string()),
+                model_reasoning_effort: Some("max".to_string()),
+                custom_config_toml: None,
+                custom_models_json: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(edited.api_key, "active-secret");
+        assert!(registry.codex.bindings.codex_last_applied_at.is_some());
+        let config_path = codex_config_path().unwrap();
+        assert!(fs::read_to_string(&config_path)
+            .unwrap()
+            .contains("model = \"deepseek-v4-pro\""));
+
+        let invalid_config = "model = [invalid";
+        fs::write(&config_path, invalid_config).unwrap();
+        let before = registry.clone();
+        let result = upsert_codex_profile_and_apply_in_registry(
+            &mut registry,
+            CodexProfileInput {
+                id: Some(id.to_string()),
+                name: "Must roll back".to_string(),
+                description: None,
+                provider_id: "codex-builtin:deepseek".to_string(),
+                api_key: String::new(),
+                model: Some("broken".to_string()),
+                model_reasoning_effort: None,
+                custom_config_toml: None,
+                custom_models_json: None,
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(registry, before);
+        assert_eq!(fs::read_to_string(&config_path).unwrap(), invalid_config);
+        clear_test_env();
+    }
+
+    #[test]
+    fn duplicate_codex_profile_copies_real_secrets_and_inserts_after_source() {
+        let mut registry = ConfigRegistry::default();
+        let mut source =
+            sample_codex_profile("source", "codex-builtin:deepseek", "real-secret-key");
+        source.custom_config_toml = Some("approval_policy = \"never\"".to_string());
+        source.custom_models_json = Some("{\"models\":[]}".to_string());
+        registry.codex.profiles = vec![
+            source,
+            sample_codex_profile("tail", "codex-builtin:openai", ""),
+        ];
+
+        let duplicate =
+            duplicate_codex_profile_in_registry(&mut registry, "source", " Copy").unwrap();
+
+        assert_ne!(duplicate.id, "source");
+        assert_eq!(duplicate.name, "Profile source Copy");
+        assert_eq!(duplicate.api_key, "real-secret-key");
+        assert_eq!(
+            duplicate.custom_config_toml.as_deref(),
+            Some("approval_policy = \"never\"")
+        );
+        assert_eq!(
+            duplicate.custom_models_json.as_deref(),
+            Some("{\"models\":[]}")
+        );
+        assert_eq!(registry.codex.profiles[1].id, duplicate.id);
+        assert_eq!(registry.codex.profiles[2].id, "tail");
+    }
+
+    #[test]
+    fn reorder_codex_profiles_appends_omitted_profiles_and_ignores_unknown_ids() {
+        let mut registry = ConfigRegistry::default();
+        registry.codex.profiles = vec![
+            sample_codex_profile("one", "codex-builtin:openai", ""),
+            sample_codex_profile("two", "codex-builtin:openai", ""),
+            sample_codex_profile("three", "codex-builtin:openai", ""),
+        ];
+
+        reorder_codex_profiles_in_registry(
+            &mut registry,
+            &[
+                "three".to_string(),
+                "missing".to_string(),
+                "one".to_string(),
+            ],
+        );
+
+        let ids: Vec<_> = registry
+            .codex
+            .profiles
+            .iter()
+            .map(|profile| profile.id.as_str())
+            .collect();
+        assert_eq!(ids, vec!["three", "one", "two"]);
+    }
+
+    #[test]
+    fn codex_preview_redacts_structured_and_advanced_secrets_without_affecting_apply_render() {
+        let root = temp_root("codex-preview-redaction");
+        let config_path = root.join("config.toml");
+        let auth_path = root.join("auth.json");
+        let structured =
+            sample_codex_profile("structured", "codex-builtin:deepseek", "structured-secret");
+
+        let (apply_toml, _) = render_codex_config(&config_path, &structured).unwrap();
+        let preview = build_codex_apply_preview(&structured, &config_path, &auth_path).unwrap();
+        assert!(apply_toml.contains("structured-secret"));
+        assert!(!preview.config_toml_preview.contains("structured-secret"));
+        assert!(preview.config_toml_preview.contains(REDACTED_SECRET_VALUE));
+
+        let mut advanced = sample_codex_profile("advanced", "custom", "unused");
+        advanced.custom_config_toml = Some(
+            "[model_providers.private]\nexperimental_bearer_token = \"toml-secret\"\n".to_string(),
+        );
+        advanced.custom_models_json =
+            Some(r#"{"models":[{"slug":"private","authorization":"json-secret"}]}"#.to_string());
+        let preview = build_codex_apply_preview(&advanced, &config_path, &auth_path).unwrap();
+        assert!(!preview.config_toml_preview.contains("toml-secret"));
+        assert!(!preview
+            .models_json_preview
+            .as_deref()
+            .unwrap()
+            .contains("json-secret"));
+    }
+
+    #[test]
+    fn codex_openai_preview_warns_for_dual_credentials_without_writing_auth_file() {
+        let root = temp_root("codex-auth-warning");
+        let config_path = root.join("config.toml");
+        let auth_path = root.join("auth.json");
+        let original = r#"{"OPENAI_API_KEY":"legacy-secret","tokens":{"access_token":"chatgpt"}}"#;
+        fs::write(&auth_path, original).unwrap();
+        let profile = sample_codex_profile("openai", "codex-builtin:openai", "");
+
+        let preview = build_codex_apply_preview(&profile, &config_path, &auth_path).unwrap();
+
+        assert_eq!(
+            preview.warnings,
+            vec![CodexApplyWarning::LegacyApiKeyMayOverrideChatGptLogin]
+        );
+        assert_eq!(fs::read_to_string(&auth_path).unwrap(), original);
+    }
+
+    #[test]
+    fn prepare_codex_launch_writes_secret_free_command_and_profile_overlay() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-native-launch");
+        set_test_env(&root);
+        let mut registry = ConfigRegistry::default();
+        registry.codex.profiles.push(sample_codex_profile(
+            "11111111-2222-3333-4444-555555555555",
+            "codex-builtin:deepseek",
+            "launch-secret",
+        ));
+
+        let payload = prepare_codex_profile_launch_in_registry(
+            &registry,
+            "11111111-2222-3333-4444-555555555555",
+        )
+        .unwrap();
+
+        assert_eq!(
+            payload.command,
+            "codex --profile code-manager-11111111-2222-3333-4444-555555555555"
+        );
+        assert!(!payload.command.contains("launch-secret"));
+        let config_path = codex_launch_config_path("11111111-2222-3333-4444-555555555555").unwrap();
+        let config = fs::read_to_string(&config_path).unwrap();
+        assert!(config.contains("model_provider = \"deepseek\""));
+        assert!(config.contains("model = \"test-model\""));
+        assert!(config.contains("model_reasoning_effort = \"high\""));
+        assert!(config.contains("launch-secret"));
+        assert!(!config.contains("approval_policy"));
+        let models_path = codex_launch_models_path("11111111-2222-3333-4444-555555555555").unwrap();
+        assert!(models_path.exists());
+        assert!(config.contains(&models_path.to_string_lossy().to_string()));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(config_path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+            assert_eq!(
+                fs::metadata(models_path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+        clear_test_env();
+    }
+
+    #[test]
+    fn prepare_codex_advanced_launch_uses_isolated_models_path_and_cleanup_removes_pair() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("codex-advanced-launch");
+        set_test_env(&root);
+        let id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+        let mut profile = sample_codex_profile(id, "custom", "");
+        profile.custom_config_toml = Some("model = \"advanced-model\"".to_string());
+        profile.custom_models_json = Some(r#"{"models":[{"slug":"advanced-model"}]}"#.to_string());
+        let mut registry = ConfigRegistry::default();
+        registry.codex.profiles.push(profile);
+
+        prepare_codex_profile_launch_in_registry(&registry, id).unwrap();
+        let config_path = codex_launch_config_path(id).unwrap();
+        let models_path = codex_launch_models_path(id).unwrap();
+        let config = fs::read_to_string(&config_path).unwrap();
+        assert!(config.contains(&models_path.to_string_lossy().to_string()));
+
+        remove_codex_launch_files(id);
+        assert!(!config_path.exists());
+        assert!(!models_path.exists());
         clear_test_env();
     }
 

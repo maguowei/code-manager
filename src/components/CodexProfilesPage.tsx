@@ -8,13 +8,7 @@ import { useI18n } from "../i18n";
 import { ipc } from "../ipc";
 import { showOperationError } from "../lib/user-facing-error";
 import { cn } from "../lib/utils";
-import type {
-  CodexApplyPreview,
-  CodexProfile,
-  CodexProfileInput,
-  CodexProvider,
-  CodexWorkspace,
-} from "../types";
+import type { CodexApplyPreview, CodexProfile, CodexProfileInput, CodexWorkspace } from "../types";
 import CodexProfileEditor, {
   type CodexProfileEditorHandle,
   type CodexProfileEditorSaveData,
@@ -27,6 +21,7 @@ import {
   CARD_ACTION_BUTTON_CLASS,
   INTERACTIVE_CARD_CLASS,
 } from "./card-interaction-classes";
+import { providerDisplayName } from "./config-workspace-utils";
 import EmptyState from "./EmptyState";
 import type { EditorExitGuard } from "./editor-exit-guard";
 import LaunchCommandBlock from "./LaunchCommandBlock";
@@ -56,14 +51,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 const CODEX_BUILTIN_OPENAI_ID = "codex-builtin:openai";
 const isChatGptLogin = (providerId: string) => providerId === CODEX_BUILTIN_OPENAI_ID;
 
-function buildCodexLaunchCommand(profile: CodexProfile, provider?: CodexProvider): string {
-  const model = profile.model || provider?.defaultModel;
-  if (model) {
-    return `codex -m ${model}`;
-  }
-  return "codex";
-}
-
 interface CodexProfilesPageProps {
   onEditorExitGuardChange?: (guard: EditorExitGuard | null) => void;
 }
@@ -71,7 +58,7 @@ interface CodexProfilesPageProps {
 export default function CodexProfilesPage({
   onEditorExitGuardChange,
 }: CodexProfilesPageProps = {}) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const { showToast } = useToast();
 
   const [workspace, setWorkspace] = useState<CodexWorkspace | null>(null);
@@ -96,6 +83,8 @@ export default function CodexProfilesPage({
 
   // 快捷启动命令弹窗
   const [launchProfile, setLaunchProfile] = useState<CodexProfile | null>(null);
+  const [launchCommand, setLaunchCommand] = useState<string | null>(null);
+  const [launchCommandLoading, setLaunchCommandLoading] = useState(false);
 
   // 拖拽排序状态
   const [dragState, setDragState] = useState<{
@@ -229,22 +218,26 @@ export default function CodexProfilesPage({
   // 复制 Profile
   const handleDuplicate = async (profile: CodexProfile) => {
     try {
-      const input: CodexProfileInput = {
-        id: null,
-        name: `${profile.name} (副本)`,
-        description: profile.description,
-        providerId: profile.providerId,
-        apiKey: profile.apiKey,
-        model: profile.model,
-        modelReasoningEffort: profile.modelReasoningEffort,
-        customConfigToml: profile.customConfigToml,
-        customModelsJson: profile.customModelsJson,
-      };
-      await ipc.upsertCodexProfile(input);
+      await ipc.duplicateCodexProfile(profile.id, t("codex.duplicateSuffix"));
       showToast(t("codex.toast.profileDuplicated"), "success");
       await fetchWorkspace();
     } catch (error) {
       showOperationError(showToast, t("codex.toast.profileSaveFailed"), error);
+    }
+  };
+
+  const handlePrepareLaunch = async (profile: CodexProfile) => {
+    setLaunchProfile(profile);
+    setLaunchCommand(null);
+    setLaunchCommandLoading(true);
+    try {
+      const payload = await ipc.prepareCodexProfileLaunch(profile.id);
+      setLaunchCommand(payload.command);
+    } catch (error) {
+      showOperationError(showToast, t("codex.toast.launchCommandFailed"), error);
+      setLaunchProfile(null);
+    } finally {
+      setLaunchCommandLoading(false);
     }
   };
 
@@ -356,8 +349,14 @@ export default function CodexProfilesPage({
         profiles: reorderedProfiles,
       });
       handleDragEnd();
+      void ipc
+        .reorderCodexProfiles(reorderedProfiles.map((profile) => profile.id))
+        .catch(async (error) => {
+          showOperationError(showToast, t("codex.toast.profileReorderFailed"), error);
+          await fetchWorkspace();
+        });
     },
-    [handleDragEnd, workspace],
+    [fetchWorkspace, handleDragEnd, showToast, t, workspace],
   );
 
   const activeProfileId = workspace?.bindings.codexProfileId;
@@ -471,7 +470,9 @@ export default function CodexProfilesPage({
                         >
                           {isCustom
                             ? t("codex.customBadge")
-                            : (provider?.name ?? profile.providerId)}
+                            : provider
+                              ? providerDisplayName(provider, language)
+                              : profile.providerId}
                         </Badge>
                       </div>
                       {profile.description ? (
@@ -575,7 +576,7 @@ export default function CodexProfilesPage({
                           className="h-auto p-0 text-xs text-primary hover:underline"
                         >
                           <ExternalLink className="size-3" />
-                          <span>{provider.name}</span>
+                          <span>{providerDisplayName(provider, language)}</span>
                         </Button>
                       </div>
                     ) : null}
@@ -595,7 +596,7 @@ export default function CodexProfilesPage({
                       title={t("codex.actions.copyLaunchCommand")}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setLaunchProfile(profile);
+                        void handlePrepareLaunch(profile);
                       }}
                     >
                       <SquareTerminal className="size-4" aria-hidden="true" />
@@ -672,6 +673,7 @@ export default function CodexProfilesPage({
               ref={profileEditorRef}
               profile={editingProfile}
               providers={workspace.providers}
+              isActive={editingProfile?.id === activeProfileId}
               onSave={handleSave}
               onClose={handleCloseEditor}
               onViewBuiltinProviders={() => setIsBuiltinProvidersOpen(true)}
@@ -704,7 +706,15 @@ export default function CodexProfilesPage({
 
       {/* 快捷启动命令弹窗 */}
       {launchProfile && (
-        <Dialog open onOpenChange={(open) => !open && setLaunchProfile(null)}>
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setLaunchProfile(null);
+              setLaunchCommand(null);
+            }
+          }}
+        >
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{t("codex.launchCommandTitle")}</DialogTitle>
@@ -713,23 +723,26 @@ export default function CodexProfilesPage({
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4 py-2">
-              <LaunchCommandBlock
-                label={t("codex.launchCommandTitle")}
-                command={buildCodexLaunchCommand(
-                  launchProfile,
-                  workspace?.providers.find((p) => p.id === launchProfile.providerId),
-                )}
-                hint="直接在终端中运行此命令即可使用当前配置启动 Codex CLI"
-                hintTone="info"
-                onCopy={(cmd) => {
-                  navigator.clipboard.writeText(cmd);
-                  showToast(t("common.copied"), "success");
-                }}
-                copyLabel={t("common.copy")}
-                copiedLabel={t("common.copied")}
-                revealLabel={t("common.showToken")}
-                hideLabel={t("common.hideToken")}
-              />
+              {launchCommandLoading || !launchCommand ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  {t("codex.launchCommandLoading")}
+                </p>
+              ) : (
+                <LaunchCommandBlock
+                  label={t("codex.launchCommandTitle")}
+                  command={launchCommand}
+                  hint={t("codex.launchCommandHint")}
+                  hintTone="info"
+                  onCopy={(cmd) => {
+                    navigator.clipboard.writeText(cmd);
+                    showToast(t("common.copied"), "success");
+                  }}
+                  copyLabel={t("common.copy")}
+                  copiedLabel={t("common.copied")}
+                  revealLabel={t("common.showToken")}
+                  hideLabel={t("common.hideToken")}
+                />
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setLaunchProfile(null)}>
@@ -788,7 +801,16 @@ export default function CodexProfilesPage({
                 <div>
                   <span className="text-muted-foreground">{t("codex.applyPreviewNext")}:</span>{" "}
                   <span className="font-semibold text-primary">
-                    {applyPreview.nextModelProvider}
+                    {applyPreview.providerId === "custom"
+                      ? t("codex.customBadge")
+                      : (() => {
+                          const provider = workspace?.providers.find(
+                            (item) => item.id === applyPreview.providerId,
+                          );
+                          return provider
+                            ? providerDisplayName(provider, language)
+                            : applyPreview.nextModelProvider;
+                        })()}
                   </span>
                 </div>
                 {applyPreview.targetModel ? (
@@ -810,6 +832,17 @@ export default function CodexProfilesPage({
                   </div>
                 ) : null}
               </div>
+
+              {applyPreview.warnings.map((warning) => (
+                <div
+                  key={warning}
+                  className="rounded-md border border-chart-4/30 bg-chart-4/10 px-3 py-2 text-xs text-foreground"
+                >
+                  {warning === "legacyApiKeyMayOverrideChatGptLogin"
+                    ? t("codex.warning.legacyApiKeyMayOverrideChatGptLogin")
+                    : warning}
+                </div>
+              ))}
 
               {/* 完整文件预览选项卡 */}
               <Tabs defaultValue="toml" className="w-full">

@@ -1726,6 +1726,9 @@ const translations = {
     "codex.openDocs": "官方文档",
     "codex.builtinBadge": "内置预设",
     "codex.customBadge": "自定义片段",
+    "codex.customModeLabel": "自定义配置片段",
+    "codex.duplicateSuffix": " 副本",
+    "codex.defaultProfileName": "{provider}-日常开发",
     "codex.profileSectionTitle": "Codex Profile 列表",
     "codex.profileSectionHint":
       "每份 Profile 包含供应商选择、模型、推理档位及认证覆盖。点击「应用」即可外科补丁更新本地 ~/.codex/config.toml。",
@@ -1754,6 +1757,7 @@ const translations = {
     "codex.field.reasoningEffortPlaceholder": "选择推理档位（可选）",
     "codex.field.reasoningEffortHint":
       "写入 config.toml 的顶层 model_reasoning_effort 字段（如 high, max）。",
+    "codex.field.reasoningEffortDefault": "默认",
     "codex.field.apiKey": "API Key",
     "codex.field.apiKeyPlaceholder": "sk-...",
     "codex.field.apiKeyHint":
@@ -1791,11 +1795,15 @@ const translations = {
     "codex.launchCommandTitle": "Codex 启动命令",
     "codex.launchCommandDescription":
       "复制并在终端运行以下命令以使用「{name}」配置启动 Codex CLI：",
+    "codex.launchCommandLoading": "正在生成原生 Profile 启动命令…",
+    "codex.launchCommandHint": "直接在终端运行此命令，即可通过 Codex 原生 Profile 启动当前配置。",
     "codex.toast.loadFailed": "加载 Codex 配置失败",
     "codex.toast.profileCreated": "Codex 配置已创建",
     "codex.toast.profileUpdated": "Codex 配置已更新",
     "codex.toast.profileDuplicated": "Codex 配置已复制",
     "codex.toast.profileSaveFailed": "保存 Codex 配置失败",
+    "codex.toast.profileReorderFailed": "保存 Codex 配置顺序失败，已刷新列表",
+    "codex.toast.launchCommandFailed": "生成 Codex 启动命令失败",
     "codex.toast.profileDeleted": "Codex 配置已删除",
     "codex.toast.profileDeleteFailed": "删除 Codex 配置失败",
     "codex.apply": "应用",
@@ -1814,6 +1822,10 @@ const translations = {
     "codex.applyPreviewTargetModel": "目标模型",
     "codex.applyPreviewReasoningEffort": "推理档位",
     "codex.applyPreviewNone": "（无 / 首次）",
+    "codex.warning.legacyApiKeyMayOverrideChatGptLogin":
+      "auth.json 同时包含旧版 OPENAI_API_KEY 与 ChatGPT 登录凭据，Codex 可能改用 API Key 计费。Code Manager 不会修改该文件。",
+    "codex.activeEditAutoApplyHint":
+      "当前配置已激活；保存后会立即重新应用到 ~/.codex/config.toml。",
     "codex.previewLiveTitle": "配置实时预览",
     "codex.previewLiveHint": "根据当前表单内容实时计算生成的 config.toml 与 models.json：",
   },
@@ -3611,6 +3623,9 @@ const translations = {
     "codex.openDocs": "Official Docs",
     "codex.builtinBadge": "Vendor Preset",
     "codex.customBadge": "Custom Snippet",
+    "codex.customModeLabel": "Custom configuration snippet",
+    "codex.duplicateSuffix": " Copy",
+    "codex.defaultProfileName": "{provider}-Daily Dev",
     "codex.profileSectionTitle": "Codex Profiles",
     "codex.profileSectionHint":
       "Each profile includes vendor presets or custom config snippets with model, reasoning effort, and auth override. Click Apply to surgically update ~/.codex/config.toml.",
@@ -3640,6 +3655,7 @@ const translations = {
     "codex.field.reasoningEffortPlaceholder": "Select reasoning effort (optional)",
     "codex.field.reasoningEffortHint":
       "Written to top-level model_reasoning_effort field in config.toml (e.g. high, max).",
+    "codex.field.reasoningEffortDefault": "Default",
     "codex.field.apiKey": "API Key",
     "codex.field.apiKeyPlaceholder": "sk-...",
     "codex.field.apiKeyHint":
@@ -3677,11 +3693,16 @@ const translations = {
     "codex.launchCommandTitle": "Codex Launch Command",
     "codex.launchCommandDescription":
       'Copy and run the following command in terminal to start Codex CLI with "{name}":',
+    "codex.launchCommandLoading": "Generating the native profile launch command…",
+    "codex.launchCommandHint":
+      "Run this command in a terminal to start the current configuration through a native Codex profile.",
     "codex.toast.loadFailed": "Failed to load Codex config",
     "codex.toast.profileCreated": "Codex profile created",
     "codex.toast.profileUpdated": "Codex profile updated",
     "codex.toast.profileDuplicated": "Codex profile duplicated",
     "codex.toast.profileSaveFailed": "Failed to save Codex profile",
+    "codex.toast.profileReorderFailed": "Failed to save Codex profile order; list refreshed",
+    "codex.toast.launchCommandFailed": "Failed to generate Codex launch command",
     "codex.toast.profileDeleted": "Codex profile deleted",
     "codex.toast.profileDeleteFailed": "Failed to delete Codex profile",
     "codex.apply": "Apply",
@@ -3700,6 +3721,10 @@ const translations = {
     "codex.applyPreviewTargetModel": "Target Model",
     "codex.applyPreviewReasoningEffort": "Reasoning Effort",
     "codex.applyPreviewNone": "(none / first time)",
+    "codex.warning.legacyApiKeyMayOverrideChatGptLogin":
+      "auth.json contains both a legacy OPENAI_API_KEY and ChatGPT login credentials. Codex may use API-key billing instead. Code Manager will not modify this file.",
+    "codex.activeEditAutoApplyHint":
+      "This profile is active. Saving will immediately reapply it to ~/.codex/config.toml.",
     "codex.previewLiveTitle": "Live Preview",
     "codex.previewLiveHint": "Real-time config generated from form inputs:",
   },
