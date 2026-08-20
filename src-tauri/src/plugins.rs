@@ -1,5 +1,3 @@
-use std::process::Command;
-
 /// 触发 claude 读取插件目录缓存，按其默认 24h TTL 策略刷新安装数。
 ///
 /// 不主动删缓存、不强制刷新：执行 `claude plugin list --available --json`，claude 内部若发现
@@ -20,16 +18,8 @@ pub fn refresh_plugin_install_counts() -> Result<(), String> {
 // 执行 `claude plugin list --available --json`：claude 读取 catalog 时按 TTL 决定是否重拉缓存。
 // 输出仅用于失败诊断，不回传 UI。
 fn trigger_claude_catalog_refresh() -> Result<(), String> {
-    let mut command = Command::new("claude");
-    command.args(["plugin", "list", "--available", "--json"]);
-    crate::utils::hide_command_window(&mut command);
-    let output = command.output().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 中访问".to_string()
-        } else {
-            format!("执行 claude plugin list 失败: {e}")
-        }
-    })?;
+    let args = ["plugin", "list", "--available", "--json"].map(str::to_string);
+    let output = crate::claude_cli::run(&args).map_err(|error| error.to_string())?;
 
     if output.status.success() {
         Ok(())

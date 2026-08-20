@@ -1,4 +1,5 @@
 mod auto_memory;
+mod claude_cli;
 mod claude_directory;
 mod claude_directory_watcher;
 mod config;

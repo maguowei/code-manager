@@ -25,6 +25,7 @@ paths:
 | `project.rs` | 项目 Git 状态、worktree、分支/worktree 清理 preview/apply、本地数据清理 |
 | `claude_directory.rs` | `~/.claude` 文件树、文件预览、创建、重命名、删除与外部打开 |
 | `claude_directory_watcher.rs` | `~/.claude` 变更监听并广播 `claude-directory-changed` |
+| `claude_cli.rs` | Claude CLI 解析与执行：优先当前 `PATH`，再查官方 native 安装目录与 macOS Homebrew 标准目录 |
 | `native_open.rs` | 默认终端 / 编辑器跨平台启动、本机检测受支持工具清单 |
 | `terminal_focus.rs` | macOS 上 `pid -> tty -> AppleScript` 聚焦 Terminal.app / iTerm / Ghostty；herdr 会话两跳聚焦编排 |
 | `herdr.rs` | herdr 会话聚焦：socket API 客户端（NDJSON）、pane 定位（pid 精确 + cwd 兜底）、附着 client 进程发现 |
