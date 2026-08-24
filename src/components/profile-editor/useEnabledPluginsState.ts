@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PluginDraft } from "./editor-utils";
 import { readObject } from "./editor-utils";
 
@@ -93,20 +93,27 @@ export function useEnabledPluginsState({
     if (!recordsEqual(next, sourceEntries)) onChange(next);
   }, [onChange, plugins, preservedEntries, sourceEntries]);
 
-  const addPlugin = useCallback(
-    (pluginId: string, enabled: boolean): boolean => {
-      // 同步检查当前 plugins 状态，避免在 setPlugins updater 内读取外部变量的竞态问题
-      if (plugins.some((plugin) => plugin.pluginId === pluginId)) {
-        return false;
-      }
-      setPlugins((current) => [
-        ...current,
-        { id: `plugin:${pluginId}`, pluginId, enabled, committed: true },
-      ]);
-      return true;
-    },
-    [plugins],
-  );
+  // ref 镜像 plugins：addPlugin 不依赖 [plugins]，引用全程稳定，供 memo 行组件与父级 useCallback 复用。
+  // 在 effect 内同步而非渲染阶段赋值：并发渲染下被丢弃的渲染会残留未提交状态，
+  // 让 addPlugin 对已提交 UI 里并不存在的插件返回 false，「添加并启用」变成静默 no-op。
+  const pluginsRef = useRef(plugins);
+  useEffect(() => {
+    pluginsRef.current = plugins;
+  }, [plugins]);
+
+  const addPlugin = useCallback((pluginId: string, enabled: boolean): boolean => {
+    // 同步检查已提交状态，让调用方能立刻拿到「是否新增」的结论
+    if (pluginsRef.current.some((plugin) => plugin.pluginId === pluginId)) {
+      return false;
+    }
+    // updater 内再判一次：current 才是权威值，保证并发下不会重复追加
+    setPlugins((current) =>
+      current.some((plugin) => plugin.pluginId === pluginId)
+        ? current
+        : [...current, { id: `plugin:${pluginId}`, pluginId, enabled, committed: true }],
+    );
+    return true;
+  }, []);
 
   const togglePlugin = useCallback((pluginId: string) => {
     setPlugins((current) =>

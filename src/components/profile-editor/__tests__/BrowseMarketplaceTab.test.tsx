@@ -25,6 +25,69 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 const originalFetch = globalThis.fetch;
 const fetchMock = vi.fn();
+// jsdom 无布局引擎，元素测量恒为 0；@tanstack/virtual-core 既用 offsetHeight 量滚动视口（getRect），
+// 也用它量每一行（measureElement）。若对所有元素返回同一个值，行高就等于视口高度，
+// 虚拟化跑在退化几何上（约 1 行可见），窗口化断言会恒成立。故按元素分派：
+// 滚动容器给视口高度，虚拟化行 wrapper（带 data-index）给真实量级的行高。
+const SCROLL_VIEWPORT_HEIGHT = 400;
+const STUBBED_ROW_HEIGHT = 120;
+const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+const originalScrollTop = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop");
+
+function stubElementMeasurements() {
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+    configurable: true,
+    get(this: HTMLElement) {
+      if (this.hasAttribute("data-index")) return STUBBED_ROW_HEIGHT;
+      if (this.dataset.slot === "browse-scroll") return SCROLL_VIEWPORT_HEIGHT;
+      return 0;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => 800,
+  });
+  // jsdom 写 scrollTop 不会派发 scroll 事件，而真实浏览器会——virtualizer 只在 scroll 回调里
+  // 同步内部偏移（observeElementOffset）。补齐该行为，让滚动路径在测试里走完整链路。
+  // 注意 scrollTop 定义在 Element.prototype 上，不在 HTMLElement.prototype。
+  if (originalScrollTop?.get && originalScrollTop.set) {
+    const { get, set } = originalScrollTop;
+    Object.defineProperty(Element.prototype, "scrollTop", {
+      configurable: true,
+      get(this: Element) {
+        return get.call(this);
+      },
+      set(this: Element, value: number) {
+        set.call(this, value);
+        this.dispatchEvent(new Event("scroll"));
+      },
+    });
+  }
+}
+
+function restoreElementMeasurements() {
+  if (originalOffsetHeight) {
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", originalOffsetHeight);
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "offsetHeight");
+  }
+  if (originalOffsetWidth) {
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", originalOffsetWidth);
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "offsetWidth");
+  }
+  if (originalScrollTop) {
+    Object.defineProperty(Element.prototype, "scrollTop", originalScrollTop);
+  }
+}
+
+// 已渲染虚拟行的 data-index 升序列表
+function renderedRowIndexes(container: HTMLElement): number[] {
+  return Array.from(container.querySelectorAll("[data-index]"), (node) =>
+    Number(node.getAttribute("data-index")),
+  ).sort((a, b) => a - b);
+}
 
 const SOURCES = [
   {
@@ -37,6 +100,7 @@ const SOURCES = [
 ];
 
 beforeEach(() => {
+  stubElementMeasurements();
   fetchMock.mockReset();
   invokeMock.mockReset();
   invokeMock.mockImplementation(async (command) => {
@@ -66,6 +130,7 @@ afterEach(() => {
     writable: true,
     configurable: true,
   });
+  restoreElementMeasurements();
 });
 
 function renderTab(props?: {
@@ -765,5 +830,130 @@ describe("BrowseMarketplaceTab", () => {
     fireEvent.click(trigger);
     expect(await screen.findByText("加载失败的来源")).toBeInTheDocument();
     expect(screen.getByText("claude-plugins-official")).toBeInTheDocument();
+  });
+
+  it("大数据量下虚拟化只渲染可视行", async () => {
+    // 模拟大型市场（280+ 插件量级）：400px 视口 / 120px 行高约 4 行可见，加 overscan 8 也远小于 300
+    const plugins = Array.from({ length: 300 }, (_, i) => ({
+      name: `plugin-${String(i).padStart(3, "0")}`,
+    }));
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins }),
+    } as unknown as Response);
+    const { container } = renderTab();
+    await waitFor(() => {
+      expect(renderedRowIndexes(container).length).toBeGreaterThan(0);
+    });
+    const indexes = renderedRowIndexes(container);
+    // 未滚动，窗口应从头开始且连续
+    expect(indexes[0]).toBe(0);
+    expect(indexes).toEqual(indexes.map((_, offset) => offset));
+    // 窗口远小于全量，且尾部索引不会跑到列表后半段
+    expect(indexes.length).toBeLessThan(60);
+    expect(indexes[indexes.length - 1]).toBeLessThan(150);
+    // 行序号与表头显示总数仍是全量
+    expect(screen.getByText(/共 300 个插件/)).toBeInTheDocument();
+  });
+
+  it("搜索过滤后只渲染命中的行", async () => {
+    // 筛选结果需远多于一屏，否则命中 calculateRange 的 measurements.length <= lanes 短路，
+    // 直接返回整个列表，测不到窗口化
+    const plugins = Array.from({ length: 300 }, (_, i) => ({
+      name: `plugin-${String(i).padStart(3, "0")}`,
+    }));
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins }),
+    } as unknown as Response);
+    const { container } = renderTab();
+    const input = await screen.findByLabelText(/搜索/);
+    await waitFor(() => {
+      expect(renderedRowIndexes(container).length).toBeGreaterThan(0);
+    });
+    // plugin-1 命中 plugin-100 ~ plugin-199，共 100 条
+    fireEvent.change(input, { target: { value: "plugin-1" } });
+    await waitFor(() => {
+      expect(screen.getByText(/显示 1-100/)).toBeInTheDocument();
+    });
+    const indexes = renderedRowIndexes(container);
+    expect(indexes.length).toBeLessThan(30);
+    expect(indexes[0]).toBe(0);
+    expect(container.querySelector("[data-slot='browse-row']")).toHaveTextContent("plugin-100");
+  });
+
+  it("已配置但已禁用的插件仍显示管理入口", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    const onManagePlugin = vi.fn();
+    renderTab({
+      plugins: [
+        {
+          id: "plugin:alpha@claude-plugins-official",
+          pluginId: "alpha@claude-plugins-official",
+          // 已写入 enabledPlugins 但处于禁用态：行动作取决于「是否已配置」，不是「是否启用」
+          enabled: false,
+          committed: true,
+        },
+      ],
+      onManagePlugin,
+    });
+    expect(await screen.findByText("已配置")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /添加并启用/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "管理" }));
+    expect(onManagePlugin).toHaveBeenCalledWith("alpha@claude-plugins-official");
+  });
+
+  it("筛选条件变化后滚动位置回到列表顶部", async () => {
+    const plugins = Array.from({ length: 300 }, (_, i) => ({
+      name: `plugin-${String(i).padStart(3, "0")}`,
+    }));
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins }),
+    } as unknown as Response);
+    const { container } = renderTab();
+    const input = await screen.findByLabelText(/搜索/);
+    await waitFor(() => {
+      expect(renderedRowIndexes(container).length).toBeGreaterThan(0);
+    });
+    const scroller = container.querySelector<HTMLDivElement>("[data-slot='browse-scroll']");
+    if (!scroller) throw new Error("missing browse scroll container");
+
+    // 滚到列表中后段（打桩的 scrollTop setter 会派发 scroll，让 virtualizer 同步偏移）
+    await act(async () => {
+      scroller.scrollTop = 22_000;
+    });
+    await waitFor(() => {
+      expect(renderedRowIndexes(container)[0]).toBeGreaterThan(100);
+    });
+
+    fireEvent.change(input, { target: { value: "plugin-1" } });
+    await waitFor(() => {
+      expect(screen.getByText(/显示 1-100/)).toBeInTheDocument();
+    });
+    // 收窄结果集后若保留旧偏移，窗口会停在新结果集尾部
+    expect(scroller.scrollTop).toBe(0);
+    await waitFor(() => {
+      expect(renderedRowIndexes(container)[0]).toBe(0);
+    });
+    expect(container.querySelector("[data-slot='browse-row']")).toHaveTextContent("plugin-100");
+  });
+
+  it("滚动容器与表头保持列表滚动样式契约", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    const { container } = renderTab();
+    await screen.findByText("alpha");
+    const scroller = container.querySelector("[data-slot='browse-scroll']");
+    expect(scroller).toHaveClass("max-h-[480px]", "overflow-y-auto", "overscroll-contain");
+    // 表头必须在滚动容器内并 sticky，否则滚动条宽度只从行网格里扣，列会错位
+    const header = container.querySelector("[data-slot='browse-header']");
+    expect(scroller).toContainElement(header as HTMLElement);
+    expect(header).toHaveClass("sticky", "top-0");
   });
 });

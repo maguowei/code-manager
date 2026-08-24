@@ -23,6 +23,14 @@ export interface MarketplaceFetchInput {
 export const MARKETPLACE_CATALOG_CACHE_KEY = "code-manager-marketplace-plugin-cache:v1";
 const CACHE_VERSION = 1;
 
+// catalog 缓存里 Anthropic 第一方插件的作者名
+export const ANTHROPIC_AUTHOR = "Anthropic";
+
+// 按作者归属把官方市场插件分为 Anthropic 第一方与合作伙伴；空作者视为合作伙伴
+export function getProviderAffiliation(plugin: MarketplacePluginEntry): "anthropic" | "partner" {
+  return plugin.authorName === ANTHROPIC_AUTHOR ? "anthropic" : "partner";
+}
+
 interface CacheV1 {
   version: 1;
   byMarketplace: Record<string, { plugins: MarketplacePluginEntry[]; cachedAt: string }>;

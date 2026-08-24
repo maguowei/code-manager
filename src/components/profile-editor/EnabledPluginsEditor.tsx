@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import BrowseMarketplaceTab, { type AddMarketplaceInput } from "./BrowseMarketplaceTab";
@@ -77,13 +77,16 @@ function EnabledPluginsEditor({
     [marketplaceSources],
   );
 
-  function handleManagePlugin(pluginId: string) {
+  // useCallback 稳定引用：传进浏览列表行组件，memo 浅比较才不击穿
+  const handleManagePlugin = useCallback((pluginId: string) => {
     setManageTarget((current) => ({
       pluginId,
       requestId: (current?.requestId ?? 0) + 1,
     }));
     setActiveTab("enabled");
-  }
+  }, []);
+
+  const handleAddPlugin = useCallback((pluginId: string) => addPlugin(pluginId, true), [addPlugin]);
 
   function handleTabChange(value: string) {
     setActiveTab(value as "enabled" | "browse");
@@ -144,7 +147,7 @@ function EnabledPluginsEditor({
             sources={marketplaceSources}
             plugins={plugins}
             active={activeTab === "browse"}
-            onAddPlugin={(pluginId) => addPlugin(pluginId, true)}
+            onAddPlugin={handleAddPlugin}
             onManagePlugin={handleManagePlugin}
             existingMarketplaceIds={existingMarketplaceIds}
             onAddMarketplace={onMarketplacesChange ? handleAddMarketplace : undefined}
