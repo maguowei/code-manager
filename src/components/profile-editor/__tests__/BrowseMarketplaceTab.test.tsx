@@ -954,6 +954,7 @@ describe("BrowseMarketplaceTab", () => {
     // 表头必须在滚动容器内并 sticky，否则滚动条宽度只从行网格里扣，列会错位
     const header = container.querySelector("[data-slot='browse-header']");
     expect(scroller).toContainElement(header as HTMLElement);
-    expect(header).toHaveClass("sticky", "top-0");
+    expect(header).toHaveClass("sticky", "top-0", "z-sticky");
+    expect(header).not.toHaveClass("z-10");
   });
 });

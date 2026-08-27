@@ -1,46 +1,20 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  Bot,
-  Braces,
-  ChevronDown,
-  CircleCheck,
-  ExternalLink,
-  Plug,
-  Plus,
-  Settings2,
-  Sparkles,
-  SquareTerminal,
-  Webhook,
-} from "lucide-react";
+import { ChevronDown, CircleCheck, ExternalLink, Plus, Settings2 } from "lucide-react";
 import { type KeyboardEvent, memo } from "react";
 import { cn } from "@/lib/utils";
-import { type TranslationKey, useI18n } from "../../i18n";
+import { useI18n } from "../../i18n";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import type { MarketplacePluginEntry } from "./marketplace-catalog";
 import { getProviderAffiliation } from "./marketplace-catalog";
+import {
+  COMPONENT_KINDS,
+  DETAILS_COLLAPSE_THRESHOLD,
+  getMarketplacePluginDetails,
+  hasMarketplacePluginComponents,
+} from "./marketplace-plugin-row-utils";
 import type { PluginComponents } from "./plugin-install-counts";
-
-const DETAILS_COLLAPSE_THRESHOLD = 150;
-
-// 组成类别的展示顺序、图标与 i18n 文案 key
-const COMPONENT_KINDS = [
-  {
-    key: "commands",
-    icon: SquareTerminal,
-    labelKey: "profileEditor.plugins.browse.componentCommands",
-  },
-  { key: "agents", icon: Bot, labelKey: "profileEditor.plugins.browse.componentAgents" },
-  { key: "skills", icon: Sparkles, labelKey: "profileEditor.plugins.browse.componentSkills" },
-  { key: "hooks", icon: Webhook, labelKey: "profileEditor.plugins.browse.componentHooks" },
-  { key: "mcpServers", icon: Plug, labelKey: "profileEditor.plugins.browse.componentMcpServers" },
-  { key: "lspServers", icon: Braces, labelKey: "profileEditor.plugins.browse.componentLspServers" },
-] as const satisfies ReadonlyArray<{
-  key: keyof PluginComponents;
-  icon: typeof Bot;
-  labelKey: TranslationKey;
-}>;
 
 interface MarketplacePluginRowProps {
   plugin: MarketplacePluginEntry;
@@ -73,8 +47,7 @@ function MarketplacePluginRow({
   onManagePlugin,
 }: MarketplacePluginRowProps) {
   const { t } = useI18n();
-  const subTitle = [plugin.authorName, plugin.marketplaceId].filter(Boolean).join(" · ");
-  const details = [plugin.description, subTitle].filter(Boolean).join(" · ");
+  const details = getMarketplacePluginDetails(plugin);
   const canExpandDetails = details.length > DETAILS_COLLAPSE_THRESHOLD;
   const detailsTooltip = expanded
     ? t("profileEditor.plugins.browse.collapseDetailsTooltip")
@@ -88,7 +61,7 @@ function MarketplacePluginRow({
         count: components[kind.key].length,
       })).filter((badge) => badge.count > 0)
     : [];
-  const hasComponents = componentBadges.length > 0;
+  const hasComponents = hasMarketplacePluginComponents(components);
   // 提供方归属（仅对官方市场插件做行内徽章区分）
   const affiliation = getProviderAffiliation(plugin);
   const installCountLabel =

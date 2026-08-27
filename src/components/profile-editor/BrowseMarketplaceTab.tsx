@@ -24,6 +24,7 @@ import { formatShortDateTime } from "../usage/format";
 import MarketplacePluginRow from "./MarketplacePluginRow";
 import type { MarketplacePluginEntry } from "./marketplace-catalog";
 import { getProviderAffiliation } from "./marketplace-catalog";
+import { estimatePluginRowSize } from "./marketplace-plugin-row-utils";
 import { OFFICIAL_MARKETPLACE_ID, OFFICIAL_MARKETPLACE_REPO } from "./marketplace-presets";
 import {
   emptyPluginCatalog,
@@ -62,43 +63,9 @@ const FILTER_CONTROL_CLASS =
 const FILTER_TRIGGER_CLASS =
   "h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0";
 const MIN_REFRESH_FEEDBACK_MS = 500;
-// 行盒模型：py-3 上下内边距 24 + 标题行（text-sm × leading-[1.4]）20 + 行分隔边框 1
-const ROW_BASE_SIZE = 45;
-// 描述块：mt-1.5 间距 6 + 每行 text-xs × leading-relaxed 约 20，line-clamp-3 封顶 3 行
-const ROW_DETAILS_GAP = 6;
-const ROW_DETAILS_LINE_SIZE = 20;
-const ROW_DETAILS_MAX_LINES = 3;
-// 描述在窄列里每行约能放这么多字符，用于估算折行数
-const ROW_DETAILS_CHARS_PER_LINE = 72;
-// 组成徽章行：mt-1.5 间距 6 + 徽章行约 20
-const ROW_COMPONENTS_SIZE = 26;
 // 虚拟化列表可视区高度上限。插件分区嵌在 accordion 内的可滚动抽屉里，没有确定的可用高度可跟随，
 // 故用固定上限而非 flex-1 min-h-0；类名契约在 BrowseMarketplaceTab.test.tsx 中断言。
 const PLUGIN_LIST_SCROLL_CLASS = "max-h-[480px] overflow-y-auto overscroll-contain";
-
-// 行高不定（描述折行、组成徽章、展开态），先按内容估算，measureElement 再校准。
-// 固定估算值会让首帧 totalSize 与真实高度差一倍以上，滚动条滑块随测量逐行突缩。
-function estimatePluginRowSize(
-  plugin: MarketplacePluginEntry | undefined,
-  catalog: PluginCatalog,
-): number {
-  if (!plugin) return ROW_BASE_SIZE;
-  let size = ROW_BASE_SIZE;
-  const subTitle = [plugin.authorName, plugin.marketplaceId].filter(Boolean).join(" · ");
-  const detailsLength = [plugin.description, subTitle].filter(Boolean).join(" · ").length;
-  if (detailsLength > 0) {
-    const lines = Math.min(
-      ROW_DETAILS_MAX_LINES,
-      Math.max(1, Math.ceil(detailsLength / ROW_DETAILS_CHARS_PER_LINE)),
-    );
-    size += ROW_DETAILS_GAP + lines * ROW_DETAILS_LINE_SIZE;
-  }
-  // 组成数据仅官方市场插件有（来自 catalog 缓存）
-  if (catalog.entries[plugin.pluginId]?.components) {
-    size += ROW_COMPONENTS_SIZE;
-  }
-  return size;
-}
 
 type MarketplaceSortMode = "pluginId" | "installCount";
 type SortDirection = "asc" | "desc";
@@ -442,7 +409,16 @@ export default function BrowseMarketplaceTab({
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => estimatePluginRowSize(filtered[index], catalog),
+    estimateSize: (index) => {
+      const plugin = filtered[index];
+      const containerWidth = scrollRef.current?.clientWidth || scrollRef.current?.offsetWidth;
+      return estimatePluginRowSize(
+        plugin,
+        catalog,
+        plugin ? expandedPluginIds.has(plugin.pluginId) : false,
+        containerWidth,
+      );
+    },
     overscan: 8,
     // index 可能是 -1：virtual-core 的 indexFromElement 在 data-index 缺失时只 console.warn 并返回 -1，
     // 随后无条件调用 getItemKey，越界解引用会在 ref 回调内抛错卸载整个插件分区
@@ -911,10 +887,10 @@ export default function BrowseMarketplaceTab({
           </p>
           <div ref={scrollRef} className={PLUGIN_LIST_SCROLL_CLASS} data-slot="browse-scroll">
             {/* 表头必须与行同处滚动容器内：否则滚动条宽度只从行网格里扣，两侧 grid 模板宽度不一致导致列错位。
-                sticky 自带 bg-card 遮挡下方滚动的行；z-10 沿用 PageHeader / ProfileEditor 的既有层级。 */}
+                sticky 自带 bg-card 遮挡下方滚动的行；z-sticky 使用全局语义层级 token。 */}
             <div
               data-slot="browse-header"
-              className="sticky top-0 z-10 grid grid-cols-[32px_minmax(0,1fr)_minmax(88px,104px)_clamp(152px,16vw,190px)] items-center gap-x-3 border-b border-border bg-card px-3.5 py-2.5 text-xs font-semibold text-muted-foreground max-[640px]:hidden"
+              className="sticky top-0 z-sticky grid grid-cols-[32px_minmax(0,1fr)_minmax(88px,104px)_clamp(152px,16vw,190px)] items-center gap-x-3 border-b border-border bg-card px-3.5 py-2.5 text-xs font-semibold text-muted-foreground max-[640px]:hidden"
             >
               <span className="inline-flex items-center justify-center tabular-nums">
                 {t("profileEditor.common.index")}
