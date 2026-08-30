@@ -4347,4 +4347,74 @@ describe("ProfileEditor", () => {
     expect(saved.settings.env).not.toHaveProperty("ENABLE_TOOL_SEARCH");
     expect(saved.settings.env).not.toHaveProperty("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
   });
+
+  function opencodeGoProvider(): Provider {
+    return {
+      id: "builtin:opencode-go",
+      name: "OpenCode Go",
+      localizedName: { zh: "OpenCode Go", en: "OpenCode Go" },
+      description: "OpenCode Go",
+      modelSuggestions: ["deepseek-v4-pro", "deepseek-v4-flash"],
+      env: {
+        ANTHROPIC_BASE_URL: "https://opencode.ai/zen/go",
+        ANTHROPIC_MODEL: "deepseek-v4-flash",
+      },
+    };
+  }
+
+  function opencodeGoProfile(settings: Record<string, unknown>): ConfigProfile {
+    return {
+      id: "user-opencode-go",
+      name: "OpenCode Go User",
+      description: "",
+      providerId: "builtin:opencode-go",
+      settings,
+      createdAt: "2026-08-16T12:00:00Z",
+      updatedAt: "2026-08-16T12:00:00Z",
+    };
+  }
+
+  it("opencode-go 供应商认证区切换到 ANTHROPIC_API_KEY 字段", () => {
+    renderEditor({
+      providers: [opencodeGoProvider()],
+      profile: opencodeGoProfile({ env: { ANTHROPIC_API_KEY: "sk-test" } }),
+    });
+
+    const authSection = getSection("认证");
+    expect(within(authSection).getByLabelText("ANTHROPIC_API_KEY")).toHaveValue("sk-test");
+    expect(within(authSection).queryByLabelText("ANTHROPIC_AUTH_TOKEN")).not.toBeInTheDocument();
+  });
+
+  it("opencode-go 认证密钥变更写入 ANTHROPIC_API_KEY", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      providers: [opencodeGoProvider()],
+      profile: opencodeGoProfile({ env: { ANTHROPIC_API_KEY: "sk-old" } }),
+    });
+
+    fireEvent.change(screen.getByLabelText("ANTHROPIC_API_KEY"), {
+      target: { value: "sk-new" },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await Promise.resolve();
+    });
+
+    expect(onSave.mock.calls[0][0].settings.env).toMatchObject({
+      ANTHROPIC_API_KEY: "sk-new",
+    });
+  });
+
+  it("opencode-go 下 ANTHROPIC_API_KEY 从通用环境变量分区隐藏", () => {
+    renderEditor({
+      providers: [opencodeGoProvider()],
+      profile: opencodeGoProfile({ env: { ANTHROPIC_API_KEY: "sk-test" } }),
+    });
+
+    toggleAccordionSection("环境变量");
+    const envSection = getSection("环境变量");
+    expect(within(envSection).queryByText("ANTHROPIC_API_KEY")).not.toBeInTheDocument();
+  });
 });

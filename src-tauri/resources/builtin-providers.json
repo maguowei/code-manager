@@ -115,6 +115,26 @@
     "models": []
   },
   {
+    "name": "OpenCode Go",
+    "localizedName": { "zh": "OpenCode Go", "en": "OpenCode Go" },
+    "slug": "opencode-go",
+    "baseUrl": "https://opencode.ai/zen/go",
+    "docUrl": "https://opencode.ai/docs/zh-cn/go",
+    "env": {
+      "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-flash[1m]",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
+      "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-flash"
+    },
+    "models": [
+      { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
+      { "id": "deepseek-v4-flash[1m]", "name": "DeepSeek V4 Flash" },
+      { "id": "minimax-m3", "name": "MiniMax M3" },
+      { "id": "qwen3.8-max", "name": "Qwen3.8 Max" }
+    ]
+  },
+  {
     "name": "Ollama",
     "localizedName": { "zh": "Ollama", "en": "Ollama" },
     "slug": "ollama",

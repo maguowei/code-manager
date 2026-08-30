@@ -1275,13 +1275,7 @@ fn run_claude_project_purge(
     mode: ProjectPurgeMode,
 ) -> Result<ProjectPurgeOutput, String> {
     let (project_display, args) = prepare_claude_project_purge(project, mode)?;
-    let output = Command::new("claude").args(&args).output().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 中访问".to_string()
-        } else {
-            format!("执行 claude project purge 失败: {}", e)
-        }
-    })?;
+    let output = crate::claude_cli::run(&args).map_err(|error| error.to_string())?;
 
     parse_claude_project_purge_output(
         project_display,

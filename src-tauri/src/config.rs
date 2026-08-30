@@ -1982,12 +1982,32 @@ fn status_line_preset_target_path() -> Result<PathBuf, String> {
     Ok(crate::utils::get_home_dir()?.join(".claude").join(filename))
 }
 
+// UTF-8 BOM。Windows PowerShell 5.1 读取无 BOM 的 .ps1 时按系统代码页（简中为 CP936）解码，
+// UTF-8 中文注释会被错位解码，残留的悬空 lead byte 会吞掉行尾换行，
+// 使下一行代码被并入注释行，最终触发 ParserError 让状态行整行无输出。
+#[cfg(windows)]
+const STATUS_LINE_SCRIPT_UTF8_BOM: &str = "\u{feff}";
+
+// 期望写入磁盘的脚本内容，同时作为幂等比较基准；
+// 两处必须共用同一来源，否则带 BOM 的已安装脚本会被误判成用户自定义脚本。
+#[cfg(windows)]
+fn expected_status_line_script() -> String {
+    format!("{STATUS_LINE_SCRIPT_UTF8_BOM}{DEFAULT_STATUS_LINE_SCRIPT}")
+}
+
+// Bash 脚本不能带 BOM：shebang 之前出现 BOM 会让 `#!/bin/bash` 失效。
+#[cfg(not(windows))]
+fn expected_status_line_script() -> String {
+    DEFAULT_STATUS_LINE_SCRIPT.to_string()
+}
+
 // 计算写入 settings.json 的 statusLine.command
 // Windows 用绝对正斜杠路径调用 PowerShell，规避 ~ 在 -File 参数中不展开的问题
 #[cfg(windows)]
 fn status_line_preset_command(target_path: &std::path::Path) -> String {
     let normalized = target_path.display().to_string().replace('\\', "/");
-    format!("powershell -NoProfile -ExecutionPolicy Bypass -File {normalized}")
+    // 路径必须加引号：用户名含空格时（如 C:/Users/demo user）-File 参数会在空格处被截断
+    format!("powershell -NoProfile -ExecutionPolicy Bypass -File \"{normalized}\"")
 }
 
 #[cfg(not(windows))]
@@ -2059,11 +2079,12 @@ fn install_status_line_preset_inner(
 
     ensure_status_line_preset_supported()?;
     let target_path = status_line_preset_target_path()?;
+    let expected_script = expected_status_line_script();
     if target_path.exists() {
         let existing = fs::read_to_string(&target_path)
             .map_err(|e| format!("读取状态行脚本失败 {:?}: {}", target_path, e))?;
 
-        if existing == DEFAULT_STATUS_LINE_SCRIPT {
+        if existing == expected_script {
             ensure_status_line_script_executable(&target_path)?;
             return Ok(build_status_line_preset_result(
                 preset_id,
@@ -2083,7 +2104,7 @@ fn install_status_line_preset_inner(
         }
     }
 
-    write_status_line_script(&target_path, DEFAULT_STATUS_LINE_SCRIPT)?;
+    write_status_line_script(&target_path, &expected_script)?;
     Ok(build_status_line_preset_result(
         preset_id,
         &target_path,
@@ -3190,6 +3211,46 @@ mod tests {
     }
 
     #[test]
+    fn builtin_providers_include_opencode_go_claude_code_env() {
+        let opencode_go = builtin_providers()
+            .iter()
+            .find(|provider| provider.id == "builtin:opencode-go")
+            .unwrap();
+        let env = &opencode_go.env;
+
+        assert_eq!(opencode_go.name, "OpenCode Go");
+        assert_eq!(
+            opencode_go.doc_url,
+            Some("https://opencode.ai/docs/zh-cn/go".to_string())
+        );
+        assert_eq!(
+            opencode_go.model_suggestions,
+            vec![
+                "deepseek-v4-pro[1m]".to_string(),
+                "deepseek-v4-flash[1m]".to_string(),
+                "minimax-m3".to_string(),
+                "qwen3.8-max".to_string()
+            ]
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_BASE_URL"),
+            Some(&Value::String("https://opencode.ai/zen/go".to_string()))
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_MODEL"),
+            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+        );
+        assert_eq!(
+            env.get("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
+            Some(&Value::String("deepseek-v4-flash".to_string()))
+        );
+        assert_eq!(
+            env.get("CLAUDE_CODE_SUBAGENT_MODEL"),
+            Some(&Value::String("deepseek-v4-flash".to_string()))
+        );
+    }
+
+    #[test]
     fn resolve_profile_settings_merges_provider_env_then_profile_overrides() {
         // 供应商只提供 env（地址 + 模型映射），无继承；这里用内置 DeepSeek 供应商
         let profile = sample_profile(
@@ -3886,6 +3947,53 @@ mod tests {
         assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("ConvertFrom-Json"));
         // 强制 UTF-8 输出，避免 emoji 与中文乱码
         assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("[Console]::OutputEncoding"));
+        // 编码实例必须无 BOM，否则输出头可能混入 EF BB BF
+        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("New-Object System.Text.UTF8Encoding $false"));
+        // 只禁止把带 preamble 的实例赋给 OutputEncoding；
+        // MD5 处的 [System.Text.Encoding]::UTF8.GetBytes() 不输出 preamble，属正常用法
+        assert!(!DEFAULT_STATUS_LINE_SCRIPT
+            .contains("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8"));
+        // stdin 必须显式按 UTF-8 读取，否则含中文目录名的 JSON 会按系统代码页乱码
+        assert!(DEFAULT_STATUS_LINE_SCRIPT.contains("[Console]::OpenStandardInput()"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn expected_status_line_script_prepends_utf8_bom_on_windows() {
+        let expected = expected_status_line_script();
+
+        // PowerShell 5.1 靠 BOM 才会按 UTF-8 解析脚本
+        assert!(expected.as_bytes().starts_with(b"\xEF\xBB\xBF"));
+        // BOM 之后必须是原始脚本，不能篡改或重复内容
+        assert_eq!(
+            expected.strip_prefix('\u{feff}'),
+            Some(DEFAULT_STATUS_LINE_SCRIPT)
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn expected_status_line_script_has_no_bom_on_unix() {
+        let expected = expected_status_line_script();
+
+        // Bash 脚本带 BOM 会让 shebang 失效，必须保持裸内容
+        assert!(!expected.starts_with('\u{feff}'));
+        assert!(expected.starts_with("#!/bin/bash"));
+        assert_eq!(expected, DEFAULT_STATUS_LINE_SCRIPT);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn status_line_preset_command_quotes_path_with_spaces() {
+        // 用户名含空格时，未加引号的 -File 参数会在空格处被截断，导致状态行整行无输出
+        let command = status_line_preset_command(std::path::Path::new(
+            "C:\\Users\\demo user\\.claude\\statusline.ps1",
+        ));
+
+        assert_eq!(
+            command,
+            "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/demo user/.claude/statusline.ps1\""
+        );
     }
 
     #[cfg(windows)]
@@ -3907,8 +4015,55 @@ mod tests {
         assert!(!result.needs_overwrite);
         assert_eq!(
             fs::read_to_string(&target_path).unwrap(),
-            DEFAULT_STATUS_LINE_SCRIPT
+            expected_status_line_script()
         );
+        // 落盘文件必须真带 BOM，否则 PS 5.1 会按系统代码页解析并报 ParserError
+        assert!(fs::read(&target_path).unwrap().starts_with(b"\xEF\xBB\xBF"));
+
+        clear_test_env();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn install_status_line_preset_keeps_bom_script_without_requesting_overwrite() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("status-line-existing-bom-windows");
+        set_test_env(&root);
+        let target_path = root.join(".claude").join("statusline.ps1");
+        fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+        // 模拟已安装（或用户手工补过 BOM）的脚本：必须判为已最新，而不是"已被自定义"
+        fs::write(&target_path, expected_status_line_script()).unwrap();
+
+        let result = install_status_line_preset_inner("default", false).unwrap();
+
+        assert!(!result.installed);
+        assert!(!result.needs_overwrite);
+        assert_eq!(
+            fs::read_to_string(&target_path).unwrap(),
+            expected_status_line_script()
+        );
+
+        clear_test_env();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn install_status_line_preset_reports_overwrite_needed_for_bomless_script() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("status-line-existing-bomless-windows");
+        set_test_env(&root);
+        let target_path = root.join(".claude").join("statusline.ps1");
+        fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+        // 旧版本装下的无 BOM 脚本：内容虽同，但需要重装才能修好解析问题
+        fs::write(&target_path, DEFAULT_STATUS_LINE_SCRIPT).unwrap();
+
+        let result = install_status_line_preset_inner("default", false).unwrap();
+        assert!(!result.installed);
+        assert!(result.needs_overwrite);
+
+        let overwritten = install_status_line_preset_inner("default", true).unwrap();
+        assert!(overwritten.installed);
+        assert!(fs::read(&target_path).unwrap().starts_with(b"\xEF\xBB\xBF"));
 
         clear_test_env();
     }

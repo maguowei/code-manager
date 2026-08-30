@@ -48,7 +48,7 @@ paths:
 
 ## 内置 Provider
 
-- 内置 Provider 维护在 `src-tauri/resources/builtin-providers.json`，是唯一供应商来源（不支持自定义），当前覆盖 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、万界方舟和 Ollama。
+- 内置 Provider 维护在 `src-tauri/resources/builtin-providers.json`，是唯一供应商来源（不支持自定义），当前覆盖 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、万界方舟、OpenCode Go 和 Ollama。
 - 新增 provider 时同步 `localizedName`、`slug`、`baseUrl`、`docUrl` 和模型 `category`。
 - 配置编辑器的环境变量自动填充逻辑要覆盖默认 model 字段：`ANTHROPIC_MODEL`、`ANTHROPIC_DEFAULT_OPUS_MODEL`、`ANTHROPIC_DEFAULT_SONNET_MODEL`、`ANTHROPIC_DEFAULT_HAIKU_MODEL`、`CLAUDE_CODE_SUBAGENT_MODEL`。
 
@@ -75,7 +75,10 @@ paths:
 
 - 权限编辑器只管理 `defaultMode`、`disableBypassPermissionsMode`、`allow`、`deny`、`ask`、`additionalDirectories`；写回时保留其它顶层字段，例如 `disableAutoMode`。
 - 修复权限 dirty 问题时优先做局部语义比较，不要扩大到全局 dirty 系统。
-- 状态行默认脚本按平台分发：非 Windows 用 `src-tauri/resources/statusline/default.sh`（Bash，依赖 jq），Windows 用 `src-tauri/resources/statusline/default.ps1`（PowerShell，免 jq）。安装走后端 `install_status_line_preset`：Windows 写入 `~/.claude/statusline.ps1` 并把 `command` 设为绝对正斜杠路径的 `powershell -NoProfile -ExecutionPolicy Bypass -File ...`；两份脚本功能需保持对齐。
+- 状态行默认脚本按平台分发：非 Windows 用 `src-tauri/resources/statusline/default.sh`（Bash，依赖 jq），Windows 用 `src-tauri/resources/statusline/default.ps1`（PowerShell，免 jq）。安装走后端 `install_status_line_preset`：Windows 写入 `~/.claude/statusline.ps1` 并把 `command` 设为绝对正斜杠**且加引号**的 `powershell -NoProfile -ExecutionPolicy Bypass -File "..."`（用户名含空格时不加引号会截断参数）；两份脚本功能需保持对齐。
+- 两份脚本源文件都**不带 BOM**；Windows 落盘时由 `config.rs::expected_status_line_script()` 前置 UTF-8 BOM。Windows PowerShell 5.1 读取无 BOM 的 `.ps1` 时按系统代码页（简中 CP936）解码，UTF-8 中文注释错位后残留的悬空 lead byte 会吞掉行尾换行，使下一行代码并入注释并触发 `ParserError`，状态行整行无输出。给源文件加 BOM 会变成双 BOM，Bash 脚本加 BOM 会让 shebang 失效——两者都不要做。
+- `expected_status_line_script()` 同时是落盘内容和幂等比较基准，写入与比较必须共用它。若只改一处，已带 BOM 的脚本会被误判为“用户自定义”，安装预设时要求覆盖确认并把 BOM 覆盖掉，故障复发。
+- `default.ps1` 必须显式以 UTF-8 读取 stdin（`[Console]::OpenStandardInput()` + 无 BOM `UTF8Encoding` 的 `StreamReader`）：PS 5.1 的 `[Console]::In` 按系统代码页解码，含中文目录名或 session_name 的 JSON 会乱码；直接设 `[Console]::InputEncoding` 在 stdin 已重定向时可能抛异常。赋给 `[Console]::OutputEncoding` 的实例也必须无 BOM，否则输出头可能混入 `EF BB BF`（MD5 处的 `[System.Text.Encoding]::UTF8.GetBytes()` 不输出 preamble，属正常用法）。
 
 ## 新增配置字段同步点
 

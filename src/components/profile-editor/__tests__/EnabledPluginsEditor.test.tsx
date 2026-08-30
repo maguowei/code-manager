@@ -12,8 +12,27 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 
 const originalFetch = globalThis.fetch;
 const fetchMock = vi.fn();
+// @tanstack/virtual-core 既用 offsetHeight 量滚动视口（getRect）也用它量每一行（measureElement），
+// jsdom 恒为 0 会让 outerSize=0 导致 range 为 null（浏览 Tab 渲染 0 行）。按元素分派打桩，
+// 避免行高等于视口高度这种退化几何。与 BrowseMarketplaceTab.test.tsx 保持一致。
+const SCROLL_VIEWPORT_HEIGHT = 400;
+const STUBBED_ROW_HEIGHT = 120;
+const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
 
 beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+    configurable: true,
+    get(this: HTMLElement) {
+      if (this.hasAttribute("data-index")) return STUBBED_ROW_HEIGHT;
+      if (this.dataset.slot === "browse-scroll") return SCROLL_VIEWPORT_HEIGHT;
+      return 0;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => 800,
+  });
   fetchMock.mockReset();
   localStorage.clear();
   Object.defineProperty(globalThis, "fetch", {
@@ -29,6 +48,16 @@ afterEach(() => {
     writable: true,
     configurable: true,
   });
+  if (originalOffsetHeight) {
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", originalOffsetHeight);
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "offsetHeight");
+  }
+  if (originalOffsetWidth) {
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", originalOffsetWidth);
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "offsetWidth");
+  }
 });
 
 const SOURCES: MarketplaceSourceInput[] = [

@@ -1,30 +1,12 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Bot,
-  Braces,
-  ChevronDown,
-  CircleCheck,
-  ExternalLink,
-  Info,
-  Plug,
-  Plus,
-  RefreshCw,
-  Settings2,
-  Sparkles,
-  SquareTerminal,
-  Store,
-  Webhook,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CircleCheck, Info, RefreshCw, Store } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
-import { type TranslationKey, useI18n } from "../../i18n";
+import { useI18n } from "../../i18n";
 import { ipc } from "../../ipc";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyTitle } from "../ui/empty";
 import { Input } from "../ui/input";
@@ -38,15 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { formatShortDateTime } from "../usage/format";
+import MarketplacePluginRow from "./MarketplacePluginRow";
 import type { MarketplacePluginEntry } from "./marketplace-catalog";
+import { getProviderAffiliation } from "./marketplace-catalog";
+import { estimatePluginRowSize } from "./marketplace-plugin-row-utils";
 import { OFFICIAL_MARKETPLACE_ID, OFFICIAL_MARKETPLACE_REPO } from "./marketplace-presets";
 import {
   emptyPluginCatalog,
   loadPluginCatalog,
   type PluginCatalog,
-  type PluginComponents,
   type PluginInstallCounts,
 } from "./plugin-install-counts";
 import type { PluginEntry } from "./useEnabledPluginsState";
@@ -79,41 +62,18 @@ const FILTER_CONTROL_CLASS =
   "flex h-10 min-w-[160px] items-center gap-2 rounded-md border border-border bg-card px-2.5 transition-[border-color,box-shadow,transform] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-muted-foreground";
 const FILTER_TRIGGER_CLASS =
   "h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0";
-const DETAILS_COLLAPSE_THRESHOLD = 150;
 const MIN_REFRESH_FEEDBACK_MS = 500;
+// 虚拟化列表可视区高度上限。插件分区嵌在 accordion 内的可滚动抽屉里，没有确定的可用高度可跟随，
+// 故用固定上限而非 flex-1 min-h-0；类名契约在 BrowseMarketplaceTab.test.tsx 中断言。
+const PLUGIN_LIST_SCROLL_CLASS = "max-h-[480px] overflow-y-auto overscroll-contain";
 
 type MarketplaceSortMode = "pluginId" | "installCount";
 type SortDirection = "asc" | "desc";
 type ProviderFilter = "all" | "anthropic" | "partner";
 
-// catalog 缓存里 Anthropic 第一方插件的作者名
-const ANTHROPIC_AUTHOR = "Anthropic";
 // 官方 marketplace 仓库 commit 基址，用于 marketplace SHA 外链
 const OFFICIAL_MARKETPLACE_COMMIT_BASE =
   "https://github.com/anthropics/claude-plugins-official/commit/";
-
-// 组成类别的展示顺序、图标与 i18n 文案 key
-const COMPONENT_KINDS = [
-  {
-    key: "commands",
-    icon: SquareTerminal,
-    labelKey: "profileEditor.plugins.browse.componentCommands",
-  },
-  { key: "agents", icon: Bot, labelKey: "profileEditor.plugins.browse.componentAgents" },
-  { key: "skills", icon: Sparkles, labelKey: "profileEditor.plugins.browse.componentSkills" },
-  { key: "hooks", icon: Webhook, labelKey: "profileEditor.plugins.browse.componentHooks" },
-  { key: "mcpServers", icon: Plug, labelKey: "profileEditor.plugins.browse.componentMcpServers" },
-  { key: "lspServers", icon: Braces, labelKey: "profileEditor.plugins.browse.componentLspServers" },
-] as const satisfies ReadonlyArray<{
-  key: keyof PluginComponents;
-  icon: typeof Bot;
-  labelKey: TranslationKey;
-}>;
-
-// 按作者归属把官方市场插件分为 Anthropic 第一方与合作伙伴；空作者视为合作伙伴
-function getProviderAffiliation(plugin: MarketplacePluginEntry): "anthropic" | "partner" {
-  return plugin.authorName === ANTHROPIC_AUTHOR ? "anthropic" : "partner";
-}
 
 // catalog 元信息的 ISO 时间 -> 本地短时间；空或非法返回占位符
 function formatCatalogTime(iso: string | null): string {
@@ -290,6 +250,8 @@ export default function BrowseMarketplaceTab({
   const { showToast } = useToast();
   const { byMarketplace, refreshAll, refreshOne } = useMarketplaceCatalog({ sources, active });
   const [searchQuery, setSearchQuery] = useState("");
+  // 输入即时回显，列表用延迟值：快速键入时 filter+sort 与重渲染不阻塞输入
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [marketplaceFilter, setMarketplaceFilter] = useState<"all" | string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
@@ -358,7 +320,7 @@ export default function BrowseMarketplaceTab({
   );
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = deferredSearchQuery.trim().toLowerCase();
     const comparePluginId = (a: MarketplacePluginEntry, b: MarketplacePluginEntry) =>
       a.pluginId.localeCompare(b.pluginId, undefined, { sensitivity: "base" });
     return allPlugins
@@ -394,14 +356,94 @@ export default function BrowseMarketplaceTab({
   }, [
     allPlugins,
     categoryFilter,
+    deferredSearchQuery,
     enabledMap,
     installCounts,
     marketplaceFilter,
     providerFilter,
-    searchQuery,
     sortDirection,
     sortMode,
     statusFilter,
+  ]);
+
+  // useCallback 稳定引用，行组件 memo 依赖回调不变化才拦截重渲染
+  const toggleDetails = useCallback((pluginId: string) => {
+    setExpandedPluginIds((current) => {
+      const next = new Set(current);
+      if (next.has(pluginId)) {
+        next.delete(pluginId);
+      } else {
+        next.add(pluginId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleDetailsKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLSpanElement>, pluginId: string) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      toggleDetails(pluginId);
+    },
+    [toggleDetails],
+  );
+
+  // 稳定化父级传入的回调（父级内联箭头每次 render 新建引用，会击穿行组件 memo）
+  const handleAddPlugin = useCallback(
+    (pluginId: string) => {
+      onAddPlugin(pluginId);
+    },
+    [onAddPlugin],
+  );
+  const handleManagePlugin = useCallback(
+    (pluginId: string) => {
+      onManagePlugin(pluginId);
+    },
+    [onManagePlugin],
+  );
+
+  // 虚拟化：只渲染可视行，292 行市场下把每行 7 个 Tooltip 的开销从 ~2000 个降到 ~100 个。
+  // 代价是浏览器 Cmd+F 只能命中已渲染行；该场景由应用内搜索框覆盖，
+  // 行数语义通过 role=list + aria-setsize/aria-posinset 暴露给辅助技术。
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => {
+      const plugin = filtered[index];
+      const containerWidth = scrollRef.current?.clientWidth || scrollRef.current?.offsetWidth;
+      return estimatePluginRowSize(
+        plugin,
+        catalog,
+        plugin ? expandedPluginIds.has(plugin.pluginId) : false,
+        containerWidth,
+      );
+    },
+    overscan: 8,
+    // index 可能是 -1：virtual-core 的 indexFromElement 在 data-index 缺失时只 console.warn 并返回 -1，
+    // 随后无条件调用 getItemKey，越界解引用会在 ref 回调内抛错卸载整个插件分区
+    getItemKey: (index) => filtered[index]?.pluginId ?? String(index),
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+
+  // 筛选/排序条件变化后列表内容整体替换，保留旧 scrollOffset 会让虚拟化停在新结果集尾部
+  // （calculateRange 用旧偏移对新 measurements 做二分查找，startIndex 被 clamp 到接近末尾）。
+  // 直接写 DOM scrollTop：真实浏览器会派发 scroll 事件让 virtualizer 同步偏移，
+  // 而 virtualizer.scrollToOffset 底层走 scrollElement.scrollTo，jsdom 未实现该方法。
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 依赖表是刻意的触发器——只列筛选/排序输入，不含 filtered，否则启用插件导致 filtered 重算时列表会跳回顶部
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (scroller) {
+      scroller.scrollTop = 0;
+    }
+  }, [
+    deferredSearchQuery,
+    marketplaceFilter,
+    statusFilter,
+    categoryFilter,
+    providerFilter,
+    sortMode,
+    sortDirection,
   ]);
 
   if (sources.length === 0) {
@@ -484,13 +526,6 @@ export default function BrowseMarketplaceTab({
     );
   }
 
-  function formatInstallCount(pluginId: string): string {
-    const count = installCounts[pluginId];
-    return typeof count === "number"
-      ? numberFormatter.format(count)
-      : t("profileEditor.plugins.browse.installCountUnknown");
-  }
-
   function formatRefreshSuccessDescription(
     summaries: Awaited<ReturnType<typeof refreshAll>>,
   ): string {
@@ -537,24 +572,6 @@ export default function BrowseMarketplaceTab({
         description: formatRefreshSuccessDescription(summaries),
       });
     }
-  }
-
-  function toggleDetails(pluginId: string) {
-    setExpandedPluginIds((current) => {
-      const next = new Set(current);
-      if (next.has(pluginId)) {
-        next.delete(pluginId);
-      } else {
-        next.add(pluginId);
-      }
-      return next;
-    });
-  }
-
-  function handleDetailsKeyDown(event: KeyboardEvent, pluginId: string) {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    toggleDetails(pluginId);
   }
 
   return (
@@ -868,271 +885,100 @@ export default function BrowseMarketplaceTab({
               sort: sortHintLabel,
             })}
           </p>
-          <div className="grid grid-cols-[32px_minmax(0,1fr)_minmax(88px,104px)_clamp(152px,16vw,190px)] items-center gap-x-3 border-b border-border px-3.5 py-2.5 text-xs font-semibold text-muted-foreground max-[640px]:hidden">
-            <span className="inline-flex items-center justify-center tabular-nums">
-              {t("profileEditor.common.index")}
-            </span>
-            <span
-              className="inline-flex min-w-0 items-center"
-              role="columnheader"
-              tabIndex={-1}
-              aria-sort={sortMode === "pluginId" ? getAriaSort(sortDirection) : "none"}
+          <div ref={scrollRef} className={PLUGIN_LIST_SCROLL_CLASS} data-slot="browse-scroll">
+            {/* 表头必须与行同处滚动容器内：否则滚动条宽度只从行网格里扣，两侧 grid 模板宽度不一致导致列错位。
+                sticky 自带 bg-card 遮挡下方滚动的行；z-sticky 使用全局语义层级 token。 */}
+            <div
+              data-slot="browse-header"
+              className="sticky top-0 z-sticky grid grid-cols-[32px_minmax(0,1fr)_minmax(88px,104px)_clamp(152px,16vw,190px)] items-center gap-x-3 border-b border-border bg-card px-3.5 py-2.5 text-xs font-semibold text-muted-foreground max-[640px]:hidden"
             >
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={getSortButtonLabel("pluginId")}
-                className={cn(
-                  "-mx-2 h-7 justify-start gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground",
-                  sortMode === "pluginId" && "text-foreground",
-                )}
-                onClick={() => handleSort("pluginId")}
+              <span className="inline-flex items-center justify-center tabular-nums">
+                {t("profileEditor.common.index")}
+              </span>
+              <span
+                className="inline-flex min-w-0 items-center"
+                role="columnheader"
+                tabIndex={-1}
+                aria-sort={sortMode === "pluginId" ? getAriaSort(sortDirection) : "none"}
               >
-                {t("profileEditor.plugins.columnId")}
-                {renderSortIcon("pluginId")}
-              </Button>
-            </span>
-            <span
-              className="inline-flex min-w-0 items-center justify-end"
-              role="columnheader"
-              tabIndex={-1}
-              aria-sort={sortMode === "installCount" ? getAriaSort(sortDirection) : "none"}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={getSortButtonLabel("pluginId")}
+                  className={cn(
+                    "-mx-2 h-7 justify-start gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground",
+                    sortMode === "pluginId" && "text-foreground",
+                  )}
+                  onClick={() => handleSort("pluginId")}
+                >
+                  {t("profileEditor.plugins.columnId")}
+                  {renderSortIcon("pluginId")}
+                </Button>
+              </span>
+              <span
+                className="inline-flex min-w-0 items-center justify-end"
+                role="columnheader"
+                tabIndex={-1}
+                aria-sort={sortMode === "installCount" ? getAriaSort(sortDirection) : "none"}
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={getSortButtonLabel("installCount")}
+                  className={cn(
+                    "-mx-2 h-7 justify-end gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground",
+                    sortMode === "installCount" && "text-foreground",
+                  )}
+                  onClick={() => handleSort("installCount")}
+                >
+                  {t("profileEditor.plugins.browse.columnInstallCount")}
+                  {renderSortIcon("installCount")}
+                </Button>
+              </span>
+              <span className="text-right">{t("profileEditor.common.actions")}</span>
+            </div>
+
+            {/* 表头在流内占位使 spacer 起点下移约 37px，virtualizer 的 scrollOffset 与 item 坐标系
+                因此有同等偏差。不设 scrollMargin：偏差只让 startIndex 晚 1 行以内，被 overscan: 8 完全吸收。 */}
+            <div
+              className="relative w-full"
+              role="list"
+              style={{ height: virtualizer.getTotalSize() }}
             >
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={getSortButtonLabel("installCount")}
-                className={cn(
-                  "-mx-2 h-7 justify-end gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground",
-                  sortMode === "installCount" && "text-foreground",
-                )}
-                onClick={() => handleSort("installCount")}
-              >
-                {t("profileEditor.plugins.browse.columnInstallCount")}
-                {renderSortIcon("installCount")}
-              </Button>
-            </span>
-            <span className="text-right">{t("profileEditor.common.actions")}</span>
-          </div>
-
-          {filtered.map((plugin, index) => {
-            const configured = enabledMap.has(plugin.pluginId);
-            const subTitle = [plugin.authorName, plugin.marketplaceId].filter(Boolean).join(" · ");
-            const details = [plugin.description, subTitle].filter(Boolean).join(" · ");
-            const expanded = expandedPluginIds.has(plugin.pluginId);
-            const canExpandDetails = details.length > DETAILS_COLLAPSE_THRESHOLD;
-            const detailsTooltip = expanded
-              ? t("profileEditor.plugins.browse.collapseDetailsTooltip")
-              : t("profileEditor.plugins.browse.expandDetailsTooltip");
-            const rowLabel = plugin.pluginId;
-            const displayName = plugin.pluginId.split("@")[0];
-            // 组成数据仅官方市场插件有（来自 catalog 缓存）
-            const components = catalog.entries[plugin.pluginId]?.components;
-            const componentBadges = components
-              ? COMPONENT_KINDS.map((kind) => ({
-                  ...kind,
-                  count: components[kind.key].length,
-                })).filter((badge) => badge.count > 0)
-              : [];
-            const hasComponents = componentBadges.length > 0;
-            // 提供方归属（仅对官方市场插件做行内徽章区分）
-            const affiliation = getProviderAffiliation(plugin);
-
-            return (
-              <div
-                key={plugin.pluginId}
-                data-slot="browse-row"
-                className="grid grid-cols-[32px_minmax(0,1fr)_minmax(88px,104px)_clamp(152px,16vw,190px)] items-start gap-x-3 border-t border-border px-3.5 py-3 text-sm font-medium leading-[1.4] first:border-t-0 max-[640px]:grid-cols-[32px_minmax(0,1fr)] max-[640px]:gap-y-2"
-              >
-                <span className="inline-flex items-start justify-center pt-0.5 text-muted-foreground tabular-nums">
-                  {index + 1}
-                </span>
-                <div className="min-w-0">
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    {plugin.homepage ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="group h-auto min-w-0 max-w-full justify-start whitespace-normal bg-transparent p-0 text-left text-[inherit] font-[inherit] hover:bg-transparent hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                        aria-label={`${t("profileEditor.plugins.openHomepageAriaLabel")} ${rowLabel}`}
-                        title={plugin.homepage}
-                        onClick={() => {
-                          void openUrl(plugin.homepage);
-                        }}
-                      >
-                        <span className="inline-flex min-w-0 items-center gap-1.5">
-                          <span className="min-w-0 break-words">{displayName}</span>
-                          <ExternalLink
-                            className="size-3.5 shrink-0 opacity-70 transition-opacity group-hover:opacity-100"
-                            aria-hidden="true"
-                          />
-                        </span>
-                      </Button>
-                    ) : (
-                      <span className="min-w-0 break-words">{displayName}</span>
-                    )}
-                    {plugin.isOfficial &&
-                      (affiliation === "anthropic" ? (
-                        <Badge variant="secondary" className="gap-1">
-                          <CircleCheck className="size-3" aria-hidden="true" />
-                          {t("profileEditor.plugins.browse.providerAnthropic")}
-                        </Badge>
-                      ) : plugin.authorName ? (
-                        <Badge
-                          variant="outline"
-                          className="max-w-full whitespace-normal break-words font-normal"
-                        >
-                          {plugin.authorName}
-                        </Badge>
-                      ) : (
-                        <span
-                          className="inline-flex shrink-0 items-center text-chart-2 opacity-80"
-                          role="img"
-                          aria-label={t("profileEditor.plugins.verifiedBadgeAriaLabel")}
-                        >
-                          <CircleCheck className="size-[13px]" aria-hidden="true" />
-                        </span>
-                      ))}
-                    {plugin.category && (
-                      <Badge variant="outline" className="max-w-full whitespace-normal break-words">
-                        {plugin.category}
-                      </Badge>
-                    )}
+              {virtualItems.map((virtualItem) => {
+                const plugin = filtered[virtualItem.index];
+                if (!plugin) return null;
+                return (
+                  <div
+                    key={virtualItem.key}
+                    data-index={virtualItem.index}
+                    ref={virtualizer.measureElement}
+                    className="absolute left-0 top-0 w-full"
+                    style={{ transform: `translateY(${virtualItem.start}px)` }}
+                    role="listitem"
+                    aria-setsize={filtered.length}
+                    aria-posinset={virtualItem.index + 1}
+                  >
+                    <MarketplacePluginRow
+                      plugin={plugin}
+                      index={virtualItem.index}
+                      configured={enabledMap.has(plugin.pluginId)}
+                      expanded={expandedPluginIds.has(plugin.pluginId)}
+                      installCount={installCounts[plugin.pluginId] ?? null}
+                      components={catalog.entries[plugin.pluginId]?.components}
+                      numberFormatter={numberFormatter}
+                      onToggleDetails={toggleDetails}
+                      onDetailsKeyDown={handleDetailsKeyDown}
+                      onAddPlugin={handleAddPlugin}
+                      onManagePlugin={handleManagePlugin}
+                    />
                   </div>
-                  {details && (
-                    <div className="mt-1.5 min-w-0">
-                      {canExpandDetails ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              asChild
-                              variant="ghost"
-                              className={cn(
-                                "h-auto w-full cursor-pointer justify-start whitespace-normal rounded-md bg-transparent p-0 text-left text-xs font-[inherit] leading-relaxed text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                                !expanded && "line-clamp-3",
-                              )}
-                            >
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                title={detailsTooltip}
-                                aria-expanded={expanded}
-                                aria-label={`${expanded ? t("profileEditor.plugins.browse.collapseDetailsAriaLabel") : t("profileEditor.plugins.browse.expandDetailsAriaLabel")} ${rowLabel}`}
-                                data-expanded={expanded ? "true" : "false"}
-                                data-testid={`marketplace-plugin-details-${plugin.pluginId}`}
-                                onClick={() => toggleDetails(plugin.pluginId)}
-                                onKeyDown={(event) => handleDetailsKeyDown(event, plugin.pluginId)}
-                              >
-                                {details}
-                              </span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" sideOffset={6}>
-                            {detailsTooltip}
-                          </TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <div
-                          className="min-w-0 whitespace-normal break-words text-xs leading-relaxed text-muted-foreground"
-                          data-expanded="true"
-                          data-testid={`marketplace-plugin-details-${plugin.pluginId}`}
-                        >
-                          {details}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {hasComponents && (
-                    <div className="mt-1.5 flex flex-col gap-1.5">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {componentBadges.map(({ key, icon: Icon, labelKey, count }) => (
-                          <Tooltip key={key}>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
-                                <Icon className="size-3.5" aria-hidden="true" />
-                                {count}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" sideOffset={6}>
-                              {t(labelKey)}
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="h-auto gap-1 p-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
-                          aria-expanded={expanded}
-                          aria-label={`${expanded ? t("profileEditor.plugins.browse.collapseComponentsAriaLabel") : t("profileEditor.plugins.browse.expandComponentsAriaLabel")} ${rowLabel}`}
-                          onClick={() => toggleDetails(plugin.pluginId)}
-                        >
-                          <ChevronDown
-                            className={cn(
-                              "size-3.5 transition-transform",
-                              expanded && "rotate-180",
-                            )}
-                            aria-hidden="true"
-                          />
-                        </Button>
-                      </div>
-                      {expanded && components && (
-                        <div
-                          className="flex flex-col gap-1 text-xs leading-relaxed text-muted-foreground"
-                          data-testid={`marketplace-plugin-components-${plugin.pluginId}`}
-                        >
-                          {COMPONENT_KINDS.map(({ key, labelKey }) =>
-                            components[key].length > 0 ? (
-                              <div key={key} className="min-w-0 break-words">
-                                <span className="font-medium text-foreground">{t(labelKey)}:</span>{" "}
-                                {components[key].join(", ")}
-                              </div>
-                            ) : null,
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex min-w-0 items-start justify-end pt-0.5 text-xs font-medium text-muted-foreground tabular-nums max-[640px]:col-start-2 max-[640px]:justify-start max-[640px]:pt-0">
-                  <span className="hidden shrink-0 text-muted-foreground max-[640px]:inline">
-                    {t("profileEditor.plugins.browse.columnInstallCount")}:
-                  </span>
-                  <span className="max-[640px]:ml-1">{formatInstallCount(plugin.pluginId)}</span>
-                </div>
-                <div className="flex justify-end max-[640px]:col-start-2 max-[640px]:justify-start">
-                  {configured ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2 max-[640px]:justify-start">
-                      <Badge variant="secondary">
-                        <CircleCheck className="size-3" aria-hidden="true" />
-                        {t("profileEditor.plugins.browse.actionConfigured")}
-                      </Badge>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onManagePlugin(plugin.pluginId)}
-                      >
-                        <Settings2 className="size-3.5" aria-hidden="true" />
-                        {t("profileEditor.plugins.browse.actionManage")}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      onClick={() => onAddPlugin(plugin.pluginId)}
-                    >
-                      <Plus className="size-3.5" aria-hidden="true" />
-                      {t("profileEditor.plugins.browse.actionEnable")}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 

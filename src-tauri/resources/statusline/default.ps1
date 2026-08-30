@@ -6,8 +6,10 @@
 
 # 状态行追求健壮而非严格：单个字段异常不应导致整行无输出
 $ErrorActionPreference = 'SilentlyContinue'
-# 强制 UTF-8 输出，避免 -> 等字符被系统代码页破坏
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# 强制 UTF-8 输入输出，避免 -> 等字符与中文被系统代码页破坏。
+# 必须用无 BOM 实例：[System.Text.Encoding]::UTF8 带 preamble，PS 5.1 下可能把 EF BB BF 混进输出头
+$Utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[Console]::OutputEncoding = $Utf8NoBom
 
 # ── ANSI 颜色常量（用拼接构造，避免字符串插值把 $var[ 当作索引）──
 $ESC = [char]27
@@ -100,7 +102,15 @@ function Format-K($n) {
 }
 
 # ── 读取并解析 stdin JSON ──────────────────────────────────
-$stdin = [Console]::In.ReadToEnd()
+# 显式以 UTF-8 读取标准输入：PS 5.1 的 [Console]::In 按系统代码页解码，
+# Claude Code 传入的 UTF-8 JSON 一旦含中文（目录名、session_name）就会乱码。
+# 直接设 [Console]::InputEncoding 在 stdin 已重定向时可能抛异常，故改用显式编码的 StreamReader。
+try {
+    $stdinReader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), $Utf8NoBom)
+    $stdin = $stdinReader.ReadToEnd()
+} catch {
+    $stdin = [Console]::In.ReadToEnd()
+}
 if ([string]::IsNullOrWhiteSpace($stdin)) { exit 0 }
 try { $data = $stdin | ConvertFrom-Json } catch { exit 0 }
 

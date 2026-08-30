@@ -111,6 +111,7 @@ describe("ui system contract", () => {
     expect(css).toContain("--shadow-panel:");
     expect(css).toContain("--shadow-floating:");
     expect(css).toContain("--shadow-toolbar:");
+    expect(css).toContain("--z-index-sticky: 10");
     expect(css).toContain("--shadow-panel: 0 1px 2px");
     expect(css).toContain("0 18px 45px");
     expect(css).toContain("--shadow-toolbar: 0 1px 0");
