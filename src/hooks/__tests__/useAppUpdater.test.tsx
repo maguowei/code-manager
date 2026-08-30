@@ -1,17 +1,26 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // 隔离 updater / process 插件、isTauri、Toast、logger，专注验证状态机分支
-const { checkMock, relaunchMock, isTauriMock, showToastMock, warnMock, showOperationErrorMock } =
-  vi.hoisted(() => ({
-    checkMock: vi.fn(),
-    relaunchMock: vi.fn(),
-    isTauriMock: vi.fn(() => true),
-    showToastMock: vi.fn(),
-    warnMock: vi.fn(),
-    showOperationErrorMock: vi.fn(),
-  }));
+const {
+  checkMock,
+  getVersionMock,
+  relaunchMock,
+  isTauriMock,
+  showToastMock,
+  warnMock,
+  showOperationErrorMock,
+} = vi.hoisted(() => ({
+  checkMock: vi.fn(),
+  getVersionMock: vi.fn<() => Promise<string>>(),
+  relaunchMock: vi.fn(),
+  isTauriMock: vi.fn(() => true),
+  showToastMock: vi.fn(),
+  warnMock: vi.fn(),
+  showOperationErrorMock: vi.fn(),
+}));
 
+vi.mock("@tauri-apps/api/app", () => ({ getVersion: getVersionMock }));
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: checkMock }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: relaunchMock }));
 vi.mock("../../types", () => ({ isTauri: isTauriMock }));
@@ -38,6 +47,7 @@ function makeUpdate(version = "1.0.1", contentLength: number | null = 100) {
 beforeEach(() => {
   vi.clearAllMocks();
   isTauriMock.mockReturnValue(true);
+  getVersionMock.mockResolvedValue("1.6.0");
 });
 
 describe("useAppUpdater.checkForUpdate", () => {
@@ -83,6 +93,31 @@ describe("useAppUpdater.checkForUpdate", () => {
     });
     expect(checkMock).not.toHaveBeenCalled();
     expect(result.current.status).toBe("idle");
+  });
+
+  it("Nightly 版本禁用更新检查且不访问稳定 endpoint", async () => {
+    getVersionMock.mockResolvedValue("1.6.0-nightly.g0123456");
+    const { result } = renderHook(() => useAppUpdater());
+    await act(async () => {
+      await result.current.checkForUpdate();
+    });
+
+    expect(result.current.availability).toBe("nightly");
+    expect(result.current.currentVersion).toBe("1.6.0-nightly.g0123456");
+    expect(result.current.status).toBe("idle");
+    expect(checkMock).not.toHaveBeenCalled();
+  });
+
+  it("读取版本失败时 fail closed，不访问更新 endpoint", async () => {
+    getVersionMock.mockRejectedValue(new Error("version unavailable"));
+    const { result } = renderHook(() => useAppUpdater());
+    await act(async () => {
+      await result.current.checkForUpdate();
+    });
+
+    await waitFor(() => expect(result.current.availability).toBe("unavailable"));
+    expect(checkMock).not.toHaveBeenCalled();
+    expect(warnMock).toHaveBeenCalled();
   });
 });
 
@@ -185,12 +220,14 @@ describe("useAppUpdater.checkForUpdate silent 模式", () => {
       }),
     );
     const { result } = renderHook(() => useAppUpdater());
+    await waitFor(() => expect(result.current.availability).toBe("enabled"));
 
     let silentCheck: Promise<void> | undefined;
     let manualCheck: Promise<void> | undefined;
-    act(() => {
+    await act(async () => {
       silentCheck = result.current.checkForUpdate({ silent: true });
       manualCheck = result.current.checkForUpdate();
+      await Promise.resolve();
     });
 
     expect(checkMock).toHaveBeenCalledTimes(1);

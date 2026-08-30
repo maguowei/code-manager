@@ -1,6 +1,7 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { showOperationError } from "@/lib/user-facing-error";
 import { useI18n } from "../i18n";
 import { isTauri } from "../types";
@@ -26,6 +27,8 @@ export type AppUpdaterStatus =
   | "ready"
   | "error";
 
+export type AppUpdaterAvailability = "loading" | "enabled" | "nightly" | "unavailable";
+
 export interface CheckForUpdateOptions {
   /**
    * 静默检查：用于启动 / 聚焦 / 定时等自动触发。
@@ -35,6 +38,8 @@ export interface CheckForUpdateOptions {
 }
 
 export interface AppUpdaterState {
+  availability: AppUpdaterAvailability;
+  currentVersion: string | null;
   status: AppUpdaterStatus;
   /** 发现的新版本号，仅在 available/downloading/ready 时有意义 */
   availableVersion: string | null;
@@ -44,10 +49,18 @@ export interface AppUpdaterState {
   downloadAndRestart: () => Promise<void>;
 }
 
+export function isNightlyVersion(version: string): boolean {
+  return /-nightly(?:\.|$)/i.test(version);
+}
+
 /** 封装 @tauri-apps/plugin-updater 的检查 / 下载 / 安装 / 重启流程，供 UpdaterProvider 统一驱动 */
 export function useAppUpdater(): AppUpdaterState {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const [availability, setAvailability] = useState<AppUpdaterAvailability>(
+    isTauri() ? "loading" : "unavailable",
+  );
+  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
   const [status, setStatus] = useState<AppUpdaterStatus>("idle");
   const [availableVersion, setAvailableVersion] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -55,10 +68,45 @@ export function useAppUpdater(): AppUpdaterState {
   const pendingUpdateRef = useRef<Update | null>(null);
   // 复用进行中的检查，避免自动检查与手动检查并发写入同一份更新状态
   const checkRequestRef = useRef<Promise<Update | null> | null>(null);
+  // 版本读取是本地调用且全局只需一次；所有检查都等待同一结果，Nightly 默认 fail closed。
+  const availabilityRequestRef = useRef<
+    Promise<{ availability: AppUpdaterAvailability; version: string | null }> | undefined
+  >(undefined);
+
+  const resolveAvailability = useCallback(() => {
+    if (!availabilityRequestRef.current) {
+      availabilityRequestRef.current = isTauri()
+        ? getVersion()
+            .then((version) => ({
+              availability: isNightlyVersion(version) ? ("nightly" as const) : ("enabled" as const),
+              version,
+            }))
+            .catch((error) => {
+              logger.warn(`updater: 读取应用版本失败，已停用更新检查 ${String(error)}`);
+              return { availability: "unavailable" as const, version: null };
+            })
+        : Promise.resolve({ availability: "unavailable" as const, version: null });
+    }
+    return availabilityRequestRef.current;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void resolveAvailability().then((resolved) => {
+      if (cancelled) return;
+      setAvailability(resolved.availability);
+      setCurrentVersion(resolved.version);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolveAvailability]);
 
   const checkForUpdate = useCallback(
     async (options?: CheckForUpdateOptions) => {
       if (!isTauri()) return;
+      const resolved = await resolveAvailability();
+      if (resolved.availability !== "enabled") return;
       // 静默检查不进入 checking，避免顶部横幅 / 设置按钮出现无意义的加载态闪烁
       if (!options?.silent) setStatus("checking");
       let request = checkRequestRef.current;
@@ -93,7 +141,7 @@ export function useAppUpdater(): AppUpdaterState {
         }
       }
     },
-    [showToast, t],
+    [resolveAvailability, showToast, t],
   );
 
   // 安装完成后重启进入新版本；重启失败不应回退为下载失败，保留 ready 让用户重试
@@ -146,5 +194,13 @@ export function useAppUpdater(): AppUpdaterState {
     await restartApp();
   }, [status, restartApp, showToast, t]);
 
-  return { status, availableVersion, progress, checkForUpdate, downloadAndRestart };
+  return {
+    availability,
+    currentVersion,
+    status,
+    availableVersion,
+    progress,
+    checkForUpdate,
+    downloadAndRestart,
+  };
 }

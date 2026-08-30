@@ -1,4 +1,3 @@
-import { getVersion } from "@tauri-apps/api/app";
 import {
   disable as disableAutostart,
   enable as enableAutostart,
@@ -309,22 +308,15 @@ function SettingsSectionCard({
 // 应用更新设置卡片：展示当前版本，手动检查更新并下载安装（状态机见 useAppUpdater）
 function UpdateSettingsCard() {
   const { t } = useI18n();
-  const { status, availableVersion, progress, checkForUpdate, downloadAndRestart } = useUpdater();
-  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getVersion()
-      .then((v) => {
-        if (!cancelled) setCurrentVersion(v);
-      })
-      .catch(() => {
-        // 取版本失败时仅不展示版本行，不影响检查更新
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    availability,
+    currentVersion,
+    status,
+    availableVersion,
+    progress,
+    checkForUpdate,
+    downloadAndRestart,
+  } = useUpdater();
 
   const isChecking = status === "checking";
   const isBusy = status === "downloading" || status === "ready";
@@ -347,7 +339,16 @@ function UpdateSettingsCard() {
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-3">
-          {showInstallButton ? (
+          {availability === "loading" ? (
+            <span className="text-sm text-muted-foreground">{t("update.loadingVersion")}</span>
+          ) : null}
+          {availability === "nightly" ? (
+            <span className="text-sm text-muted-foreground">{t("update.nightlyDisabled")}</span>
+          ) : null}
+          {availability === "unavailable" ? (
+            <span className="text-sm text-muted-foreground">{t("update.unavailable")}</span>
+          ) : null}
+          {availability === "enabled" && showInstallButton ? (
             <Button
               type="button"
               disabled={isBusy}
@@ -358,7 +359,8 @@ function UpdateSettingsCard() {
               <Download data-icon="inline-start" aria-hidden="true" />
               {installLabel}
             </Button>
-          ) : (
+          ) : null}
+          {availability === "enabled" && !showInstallButton ? (
             <Button
               type="button"
               variant="outline"
@@ -370,11 +372,11 @@ function UpdateSettingsCard() {
               <RefreshCw data-icon="inline-start" aria-hidden="true" />
               {isChecking ? t("update.checking") : t("update.checkNow")}
             </Button>
-          )}
-          {status === "upToDate" ? (
+          ) : null}
+          {availability === "enabled" && status === "upToDate" ? (
             <span className="text-sm text-muted-foreground">{t("update.upToDate")}</span>
           ) : null}
-          {status === "available" && availableVersion ? (
+          {availability === "enabled" && status === "available" && availableVersion ? (
             <span className="text-sm text-foreground">
               {t("update.available").replace("{version}", availableVersion)}
             </span>

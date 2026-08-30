@@ -5,6 +5,8 @@ const { checkForUpdateMock, isTauriMock, updaterState } = vi.hoisted(() => ({
   checkForUpdateMock: vi.fn(),
   isTauriMock: vi.fn(() => true),
   updaterState: {
+    availability: "enabled",
+    currentVersion: "1.6.0",
     status: "idle",
     availableVersion: null,
     progress: 0,
@@ -25,6 +27,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-07-04T00:00:00Z"));
   vi.clearAllMocks();
   updaterState.status = "idle";
+  updaterState.availability = "enabled";
   isTauriMock.mockReturnValue(true);
 });
 
@@ -51,6 +54,19 @@ describe("UpdaterProvider", () => {
     vi.advanceTimersByTime(31 * 60 * 1000);
     fireEvent.focus(window);
 
+    expect(checkForUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("Nightly 通道不注册或触发自动检查", () => {
+    updaterState.availability = "nightly";
+    render(
+      <UpdaterProvider>
+        <div />
+      </UpdaterProvider>,
+    );
+
+    vi.advanceTimersByTime(7 * 60 * 60 * 1000);
+    fireEvent.focus(window);
     expect(checkForUpdateMock).not.toHaveBeenCalled();
   });
 });
