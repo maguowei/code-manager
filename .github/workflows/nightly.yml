@@ -118,7 +118,9 @@ jobs:
         run: node scripts/nightly-version.mjs --write-config src-tauri/tauri.nightly.generated.json
 
       - name: 构建 macOS DMG
-        run: pnpm tauri build --config src-tauri/tauri.nightly.generated.json --target universal-apple-darwin --bundles dmg
+        # `app,dmg` 同时产出 .app 与 .dmg：Tauri 2 在仅 `--bundles dmg` 时生成 DMG 后会清理中间 .app，
+        # 后续「无头启动冒烟 - macOS」依赖 .app 目录，故显式保留 app 产物。
+        run: pnpm tauri build --config src-tauri/tauri.nightly.generated.json --target universal-apple-darwin --bundles app,dmg
 
       - name: 产物断言 - DMG
         id: artifact
