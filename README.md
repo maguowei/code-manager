@@ -63,6 +63,12 @@ The current macOS release packages are not notarized by Apple. Homebrew installs
 xattr -rd com.apple.quarantine /Applications/code-manager.app
 ```
 
+### Nightly Builds
+
+Want to try the latest features before they are released? Nightly installers for macOS (`dmg`), Linux (`deb` / `AppImage`), and Windows (`setup.exe`) are built automatically on every `main` merge and published as a rolling prerelease at [releases/download/nightly](https://github.com/maguowei/code-manager/releases/download/nightly). The version includes the commit short SHA (e.g. `1.6.0-nightly.ga1b2c3d`) so you can tell exactly which build you have.
+
+Nightly builds are **not signed or notarized**: macOS will block the first launch (right-click → Open, or `xattr -rd com.apple.quarantine /Applications/code-manager.app`), and Windows may show a SmartScreen warning. Nightly builds roll forward on each merge (older ones are overwritten) and do **not** self-update — install a stable release to get automatic updates.
+
 ### Automatic Updates
 
 The app has built-in automatic updates: it silently checks for new versions on startup, and once one is found you can download and install it with one click in "Settings - App Update", after which it restarts automatically. Users who installed via Homebrew can also keep upgrading with `brew upgrade`; both paths work, and after an in-app update the version Homebrew records will automatically align on the next `brew upgrade`.

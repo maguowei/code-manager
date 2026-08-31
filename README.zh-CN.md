@@ -63,6 +63,12 @@ macOS 当前发布包未经过 Apple 公证。Homebrew 安装会自动移除隔�
 xattr -rd com.apple.quarantine /Applications/code-manager.app
 ```
 
+### 每夜构建(Nightly)
+
+想提前体验尚未发布的新功能？每次 `main` 合并后会自动构建 macOS(`dmg`)、Linux(`deb`/`AppImage`)、Windows(`setup.exe`) 的每夜构建安装包,以滚动预发布形式发布在 [releases/download/nightly](https://github.com/maguowei/code-manager/releases/download/nightly)。版本号含 commit 短 sha(如 `1.6.0-nightly.ga1b2c3d`),可精确定位你正在使用哪次构建。
+
+每夜构建**未签名/未公证**:macOS 首次打开会被拦截(右键 → 打开,或 `xattr -rd com.apple.quarantine /Applications/code-manager.app`),Windows 可能触发 SmartScreen 提示。每夜构建随每次合并向前滚动(旧构建被覆盖),并且**不参与自更新** —— 需要自动更新请安装正式版。
+
 ### 自动更新
 
 应用内置自动更新：启动时会静默检查新版本，发现后在「设置 - 应用更新」中可一键下载并安装，安装完成后自动重启。通过 Homebrew 安装的用户也可继续用 `brew upgrade` 升级；两种方式都可用，应用内更新后 Homebrew 记录的版本号会在下次 `brew upgrade` 时自动对齐。

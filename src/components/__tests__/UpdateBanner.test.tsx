@@ -18,6 +18,8 @@ import { UpdateBanner } from "../UpdateBanner";
 
 function mockUpdater(overrides: Record<string, unknown>) {
   useUpdaterMock.mockReturnValue({
+    availability: "enabled",
+    currentVersion: "1.6.0",
     status: "idle",
     availableVersion: null,
     progress: 0,

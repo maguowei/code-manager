@@ -1,0 +1,438 @@
+name: Nightly
+
+# 滚动每夜构建：main 合并后自动出各平台安装包，供提前测试。
+# 设计决策见 docs/adr/0006-nightly-rolling-prerelease.md。
+on:
+  # main 合并：等 CI 成功后再构建（不重复跑质量门禁），仅当触发 CI 的是 push 到 main 才继续
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # 手动触发：不走 CI 依赖链，只做轻量前置（actionlint + gitleaks）
+  workflow_dispatch:
+
+# 顶层默认无权限；各 job 按需声明最小权限
+permissions: {}
+
+# 滚动 tag 是单一共享目标；串行执行避免发布阶段被新一轮运行取消。
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    # workflow_run 事件时，仅当触发 CI 的是 push 到 main 且 CI 为 success 才继续；
+    # 手动触发时无 CI 上下文，直接继续。
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: write
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.sha }}
+      nightly_version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: 提取本次构建对应的 commit
+        id: commit
+        shell: bash
+        env:
+          CI_SHA: ${{ github.event.workflow_run.head_sha }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=$CI_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$DISPATCH_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.commit.outputs.sha }}
+          fetch-depth: 0
+
+      # 手动触发才走轻量前置；CI 路径下 push/PR 已在 ci.yml 里执行相同检查。
+      - name: actionlint workflow 校验（仅手动触发）
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: reviewdog/action-actionlint@d63ba7532e0942965320cd8d73cbae4c7b3c5283 # v1.73.1
+        with:
+          reporter: github-check
+          fail_level: error
+
+      - name: Gitleaks 密钥扫描（仅手动触发）
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 计算每夜构建版本
+        id: version
+        shell: bash
+        env:
+          GITHUB_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          version=$(node scripts/nightly-version.mjs --print)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build-universal:
+    needs: prepare
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      NIGHTLY_VERSION: ${{ needs.prepare.outputs.nightly_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust 缓存
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 注入每夜构建版本
+        env:
+          GITHUB_SHA: ${{ needs.prepare.outputs.commit_sha }}
+        run: node scripts/nightly-version.mjs --write-config src-tauri/tauri.nightly.generated.json
+
+      - name: 构建 macOS DMG
+        run: pnpm tauri build --config src-tauri/tauri.nightly.generated.json --target universal-apple-darwin --bundles dmg
+
+      - name: 产物断言 - DMG
+        id: artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg=$(find src-tauri/target -type f -name "code-manager_${NIGHTLY_VERSION}_universal.dmg" 2>/dev/null | head -1)
+          test -n "$dmg"
+          test -s "$dmg"
+          echo "path=$dmg" >> "$GITHUB_OUTPUT"
+          echo "DMG 存在且非空: $dmg"
+
+      - name: 无头启动冒烟 - macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=$(find src-tauri/target -type d -name "code-manager.app" 2>/dev/null | head -1)
+          test -n "$app"
+          bin=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'code-manager*' 2>/dev/null | head -1)
+          test -n "$bin"
+          test -x "$bin"
+          # GitHub macOS runner 是真实 macOS 会话,可直接启动二进制;启动后断言静置若干秒仍存活。
+          "$bin" >/tmp/nightly-macos.log 2>&1 & pid=$!
+          sleep 12
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "应用未存活 12 秒,冒烟失败:"
+            cat /tmp/nightly-macos.log 2>/dev/null || true
+            exit 1
+          fi
+          kill "$pid" 2>/dev/null || true
+          echo "应用无头启动冒烟通过"
+
+      - name: 暂存 macOS 产物
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-macos
+          path: ${{ steps.artifact.outputs.path }}
+          if-no-files-found: error
+          retention-days: 3
+
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      NIGHTLY_VERSION: ${{ needs.prepare.outputs.nightly_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: stable
+
+      - name: Rust 缓存
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: 安装 Linux 系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 注入每夜构建版本
+        env:
+          GITHUB_SHA: ${{ needs.prepare.outputs.commit_sha }}
+        run: node scripts/nightly-version.mjs --write-config src-tauri/tauri.nightly.generated.json
+
+      - name: 构建 Linux 包
+        run: pnpm tauri build --config src-tauri/tauri.nightly.generated.json --bundles deb,appimage
+
+      - name: 产物断言 - deb/appimage
+        id: artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb=$(find src-tauri/target -type f -name "code-manager_${NIGHTLY_VERSION}_*.deb" 2>/dev/null | head -1)
+          appimg=$(find src-tauri/target -type f -name "code-manager_${NIGHTLY_VERSION}_*.AppImage" 2>/dev/null | head -1)
+          test -n "$deb"
+          test -n "$appimg"
+          test -s "$deb"
+          test -s "$appimg"
+          echo "deb=$deb" >> "$GITHUB_OUTPUT"
+          echo "appimage=$appimg" >> "$GITHUB_OUTPUT"
+          echo "存在且非空: $deb"
+          echo "存在且非空: $appimg"
+
+      - name: 无头启动冒烟 - Linux
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage=$(find src-tauri/target -type f -name "code-manager_${NIGHTLY_VERSION}_*.AppImage" 2>/dev/null | head -1)
+          test -f "$appimage"
+          # AppImage 在部分 runner 上缺 FUSE,用解包运行代替挂载
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          xvfb-run -a "$appimage" >/tmp/nightly-linux.log 2>&1 & pid=$!
+          sleep 12
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "AppImage 未存活 12 秒,冒烟失败:"
+            cat /tmp/nightly-linux.log 2>/dev/null || true
+            exit 1
+          fi
+          kill "$pid" 2>/dev/null || true
+          echo "AppImage 无头启动冒烟通过"
+
+      - name: 暂存 Linux 产物
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-linux
+          path: |
+            ${{ steps.artifact.outputs.deb }}
+            ${{ steps.artifact.outputs.appimage }}
+          if-no-files-found: error
+          retention-days: 3
+
+  build-windows:
+    needs: prepare
+    runs-on: windows-2025
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      NIGHTLY_VERSION: ${{ needs.prepare.outputs.nightly_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: stable
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 注入每夜构建版本
+        env:
+          GITHUB_SHA: ${{ needs.prepare.outputs.commit_sha }}
+        run: node scripts/nightly-version.mjs --write-config src-tauri/tauri.nightly.generated.json
+
+      - name: 构建 Windows NSIS
+        run: pnpm tauri build --config src-tauri/tauri.nightly.generated.json --bundles nsis
+
+      - name: 产物断言 - NSIS
+        id: artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          setup=$(find src-tauri/target -type f -name "code-manager_${NIGHTLY_VERSION}_x64-setup.exe" 2>/dev/null | head -1)
+          if [ -z "$setup" ]; then
+            echo "未找到 NSIS 安装包: ${NIGHTLY_VERSION}"
+            exit 1
+          fi
+          test -s "$setup"
+          echo "path=$setup" >> "$GITHUB_OUTPUT"
+          echo "存在且非空: $setup"
+
+      - name: 无头启动冒烟 - Windows（静默安装）
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem -Path "src-tauri/target" -Recurse -Filter "code-manager_${env:NIGHTLY_VERSION}_x64-setup.exe" | Select-Object -First 1
+          if (-not $setup) {
+            Write-Error "未找到 NSIS 安装包: ${env:NIGHTLY_VERSION}"
+            exit 1
+          }
+          Write-Host "静默安装: $($setup.Name)"
+          # NSIS 静默安装;安装路径按 productName 约定
+          Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait -NoNewWindow
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\code-manager\code-manager.exe",
+            "$env:LOCALAPPDATA\code-manager\code-manager.exe"
+          )
+          $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) {
+            Write-Error "未找到安装后的可执行文件"
+            exit 1
+          }
+          Write-Host "已安装: $exe"
+          $process = $null
+          try {
+            $process = Start-Process -FilePath $exe -PassThru
+            Start-Sleep -Seconds 12
+            if ($process.HasExited) {
+              Write-Error "应用启动后提前退出，exit code: $($process.ExitCode)"
+              exit 1
+            }
+            Write-Host "应用启动并存活 12 秒，冒烟通过"
+          }
+          finally {
+            if ($process -and -not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+              $process.WaitForExit()
+            }
+          }
+
+      - name: 暂存 Windows 产物
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-windows
+          path: ${{ steps.artifact.outputs.path }}
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: [prepare, build-universal, build-linux, build-windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
+      NIGHTLY_VERSION: ${{ needs.prepare.outputs.nightly_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: 跳过已过期的 main 构建
+        id: freshness
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          publish=true
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            latest_main=$(git ls-remote origin refs/heads/main | cut -f1)
+            if [ "$latest_main" != "$COMMIT_SHA" ]; then
+              echo "当前构建 $COMMIT_SHA 已落后于 main $latest_main，跳过发布"
+              publish=false
+            fi
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+
+      - name: 下载全部平台产物
+        if: ${{ steps.freshness.outputs.publish == 'true' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: nightly-*
+          merge-multiple: true
+          path: dist
+
+      - name: 发布前核验完整产物集
+        if: ${{ steps.freshness.outputs.publish == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          assert_one() {
+            local pattern=$1
+            local count
+            count=$(find dist -maxdepth 1 -type f -name "$pattern" | wc -l | tr -d ' ')
+            if [ "$count" -ne 1 ]; then
+              echo "产物数量错误: $pattern, expected=1, actual=$count"
+              exit 1
+            fi
+          }
+
+          total=$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')
+          if [ "$total" -ne 4 ]; then
+            echo "产物总数错误: expected=4, actual=$total"
+            find dist -maxdepth 1 -type f -print
+            exit 1
+          fi
+
+          assert_one "code-manager_${NIGHTLY_VERSION}_universal.dmg"
+          assert_one "code-manager_${NIGHTLY_VERSION}_*.deb"
+          assert_one "code-manager_${NIGHTLY_VERSION}_*.AppImage"
+          assert_one "code-manager_${NIGHTLY_VERSION}_x64-setup.exe"
+
+      - name: 发布滚动 Nightly Release
+        if: ${{ steps.freshness.outputs.publish == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # 所有平台构建与冒烟成功后才替换旧 release；新 release 在产物齐全前保持 draft。
+          gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
+          git push origin --delete nightly 2>/dev/null || true
+          gh release create nightly dist/* \
+            --draft \
+            --prerelease \
+            --latest=false \
+            --target "$COMMIT_SHA" \
+            --title "Code Manager 每夜构建 $NIGHTLY_VERSION" \
+            --notes "滚动构建，每一次 main 合并会覆盖本 Release。版本号含 commit 短 sha，报 bug 请附上（如 $NIGHTLY_VERSION）。"
+          gh release edit nightly --draft=false --prerelease --latest=false

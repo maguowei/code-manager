@@ -16,7 +16,9 @@ const UpdaterContext = createContext<AppUpdaterState | null>(null);
  */
 export function UpdaterProvider({ children }: { children: ReactNode }) {
   const updater = useAppUpdater();
-  // 用 ref 读取最新的 status / checkForUpdate，让自动检查回调保持稳定、不随状态变化重建
+  // 用 ref 读取最新状态，让自动检查回调保持稳定、不随状态变化重建
+  const availabilityRef = useRef(updater.availability);
+  availabilityRef.current = updater.availability;
   const statusRef = useRef(updater.status);
   statusRef.current = updater.status;
   const checkRef = useRef(updater.checkForUpdate);
@@ -25,6 +27,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
 
   // 静默自动检查：仅在空闲态触发，避免打断正在进行的检查 / 下载 / 待重启流程
   const autoCheck = useCallback(() => {
+    if (availabilityRef.current !== "enabled") return;
     const status = statusRef.current;
     if (
       status === "checking" ||
@@ -41,28 +44,28 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
   // 启动时检查一次
   const didInitialCheck = useRef(false);
   useEffect(() => {
-    if (didInitialCheck.current) return;
+    if (didInitialCheck.current || updater.availability !== "enabled") return;
     didInitialCheck.current = true;
     autoCheck();
-  }, [autoCheck]);
+  }, [autoCheck, updater.availability]);
 
   // 定时轮询
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isTauri() || updater.availability !== "enabled") return;
     const id = window.setInterval(autoCheck, POLL_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [autoCheck]);
+  }, [autoCheck, updater.availability]);
 
   // 窗口重新聚焦时检查（带节流）
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isTauri() || updater.availability !== "enabled") return;
     const onFocus = () => {
       if (Date.now() - lastCheckRef.current < FOCUS_THROTTLE_MS) return;
       autoCheck();
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [autoCheck]);
+  }, [autoCheck, updater.availability]);
 
   return <UpdaterContext.Provider value={updater}>{children}</UpdaterContext.Provider>;
 }

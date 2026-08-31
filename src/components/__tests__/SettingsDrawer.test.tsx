@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
 import type { AppPreferences, ConfigWorkspace } from "../../types";
@@ -7,14 +8,27 @@ import { ThemeProvider } from "../theme-provider";
 import { UpdaterProvider } from "../UpdaterProvider";
 import { Toaster } from "../ui/sonner";
 
-const { invokeMock, isPermissionGrantedMock, platformMock, requestPermissionMock } = vi.hoisted(
-  () => ({
+const { invokeMock, isPermissionGrantedMock, platformMock, requestPermissionMock, updaterState } =
+  vi.hoisted(() => ({
     invokeMock: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(async () => null),
     isPermissionGrantedMock: vi.fn<() => Promise<boolean>>(async () => false),
     platformMock: vi.fn(() => "macos"),
     requestPermissionMock: vi.fn<() => Promise<string>>(async () => "granted"),
-  }),
-);
+    updaterState: {
+      availability: "unavailable",
+      currentVersion: null as string | null,
+      status: "idle",
+      availableVersion: null,
+      progress: 0,
+      checkForUpdate: vi.fn(),
+      downloadAndRestart: vi.fn(),
+    },
+  }));
+
+vi.mock("../UpdaterProvider", () => ({
+  UpdaterProvider: ({ children }: { children: ReactNode }) => children,
+  useUpdater: () => updaterState,
+}));
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
@@ -88,6 +102,8 @@ describe("SettingsDrawer", () => {
     platformMock.mockReturnValue("macos");
     requestPermissionMock.mockReset();
     requestPermissionMock.mockResolvedValue("granted");
+    updaterState.availability = "unavailable";
+    updaterState.currentVersion = null;
     invokeMock.mockReset();
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_native_open_app_options") {
@@ -141,6 +157,18 @@ describe("SettingsDrawer", () => {
       })),
       configurable: true,
     });
+  });
+
+  it("Nightly 版本说明应用内更新已停用", async () => {
+    updaterState.availability = "nightly";
+    updaterState.currentVersion = "1.6.0-nightly.g0123456";
+
+    renderSettingsDrawer();
+
+    expect(
+      await screen.findByText("每夜构建不参与应用内更新，请手动安装新的每夜构建。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "检查更新" })).not.toBeInTheDocument();
   });
 
   it("opens the log viewer from the diagnostics section", async () => {
