@@ -398,20 +398,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Linux 产物用多行 path 上传，upload-artifact 以 least common ancestor（bundle/）为根，
+          # 解包后 deb/AppImage 落在 dist/deb、dist/appimage 子目录，故用递归查找而非 -maxdepth 1。
           assert_one() {
             local pattern=$1
             local count
-            count=$(find dist -maxdepth 1 -type f -name "$pattern" | wc -l | tr -d ' ')
+            count=$(find dist -type f -name "$pattern" | wc -l | tr -d ' ')
             if [ "$count" -ne 1 ]; then
               echo "产物数量错误: $pattern, expected=1, actual=$count"
               exit 1
             fi
           }
 
-          total=$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')
+          total=$(find dist -type f | wc -l | tr -d ' ')
           if [ "$total" -ne 4 ]; then
             echo "产物总数错误: expected=4, actual=$total"
-            find dist -maxdepth 1 -type f -print
+            find dist -type f -print
             exit 1
           fi
 
