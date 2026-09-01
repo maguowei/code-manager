@@ -244,13 +244,22 @@ jobs:
           kill "$pid" 2>/dev/null || true
           echo "AppImage 无头启动冒烟通过"
 
+      - name: 归集 Linux 产物到扁平目录
+        shell: bash
+        run: |
+          # upload-artifact 对多文件会保留 least common ancestor（bundle/）目录结构，
+          # 使 deb/AppImage 落入子目录；复制到 dist/ 根目录让三平台产物结构一致，便于发布用 dist/* 上传。
+          mkdir -p dist
+          cp "${{ steps.artifact.outputs.deb }}" dist/
+          cp "${{ steps.artifact.outputs.appimage }}" dist/
+
       - name: 暂存 Linux 产物
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nightly-linux
           path: |
-            ${{ steps.artifact.outputs.deb }}
-            ${{ steps.artifact.outputs.appimage }}
+            dist/*.deb
+            dist/*.AppImage
           if-no-files-found: error
           retention-days: 3
 
@@ -398,22 +407,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Linux 产物用多行 path 上传，upload-artifact 以 least common ancestor（bundle/）为根，
-          # 解包后 deb/AppImage 落在 dist/deb、dist/appimage 子目录，故用递归查找而非 -maxdepth 1。
           assert_one() {
             local pattern=$1
             local count
-            count=$(find dist -type f -name "$pattern" | wc -l | tr -d ' ')
+            count=$(find dist -maxdepth 1 -type f -name "$pattern" | wc -l | tr -d ' ')
             if [ "$count" -ne 1 ]; then
               echo "产物数量错误: $pattern, expected=1, actual=$count"
               exit 1
             fi
           }
 
-          total=$(find dist -type f | wc -l | tr -d ' ')
+          total=$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')
           if [ "$total" -ne 4 ]; then
             echo "产物总数错误: expected=4, actual=$total"
-            find dist -type f -print
+            find dist -maxdepth 1 -type f -print
             exit 1
           fi
 
