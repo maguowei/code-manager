@@ -3228,8 +3228,6 @@ mod tests {
             vec![
                 "deepseek-v4-pro[1m]".to_string(),
                 "deepseek-v4-flash[1m]".to_string(),
-                "minimax-m3".to_string(),
-                "qwen3.8-max".to_string()
             ]
         );
         assert_eq!(
