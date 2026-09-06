@@ -14,9 +14,9 @@ export type TabType =
   | "history"
   | "cheatsheet";
 
-export type DefaultTerminalApp = "terminal" | "iterm" | "warp" | "ghostty";
+export type DefaultTerminalApp = "terminal" | "iterm" | "ghostty";
 
-export type DefaultEditorApp = "vscode" | "cursor" | "windsurf" | "zed";
+export type DefaultEditorApp = "vscode" | "zed";
 
 export type SessionTrayCountStyle = "plain" | "superscript" | "superscriptCompact";
 

@@ -530,23 +530,17 @@ fn normalize_ui_language(language: &str) -> Result<&'static str, String> {
 pub(crate) const TERMINAL_APPS: &[(&str, &str)] = &[
     ("terminal", "Terminal"),
     ("iterm", "iTerm"),
-    ("warp", "Warp"),
     ("ghostty", "Ghostty"),
 ];
 
-pub(crate) const EDITOR_APPS: &[(&str, &str)] = &[
-    ("vscode", "Visual Studio Code"),
-    ("cursor", "Cursor"),
-    ("windsurf", "Windsurf"),
-    ("zed", "Zed"),
-];
+pub(crate) const EDITOR_APPS: &[(&str, &str)] = &[("vscode", "Visual Studio Code"), ("zed", "Zed")];
 
 pub(crate) fn normalize_default_terminal_app(app: &str) -> Result<&'static str, String> {
     TERMINAL_APPS
         .iter()
         .find(|(slug, _)| *slug == app)
         .map(|(slug, _)| *slug)
-        .ok_or_else(|| "仅支持 terminal / iterm / warp / ghostty 四种终端".to_string())
+        .ok_or_else(|| "仅支持 terminal / iterm / ghostty 三种终端".to_string())
 }
 
 pub(crate) fn normalize_default_editor_app(app: &str) -> Result<&'static str, String> {
@@ -554,7 +548,7 @@ pub(crate) fn normalize_default_editor_app(app: &str) -> Result<&'static str, St
         .iter()
         .find(|(slug, _)| *slug == app)
         .map(|(slug, _)| *slug)
-        .ok_or_else(|| "仅支持 vscode / cursor / windsurf / zed 四种编辑器".to_string())
+        .ok_or_else(|| "仅支持 vscode / zed 两种编辑器".to_string())
 }
 
 fn get_registry_path() -> Result<PathBuf, String> {
@@ -623,6 +617,20 @@ pub fn builtin_providers() -> &'static [Provider] {
 fn normalize_registry(registry: &mut ConfigRegistry) {
     registry.schema = CONFIG_REGISTRY_SCHEMA_URL.to_string();
     registry.version = REGISTRY_VERSION;
+    // 已移除的终端 / 编辑器（旧配置可能仍指向 warp / cursor / windsurf）在读取时即降级：
+    // 终端非法值回落系统默认终端，编辑器非法值回落“未设置”。放在 load 路径而非仅保存路径，
+    // 保证 UI / 后端拿到的始终是受支持值；任何后续保存（含托盘快捷开关的读改写）会把迁移持久化。
+    if normalize_default_terminal_app(&registry.app.default_terminal_app).is_err() {
+        registry.app.default_terminal_app = default_terminal_app();
+    }
+    if registry
+        .app
+        .default_editor_app
+        .as_deref()
+        .is_some_and(|app| normalize_default_editor_app(app).is_err())
+    {
+        registry.app.default_editor_app = None;
+    }
     registry.profiles.iter_mut().for_each(|profile| {
         if !profile.settings.is_object() {
             profile.settings = Value::Object(Map::new());
@@ -1004,6 +1012,8 @@ fn normalize_model_test_input(input: ModelTestInput) -> Result<ModelTestInput, S
 
 fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreferences, String> {
     let ui_language = normalize_ui_language(input.ui_language.trim())?.to_string();
+    // 已移除值（warp / cursor / windsurf）在 load 路径由 normalize_registry 迁移，不会流到这里；
+    // 此处保持严格校验，让真正非法的 slug（前端回归或拼写错误）返回 Err 以暴露问题。
     let default_terminal_app =
         normalize_default_terminal_app(input.default_terminal_app.trim())?.to_string();
     let default_editor_app = input
@@ -3116,6 +3126,69 @@ mod tests {
     }
 
     #[test]
+    fn normalize_registry_downgrades_removed_terminal_and_editor() {
+        // 旧配置可能仍指向已移除的 warp / cursor / windsurf：读取时（normalize_registry）
+        // 就把终端非法值迁移为系统默认、编辑器非法值迁移为“未设置”，保证 UI / 后端拿到受支持值。
+        let mut registry = ConfigRegistry::default();
+        registry.app.default_terminal_app = "warp".to_string();
+        registry.app.default_editor_app = Some("cursor".to_string());
+
+        normalize_registry(&mut registry);
+
+        assert_eq!(registry.app.default_terminal_app, "terminal");
+        assert_eq!(registry.app.default_editor_app, None);
+
+        // 合法值不受影响
+        let mut valid = ConfigRegistry::default();
+        valid.app.default_terminal_app = "ghostty".to_string();
+        valid.app.default_editor_app = Some("zed".to_string());
+
+        normalize_registry(&mut valid);
+
+        assert_eq!(valid.app.default_terminal_app, "ghostty");
+        assert_eq!(valid.app.default_editor_app, Some("zed".to_string()));
+    }
+
+    #[test]
+    fn normalize_app_preferences_rejects_unknown_terminal_and_editor() {
+        // 保存路径保持严格：已移除值在 load 迁移后不会到这里，真正非法的 slug 应返回 Err 暴露问题。
+        let base = || AppPreferencesInput {
+            show_tray_title: true,
+            show_tray_sessions: true,
+            system_notifications_enabled: false,
+            collapse_sidebar_by_default: false,
+            third_party_provider_pricing_enabled: true,
+            ui_language: "zh".to_string(),
+            default_terminal_app: "terminal".to_string(),
+            default_editor_app: None,
+            tray_title_max_chars: None,
+            session_tray_count_style: SessionTrayCountStyle::default(),
+            tray_pulse_waiting: true,
+            focus_session_shortcut: None,
+            led_control: crate::led::LedControlPreferences::default(),
+            floating_widget_enabled: false,
+            floating_widget_metrics: default_floating_widget_metrics(),
+            floating_widget_opacity: default_floating_widget_opacity(),
+            waiting_sound_enabled: false,
+            waiting_sound: WaitingSound::default(),
+            sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+            keep_display_awake: false,
+        };
+
+        let bad_terminal = AppPreferencesInput {
+            default_terminal_app: "warp".to_string(),
+            ..base()
+        };
+        assert!(normalize_app_preferences(bad_terminal).is_err());
+
+        let bad_editor = AppPreferencesInput {
+            default_editor_app: Some("cursor".to_string()),
+            ..base()
+        };
+        assert!(normalize_app_preferences(bad_editor).is_err());
+    }
+
+    #[test]
     fn compile_schema_regex_reuses_cached_patterns() {
         let first = compile_schema_regex("^Bash\\(.+\\)$").unwrap();
         let second = compile_schema_regex("^Bash\\(.+\\)$").unwrap();
@@ -4242,7 +4315,7 @@ mod tests {
                 third_party_provider_pricing_enabled: true,
                 ui_language: "zh".to_string(),
                 default_terminal_app: "terminal".to_string(),
-                default_editor_app: Some("cursor".to_string()),
+                default_editor_app: Some("vscode".to_string()),
                 tray_title_max_chars: None,
                 session_tray_count_style: SessionTrayCountStyle::SuperscriptCompact,
                 tray_pulse_waiting: true,

@@ -192,12 +192,9 @@ Skills 页管理 `~/.claude/skills/` 下的 Claude Code Skill。
 | 应用 | macOS | Linux | Windows |
 | --- | --- | --- | --- |
 | VS Code | 支持 | 需 `code` CLI | 需 `code` CLI |
-| Cursor | 支持 | 需 `cursor` CLI | 需 `cursor` CLI |
-| Windsurf | 支持 | 需 `windsurf` CLI | 需 `windsurf` CLI |
 | Zed | 支持 | 需 `zed` CLI | 需 `zed` CLI |
 | Terminal | Terminal.app | 依次尝试 `$TERMINAL`、`xdg-terminal-exec`、`x-terminal-emulator` 等 | 依次尝试 Windows Terminal、PowerShell、cmd |
 | iTerm | 支持 | 不支持 | 不支持 |
-| Warp | 支持 | 需 `warp-terminal` CLI | 需 `warp.exe` 或官方安装路径 |
 | Ghostty | 支持 | 需 `ghostty` CLI | 暂不支持 |
 
 ### 状态检查
@@ -276,7 +273,7 @@ Code Manager 常驻系统托盘(菜单栏),菜单分两部分:
 - 主托盘:切换当前配置、快速跳转到各页面、退出应用。切换配置等价于在配置页启用对应配置。
 - 会话托盘:读取 `~/.claude/sessions/*.json`,按状态汇总当前 Claude 会话(等待输入 / 工作中 / 空闲)。是否显示、字符限制、会话计数样式和待处理呼吸灯都在设置中调整(见下文)。
 
-**会话聚焦**:在支持的平台点击会话条目,或使用会话聚焦快捷键,可回到对应终端 tab。该能力**仅 macOS** 可用,Terminal.app 与 iTerm2 走 `pid → tty → AppleScript` 精确聚焦,Ghostty 优先按 `tty` 属性匹配,旧版本或 tty 未命中时再按工作目录做唯一兜底。Warp 因缺少官方 AppleScript 暂不支持。Linux 与 Windows 不支持自动聚焦,点击会话不会切换终端。详见 [平台支持差异](./platform-support.zh-CN.md)。
+**会话聚焦**:在支持的平台点击会话条目,或使用会话聚焦快捷键,可回到对应终端 tab。该能力**仅 macOS** 可用,Terminal.app 与 iTerm2 走 `pid → tty → AppleScript` 精确聚焦,Ghostty 优先按 `tty` 属性匹配,旧版本或 tty 未命中时再按工作目录做唯一兜底。Linux 与 Windows 不支持自动聚焦,点击会话不会切换终端。详见 [平台支持差异](./platform-support.zh-CN.md)。
 
 **LED 灯效联动(仅 macOS)**:启用后,会话托盘的红绿状态会镜像到外接 ANTICATER USB 设备灯效,适合不盯着菜单栏时用硬件灯提示会话状态。配置入口在设置的设备联动区。
 

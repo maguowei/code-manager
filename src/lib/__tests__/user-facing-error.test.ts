@@ -36,9 +36,9 @@ describe("getUserFacingErrorReason", () => {
         String.raw`读取文件失败 "C:\Users\Mary Jane\.claude\settings.json": Access denied`,
       ),
     ).toBe(String.raw`读取文件失败 "~\.claude\settings.json": Access denied`);
-    expect(getUserFacingErrorReason(String.raw`启动 "C:\Program Files\Warp\warp.exe" 失败`)).toBe(
-      String.raw`启动 "…\warp.exe" 失败`,
-    );
+    expect(
+      getUserFacingErrorReason(String.raw`启动 "C:\Program Files\Microsoft VS Code\Code.exe" 失败`),
+    ).toBe(String.raw`启动 "…\Code.exe" 失败`);
     expect(getUserFacingErrorReason("读取 /private/var/tmp/source/CLAUDE.md 失败")).toBe(
       "读取 …/CLAUDE.md 失败",
     );

@@ -42,16 +42,16 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 | 终端会话聚焦（点击托盘会话或全局快捷键回到原 tab） | ✅（Terminal.app / iTerm / Ghostty；含全局会话聚焦快捷键） | ❌ stub `Unsupported`（无快捷键） | ❌ stub `Unsupported`（无快捷键） | `src-tauri/src/terminal_focus.rs` |
 | LED 灯效联动（托盘会话状态镜像到 ANTICATER USB 设备） | ✅（`led_probe_status` / `led_test_mode`） | ❌ 空跑无害（探测返回 None） | ❌ 空跑无害（探测返回 None） | `src-tauri/src/led.rs`（HID 写报告） |
 | 可点击系统通知（点击跳回会话） | ✅（`mac-notification-sys`） | ⚠️ 退回纯文本 `tauri-plugin-notification` | ⚠️ 退回纯文本 `tauri-plugin-notification` | `src-tauri/src/tray.rs` |
-| 默认编辑器打开（VS Code / Cursor / Windsurf / Zed） | ✅ `open -a` | ✅ 依赖 CLI 在 `PATH` | ✅ `tauri-plugin-opener` | `src-tauri/src/native_open.rs` |
-| 默认终端打开 | ✅（Terminal / iTerm / Warp / Ghostty） | ✅（`$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` / Warp / Ghostty CLI） | ✅（Windows Terminal / PowerShell / cmd） | `src-tauri/src/native_open.rs` |
+| 默认编辑器打开（VS Code / Zed） | ✅ `open -a` | ✅ 依赖 CLI 在 `PATH` | ✅ `tauri-plugin-opener` | `src-tauri/src/native_open.rs` |
+| 默认终端打开 | ✅（Terminal / iTerm / Ghostty） | ✅（`$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` / Ghostty CLI） | ✅（Windows Terminal / PowerShell / cmd） | `src-tauri/src/native_open.rs` |
 | 子进程隐藏控制台窗口 | N/A | N/A | ✅ `CREATE_NO_WINDOW` | `src-tauri/src/native_open.rs` |
 
 ### UI 层的平台过滤
 
 | 能力 | macOS | Linux | Windows | 来源 |
 | --- | --- | --- | --- | --- |
-| 设置抽屉中可选终端 | Terminal、iTerm、Warp、Ghostty | Terminal、Warp、Ghostty（**排除 iTerm**） | Terminal、Warp（**进一步排除 Ghostty**） | `src/components/SettingsDrawer.tsx::getTerminalOptionsForPlatform` |
-| 设置抽屉中可选编辑器 | VS Code、Cursor、Windsurf、Zed | 同左（依赖 CLI 在 `PATH`） | 同左（依赖 CLI 在 `PATH`） | `src/components/SettingsDrawer.tsx` |
+| 设置抽屉中可选终端 | Terminal、iTerm、Ghostty | Terminal、Ghostty（**排除 iTerm**） | Terminal（**进一步排除 Ghostty**） | `src/components/SettingsDrawer.tsx::getTerminalOptionsForPlatform` |
+| 设置抽屉中可选编辑器 | VS Code、Zed | 同左（依赖 CLI 在 `PATH`） | 同左（依赖 CLI 在 `PATH`） | `src/components/SettingsDrawer.tsx` |
 | 状态行预设安装错误提示 | — | — | — | `profileEditor.statusLine.installPresetUnsupportedPlatform` 仅在 macOS/Linux/Windows 之外的平台触发 |
 
 ### 文件系统行为
@@ -71,7 +71,7 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 
 - **支持度最高**。所有功能均可用，包括终端会话聚焦、可点击通知和 Dock 激活策略切换。
 - 应用数据目录刻意放在 `~/.config/code-manager/` 而非系统标准的 `~/Library/Application Support/`，便于跨平台备份与脚本访问（详见下节）。
-- 终端会话聚焦走 `pid → tty → AppleScript`，支持 Terminal.app / iTerm2 / Ghostty；Ghostty 按 `tty` 属性精确匹配（上游 #11592 引入，随 PR #11922 合入 main，尚未发布），旧版降级为按 `cwd` 唯一匹配；Warp 没有官方 AppleScript，托盘菜单项会被置为 disabled。
+- 终端会话聚焦走 `pid → tty → AppleScript`，支持 Terminal.app / iTerm2 / Ghostty；Ghostty 按 `tty` 属性精确匹配（上游 #11592 引入，随 PR #11922 合入 main，尚未发布），旧版降级为按 `cwd` 唯一匹配。
 - 首次打开如果被 Gatekeeper 拦截，可移除隔离属性：
   ```bash
   xattr -rd com.apple.quarantine /Applications/code-manager.app
@@ -82,8 +82,8 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 - **状态行预设可用**（Bash 脚本，依赖 `chmod 0o755`，`#[cfg(unix)]` 分支命中）。
 - **终端会话聚焦不可用**（`terminal_focus.rs` 返回 `Unsupported`）。点击托盘会话项时不会自动回到原 tab；如需要，请手动切换。
 - **通知降级为纯文本**：能看到通知内容，但不可点击跳回会话。
-- 默认终端范围比 macOS 少一个 iTerm，其余沿用：Terminal（系统默认）、Warp、Ghostty；后端还会按需探测 `$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator`。
-- 默认编辑器（VS Code / Cursor / Windsurf / Zed）依赖对应 CLI 在 `PATH` 中。
+- 默认终端范围比 macOS 少一个 iTerm，其余沿用：Terminal（系统默认）、Ghostty；后端还会按需探测 `$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator`。
+- 默认编辑器（VS Code / Zed）依赖对应 CLI 在 `PATH` 中。
 - 构建需要系统依赖：`libwebkit2gtk-4.1-dev`、`libappindicator3-dev`、`librsvg2-dev`（详见 `.github/workflows/ci.yml`）。
 
 ### Windows
@@ -91,7 +91,7 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 - **状态行预设可用**。安装 PowerShell 版脚本 `~/.claude/statusline.ps1`，并把 `statusLine.command` 设为绝对正斜杠路径的 `powershell -NoProfile -ExecutionPolicy Bypass -File ...`；PowerShell 与 `ConvertFrom-Json` 系统自带，无需 jq / Git Bash。NTFS 无可执行位，无需 `chmod`。
 - **终端会话聚焦不可用**（同 Linux，`terminal_focus.rs` 返回 `Unsupported`）。
 - **通知降级为纯文本**（同 Linux）。
-- 设置抽屉中可选终端进一步收窄到 Windows Terminal、Warp，可选编辑器同 macOS / Linux（需要 CLI 在 `PATH` 中）。
+- 设置抽屉中可选终端进一步收窄到 Windows Terminal，可选编辑器同 macOS / Linux（需要 CLI 在 `PATH` 中）。
 - 启动外部进程时会带 `CREATE_NO_WINDOW`，避免闪过黑色控制台。
 - 软链失败时 `project.rs` 会降级为硬链接，避免低权限账户因为无法创建符号链接而流程中断。
 

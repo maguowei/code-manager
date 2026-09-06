@@ -2108,7 +2108,7 @@ mod tests {
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
 
         assert!(notifications.is_empty());
@@ -2124,20 +2124,20 @@ mod tests {
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            "warp",
+            "unknown",
         );
 
         let first_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
         let repeated_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
 
         assert_eq!(first_notifications.len(), 1);
@@ -2161,7 +2161,7 @@ mod tests {
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            "warp",
+            "unknown",
         );
         assert!(!notifier.last_had_new_waiting, "首帧不应触发音效信号");
 
@@ -2170,7 +2170,7 @@ mod tests {
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
         assert!(notifier.last_had_new_waiting, "新等待会话应置位音效信号");
         assert!(notifications.is_empty(), "系统通知关闭时不产生通知");
@@ -2180,7 +2180,7 @@ mod tests {
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
         assert!(!notifier.last_had_new_waiting, "重复 waiting 不应再置位");
     }
@@ -2194,14 +2194,14 @@ mod tests {
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            "warp",
+            "unknown",
         );
 
         let first_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
         let repeated_count = (0..10)
             .map(|_| {
@@ -2210,7 +2210,7 @@ mod tests {
                         &test_preferences(true, "terminal"),
                         std::slice::from_ref(&waiting),
                         "zh",
-                        "warp",
+                        "unknown",
                     )
                     .len()
             })
@@ -2229,26 +2229,26 @@ mod tests {
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            "warp",
+            "unknown",
         );
         let _ = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
         let _ = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            "warp",
+            "unknown",
         );
 
         let notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
 
         assert_eq!(notifications.len(), 1);
@@ -2263,20 +2263,20 @@ mod tests {
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&idle),
             "zh",
-            "warp",
+            "unknown",
         );
         let disabled_notifications = notifier.observe(
             &test_preferences(false, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
 
         let enabled_notifications = notifier.observe(
             &test_preferences(true, "terminal"),
             std::slice::from_ref(&waiting),
             "zh",
-            "warp",
+            "unknown",
         );
 
         assert!(disabled_notifications.is_empty());
@@ -2373,7 +2373,7 @@ mod tests {
         let notification = build_pending_session_notification(
             &session,
             "zh",
-            "warp",
+            "unknown",
             PendingSessionNotificationInteraction::Plain,
         );
 
@@ -2393,9 +2393,9 @@ mod tests {
             pending_session_notification_interaction(&terminal_session, "terminal"),
             expected_terminal_interaction
         );
-        // 默认终端不支持（warp）→ 不可聚焦
+        // 默认终端不支持（未知 / 已移除 slug）→ 不可聚焦
         assert_eq!(
-            pending_session_notification_interaction(&terminal_session, "warp"),
+            pending_session_notification_interaction(&terminal_session, "unknown"),
             PendingSessionNotificationInteraction::Plain
         );
     }
@@ -2418,7 +2418,7 @@ mod tests {
         // 默认终端不支持：pid 检测与 herdr 检测都失败（测试进程不存在）
         assert!(!session_focus_available_for_platform(
             GHOST_PID,
-            "warp",
+            "unknown",
             Some(VALID_PROC_START),
             true
         ));
@@ -2437,7 +2437,7 @@ mod tests {
         ));
         assert!(!session_focus_available_for_platform(
             GHOST_PID,
-            "warp",
+            "unknown",
             Some(VALID_PROC_START),
             false
         ));
