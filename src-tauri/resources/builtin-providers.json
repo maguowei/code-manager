@@ -40,13 +40,13 @@
       "ANTHROPIC_MODEL": "glm-5.3[1m]",
       "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1m]",
       "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1m]",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash[1m]",
       "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
       "CLAUDE_CODE_EFFORT_LEVEL": "max"
     },
     "models": [
       { "id": "glm-5.3[1m]", "name": "GLM-5.3" },
-      { "id": "glm-4.7", "name": "GLM-4.7" }
+      { "id": "glm-5.3-flash[1m]", "name": "GLM-5.3-Flash" }
     ]
   },
   {
