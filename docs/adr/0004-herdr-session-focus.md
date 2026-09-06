@@ -17,7 +17,7 @@
 ## Consequences
 
 - 协议按 herdr 源码快照实现（无官方 schema 文件）；herdr 协议若变动，socket 调用失败会走 `HerdrNotRunning` / 通用 `ScriptError` 兜底，不会崩溃，但需要跟进。
-- 宿主终端必须仍受支持（Terminal / iTerm / Ghostty）才有完整两跳；herdr 跑在 Warp 等无 AppleScript 宿主里只能得到内部聚焦 + warn。
+- 宿主终端必须仍受支持（Terminal / iTerm / Ghostty）才有完整两跳；herdr 跑在无官方 AppleScript 的宿主终端里只能得到内部聚焦 + warn。
 - 多 tab 附着同一 herdr 会话时取第一个 client（UI 内容相同，聚焦任一都正确）；本地找不到 client 时不激活窗口。
 - Ghostty 的 `tty` 属性由上游 #11592 引入（随 PR #11922 合入 main、尚未发布，1.3.x 的 sdef 没有）：`try` 只包住属性读取，新版按 tty 精确命中，旧版探测失败后落到 title/cwd 兜底；空 cwd 不生成兜底分支（`"" is ""` 为 true，会误命中无 shell 集成的 tab）。命名会话的 title 可区分同 cwd 的多个 client，title 未命中且 cwd 多匹配时宁可降级为内部聚焦成功，也不误激活其它会话。
 - 普通 Ghostty 会话与 herdr client 共享 cwd 时，普通路径必须先排除 herdr title；若剩余普通 terminal 仍多于一个，继续降级失败，避免无法精确识别时误激活其它会话。

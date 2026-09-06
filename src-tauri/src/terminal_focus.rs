@@ -11,7 +11,7 @@
 //!   旧版探测失败后自然落到既有兜底——herdr 宿主按命名会话 title 匹配，普通会话
 //!   排除 herdr client 后按 working directory 唯一匹配。空 cwd 不生成兜底分支，
 //!   避免 AppleScript 的 `"" is ""` 误命中没有工作目录的 tab。
-//! - Warp 没有官方 AppleScript，托盘菜单项会被设为 disabled，正常不会调到本模块。
+//! - 无官方 AppleScript 的宿主终端（托盘菜单项会被设为 disabled）正常不会调到本模块。
 //! - 命中失败会记 warn 日志，并把失败原因作为 Err 返回给调用方用于给用户反馈。
 //!   调用方负责决定是否新开窗口；本模块本身绝不自动新开 tab。
 
@@ -117,6 +117,7 @@ pub(crate) fn terminal_app_from_ps_output(output: &str) -> Option<&'static str> 
         "apple_terminal" | "terminal" => Some("terminal"),
         "iterm" | "iterm.app" | "iterm2" => Some("iterm"),
         "ghostty" => Some("ghostty"),
+        // 保留不支持宿主的身份，阻止普通会话与 herdr 回退默认终端后误聚焦。
         "warp" | "warpterminal" => Some("warp"),
         _ => None,
     }
@@ -816,7 +817,7 @@ mod tests {
         assert!(terminal_supports_focus("terminal"));
         assert!(terminal_supports_focus("iterm"));
         assert!(terminal_supports_focus("ghostty"));
-        assert!(!terminal_supports_focus("warp"));
+        assert!(!terminal_supports_focus("unknown"));
         assert!(!terminal_supports_focus(""));
         assert!(!terminal_supports_focus("Terminal")); // 大小写敏感，避免与配置里 slug 不一致
     }
@@ -835,10 +836,6 @@ mod tests {
             terminal_app_from_ps_output("zsh TERM_PROGRAM=ghostty TERM=xterm-ghostty"),
             Some("ghostty")
         );
-        assert_eq!(
-            terminal_app_from_ps_output("zsh TERM_PROGRAM=WarpTerminal TERM=xterm-256color"),
-            Some("warp")
-        );
     }
 
     #[test]
@@ -848,6 +845,18 @@ mod tests {
             None
         );
         assert_eq!(terminal_app_from_ps_output("zsh TERM=xterm-256color"), None);
+    }
+
+    #[test]
+    fn removed_warp_host_does_not_fall_back_to_ghostty() {
+        for term_program in ["Warp", "WarpTerminal", "warpterminal"] {
+            let output = format!("zsh TERM_PROGRAM={term_program} TERM=xterm-256color");
+            // 普通会话与 herdr 宿主都会在识别失败时回退默认终端；已知不支持的宿主必须阻止回退。
+            let app_slug = terminal_app_from_ps_output(&output).unwrap_or("ghostty");
+            assert_eq!(app_slug, "warp");
+            assert!(!terminal_supports_focus(app_slug));
+            assert!(tty_terminal_script(app_slug).is_none());
+        }
     }
 
     #[test]
@@ -981,10 +990,10 @@ mod tests {
 
     #[test]
     fn focus_session_in_terminal_rejects_missing_or_invalid_process_identity() {
-        let err = focus_session_in_terminal(GHOST_PID, "/tmp", "warp", None)
+        let err = focus_session_in_terminal(GHOST_PID, "/tmp", "terminal", None)
             .expect_err("缺失 procStart 应拒绝聚焦");
         assert_eq!(err, FocusFailure::ProcessIdentityMismatch);
-        let err = focus_session_in_terminal(GHOST_PID, "/tmp", "warp", Some("garbage"))
+        let err = focus_session_in_terminal(GHOST_PID, "/tmp", "terminal", Some("garbage"))
             .expect_err("非法 procStart 应拒绝聚焦");
         assert_eq!(err, FocusFailure::ProcessIdentityMismatch);
     }
@@ -1294,8 +1303,8 @@ mod tests {
         assert!(body_zh_tty.contains("会话进程已退出"));
 
         let (_, body_zh_unsupported) =
-            FocusFailure::Unsupported("warp".to_string()).user_message("zh");
-        assert!(body_zh_unsupported.contains("warp"));
+            FocusFailure::Unsupported("unknown".to_string()).user_message("zh");
+        assert!(body_zh_unsupported.contains("unknown"));
         assert!(body_zh_unsupported.contains("不支持"));
 
         let (_, body_zh_script) = FocusFailure::ScriptError.user_message("zh");
@@ -1326,8 +1335,8 @@ mod tests {
         let (_, body) = FocusFailure::TtyNotFound.user_message("en");
         assert!(body.to_lowercase().contains("session process has exited"));
 
-        let (_, body) = FocusFailure::Unsupported("warp".to_string()).user_message("en");
-        assert!(body.contains("'warp'"));
+        let (_, body) = FocusFailure::Unsupported("unknown".to_string()).user_message("en");
+        assert!(body.contains("'unknown'"));
         assert!(body.to_lowercase().contains("does not support"));
 
         let (_, body) = FocusFailure::ScriptError.user_message("en");

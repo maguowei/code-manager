@@ -185,14 +185,11 @@ const themeOptions: {
 const terminalOptions: NativeOpenSelectOption<DefaultTerminalApp>[] = [
   { value: "terminal", label: "Terminal" },
   { value: "iterm", label: "iTerm" },
-  { value: "warp", label: "Warp" },
   { value: "ghostty", label: "Ghostty" },
 ];
 
 const editorOptions: NativeOpenSelectOption<DefaultEditorApp>[] = [
   { value: "vscode", label: "VS Code" },
-  { value: "cursor", label: "Cursor" },
-  { value: "windsurf", label: "Windsurf" },
   { value: "zed", label: "Zed" },
 ];
 
@@ -219,9 +216,7 @@ function getTerminalOptionsForPlatform(platformName: NativeOpenPlatform) {
     return terminalOptions.filter((option) => option.value !== "iterm");
   }
   if (platformName === "windows") {
-    return terminalOptions.filter(
-      (option) => option.value === "terminal" || option.value === "warp",
-    );
+    return terminalOptions.filter((option) => option.value === "terminal");
   }
   return [];
 }

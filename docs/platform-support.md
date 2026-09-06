@@ -42,16 +42,16 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 | Terminal session focus (clicking a tray session or using a global shortcut returns to the original tab) | ✅ (Terminal.app / iTerm / Ghostty; includes global session focus shortcut) | ❌ stub `Unsupported` (no shortcut) | ❌ stub `Unsupported` (no shortcut) | `src-tauri/src/terminal_focus.rs` |
 | LED lighting integration (mirrors tray session state to ANTICATER USB device) | ✅ (`led_probe_status` / `led_test_mode`) | ❌ No-op, harmless (probe returns None) | ❌ No-op, harmless (probe returns None) | `src-tauri/src/led.rs` (HID write report) |
 | Clickable system notifications (click to jump back to session) | ✅ (`mac-notification-sys`) | ⚠️ Falls back to plain-text `tauri-plugin-notification` | ⚠️ Falls back to plain-text `tauri-plugin-notification` | `src-tauri/src/tray.rs` |
-| Open in default editor (VS Code / Cursor / Windsurf / Zed) | ✅ `open -a` | ✅ Relies on CLI in `PATH` | ✅ `tauri-plugin-opener` | `src-tauri/src/native_open.rs` |
-| Open in default terminal | ✅ (Terminal / iTerm / Warp / Ghostty) | ✅ (`$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` / Warp / Ghostty CLI) | ✅ (Windows Terminal / PowerShell / cmd) | `src-tauri/src/native_open.rs` |
+| Open in default editor (VS Code / Zed) | ✅ `open -a` | ✅ Relies on CLI in `PATH` | ✅ `tauri-plugin-opener` | `src-tauri/src/native_open.rs` |
+| Open in default terminal | ✅ (Terminal / iTerm / Ghostty) | ✅ (`$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` / Ghostty CLI) | ✅ (Windows Terminal / PowerShell / cmd) | `src-tauri/src/native_open.rs` |
 | Hide console window for child processes | N/A | N/A | ✅ `CREATE_NO_WINDOW` | `src-tauri/src/native_open.rs` |
 
 ### UI-Layer Platform Filtering
 
 | Capability | macOS | Linux | Windows | Source |
 | --- | --- | --- | --- | --- |
-| Selectable terminals in the settings drawer | Terminal, iTerm, Warp, Ghostty | Terminal, Warp, Ghostty (**excludes iTerm**) | Terminal, Warp (**further excludes Ghostty**) | `src/components/SettingsDrawer.tsx::getTerminalOptionsForPlatform` |
-| Selectable editors in the settings drawer | VS Code, Cursor, Windsurf, Zed | Same as left (relies on CLI in `PATH`) | Same as left (relies on CLI in `PATH`) | `src/components/SettingsDrawer.tsx` |
+| Selectable terminals in the settings drawer | Terminal, iTerm, Ghostty | Terminal, Ghostty (**excludes iTerm**) | Terminal (**further excludes Ghostty**) | `src/components/SettingsDrawer.tsx::getTerminalOptionsForPlatform` |
+| Selectable editors in the settings drawer | VS Code, Zed | Same as left (relies on CLI in `PATH`) | Same as left (relies on CLI in `PATH`) | `src/components/SettingsDrawer.tsx` |
 | Status line preset installation error message | — | — | — | `profileEditor.statusLine.installPresetUnsupportedPlatform` triggers only on platforms other than macOS/Linux/Windows |
 
 ### File System Behavior
@@ -71,7 +71,7 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 
 - **Highest level of support.** All features are available, including terminal session focus, clickable notifications, and Dock activation policy switching.
 - The application data directory is intentionally placed at `~/.config/code-manager/` rather than the system-standard `~/Library/Application Support/`, to ease cross-platform backup and script access (see the section below).
-- Terminal session focus follows `pid → tty → AppleScript`, supporting Terminal.app / iTerm2 / Ghostty; Ghostty matches the tab by its `tty` property (upstream #11592, merged to main via PR #11922 but not yet in a stable release), falling back to unique-`cwd` matching on older versions; Warp has no official AppleScript, so its tray menu item is set to disabled.
+- Terminal session focus follows `pid → tty → AppleScript`, supporting Terminal.app / iTerm2 / Ghostty; Ghostty matches the tab by its `tty` property (upstream #11592, merged to main via PR #11922 but not yet in a stable release), falling back to unique-`cwd` matching on older versions.
 - If Gatekeeper blocks the first open, you can remove the quarantine attribute:
   ```bash
   xattr -rd com.apple.quarantine /Applications/code-manager.app
@@ -82,8 +82,8 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 - **Status line preset is available** (Bash script, relies on `chmod 0o755`, the `#[cfg(unix)]` branch is hit).
 - **Terminal session focus is unavailable** (`terminal_focus.rs` returns `Unsupported`). Clicking a tray session item will not automatically return to the original tab; switch manually if needed.
 - **Notifications degrade to plain text**: you can see the notification content, but it is not clickable to jump back to the session.
-- The set of default terminals has one fewer entry than macOS (no iTerm); the rest carry over: Terminal (system default), Warp, Ghostty; the backend also probes `$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` as needed.
-- Default editors (VS Code / Cursor / Windsurf / Zed) rely on the corresponding CLI being in `PATH`.
+- The set of default terminals has one fewer entry than macOS (no iTerm); the rest carry over: Terminal (system default), Ghostty; the backend also probes `$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` as needed.
+- Default editors (VS Code / Zed) rely on the corresponding CLI being in `PATH`.
 - Building requires system dependencies: `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev` (see `.github/workflows/ci.yml`).
 
 ### Windows
@@ -91,7 +91,7 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 - **Status line preset is available.** Installs the PowerShell version of the script `~/.claude/statusline.ps1`, and sets `statusLine.command` to `powershell -NoProfile -ExecutionPolicy Bypass -File ...` with an absolute forward-slash path; PowerShell and `ConvertFrom-Json` ship with the system, so no jq / Git Bash is required. NTFS has no executable bit, so no `chmod` is needed.
 - **Terminal session focus is unavailable** (same as Linux, `terminal_focus.rs` returns `Unsupported`).
 - **Notifications degrade to plain text** (same as Linux).
-- The selectable terminals in the settings drawer are further narrowed to Windows Terminal and Warp; selectable editors are the same as macOS / Linux (the CLI must be in `PATH`).
+- The selectable terminals in the settings drawer are further narrowed to Windows Terminal; selectable editors are the same as macOS / Linux (the CLI must be in `PATH`).
 - When launching external processes, `CREATE_NO_WINDOW` is added to avoid a black console flashing by.
 - When symlinking fails, `project.rs` falls back to hard links, avoiding interruptions for low-privilege accounts that cannot create symbolic links.
 

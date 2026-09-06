@@ -192,12 +192,9 @@ The list on the left shows the project short name, path, last active time, sessi
 | Application | macOS | Linux | Windows |
 | --- | --- | --- | --- |
 | VS Code | Supported | Requires `code` CLI | Requires `code` CLI |
-| Cursor | Supported | Requires `cursor` CLI | Requires `cursor` CLI |
-| Windsurf | Supported | Requires `windsurf` CLI | Requires `windsurf` CLI |
 | Zed | Supported | Requires `zed` CLI | Requires `zed` CLI |
 | Terminal | Terminal.app | Tries `$TERMINAL`, `xdg-terminal-exec`, `x-terminal-emulator`, etc. in order | Tries Windows Terminal, PowerShell, cmd in order |
 | iTerm | Supported | Not supported | Not supported |
-| Warp | Supported | Requires `warp-terminal` CLI | Requires `warp.exe` or the official install path |
 | Ghostty | Supported | Requires `ghostty` CLI | Not yet supported |
 
 ### Status Checks
@@ -276,7 +273,7 @@ Code Manager stays in the system tray (menu bar), with a menu divided into two p
 - Main tray: switch the current configuration, quickly jump to each page, and quit the application. Switching the configuration is equivalent to enabling the corresponding configuration on the Configurations page.
 - Session tray: reads `~/.claude/sessions/*.json` and summarizes the current Claude sessions by status (awaiting input / working / idle). Whether it is shown, the character limit, the session count style, and the pending breathing indicator are all adjusted in Settings (see below).
 
-**Session focus**: on supported platforms, clicking a session entry or using the session focus shortcut returns you to the corresponding terminal tab. This capability is **macOS only**; it focuses Terminal.app and iTerm2 via `pid → tty → AppleScript`, and Ghostty first matches its `tty` property before using a unique working-directory fallback on older versions or when tty matching misses. Warp is not supported because it has no official AppleScript. Linux and Windows do not support automatic focus, and clicking a session will not switch the terminal. See [Platform Support Differences](./platform-support.md) for details.
+**Session focus**: on supported platforms, clicking a session entry or using the session focus shortcut returns you to the corresponding terminal tab. This capability is **macOS only**; it focuses Terminal.app and iTerm2 via `pid → tty → AppleScript`, and Ghostty first matches its `tty` property before using a unique working-directory fallback on older versions or when tty matching misses. Linux and Windows do not support automatic focus, and clicking a session will not switch the terminal. See [Platform Support Differences](./platform-support.md) for details.
 
 **LED light effect integration (macOS only)**: once enabled, the red/green status of the session tray is mirrored to the light effects of an external ANTICATER USB device, which is handy for getting a hardware light cue about session status when you are not watching the menu bar. The configuration entry is in the device integration area of Settings.
 

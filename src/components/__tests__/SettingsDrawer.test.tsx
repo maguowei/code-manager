@@ -111,26 +111,20 @@ describe("SettingsDrawer", () => {
           platform: "macos",
           supportedEditors: [
             { slug: "vscode", label: "VS Code" },
-            { slug: "cursor", label: "Cursor" },
-            { slug: "windsurf", label: "Windsurf" },
             { slug: "zed", label: "Zed" },
           ],
           supportedTerminals: [
             { slug: "terminal", label: "Terminal" },
             { slug: "iterm", label: "iTerm" },
-            { slug: "warp", label: "Warp" },
             { slug: "ghostty", label: "Ghostty" },
           ],
           editors: [
             { slug: "vscode", label: "VS Code" },
-            { slug: "cursor", label: "Cursor" },
-            { slug: "windsurf", label: "Windsurf" },
             { slug: "zed", label: "Zed" },
           ],
           terminals: [
             { slug: "terminal", label: "Terminal" },
             { slug: "iterm", label: "iTerm" },
-            { slug: "warp", label: "Warp" },
             { slug: "ghostty", label: "Ghostty" },
           ],
         };
@@ -480,19 +474,15 @@ describe("SettingsDrawer", () => {
           platform: "linux",
           supportedEditors: [
             { slug: "vscode", label: "VS Code" },
-            { slug: "cursor", label: "Cursor" },
-            { slug: "windsurf", label: "Windsurf" },
             { slug: "zed", label: "Zed" },
           ],
           supportedTerminals: [
             { slug: "terminal", label: "Terminal" },
-            { slug: "warp", label: "Warp" },
             { slug: "ghostty", label: "Ghostty" },
           ],
           editors: [],
           terminals: [
             { slug: "terminal", label: "Terminal" },
-            { slug: "warp", label: "Warp" },
             { slug: "ghostty", label: "Ghostty" },
           ],
         };
@@ -512,12 +502,11 @@ describe("SettingsDrawer", () => {
     fireEvent.click(terminalSelect);
 
     expect(screen.getByRole("option", { name: "系统默认终端" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Warp" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Ghostty" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "iTerm" })).not.toBeInTheDocument();
   });
 
-  it("shows supported Windows terminal choices including Warp", async () => {
+  it("shows supported Windows terminal choices", async () => {
     platformMock.mockReturnValue("windows");
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_native_open_app_options") {
@@ -525,19 +514,11 @@ describe("SettingsDrawer", () => {
           platform: "windows",
           supportedEditors: [
             { slug: "vscode", label: "VS Code" },
-            { slug: "cursor", label: "Cursor" },
-            { slug: "windsurf", label: "Windsurf" },
             { slug: "zed", label: "Zed" },
           ],
-          supportedTerminals: [
-            { slug: "terminal", label: "Terminal" },
-            { slug: "warp", label: "Warp" },
-          ],
+          supportedTerminals: [{ slug: "terminal", label: "Terminal" }],
           editors: [],
-          terminals: [
-            { slug: "terminal", label: "Terminal" },
-            { slug: "warp", label: "Warp" },
-          ],
+          terminals: [{ slug: "terminal", label: "Terminal" }],
         };
       }
       if (command === "get_app_logs") {
@@ -555,7 +536,7 @@ describe("SettingsDrawer", () => {
     fireEvent.click(terminalSelect);
 
     expect(screen.getByRole("option", { name: "系统默认终端" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Warp" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Warp" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "iTerm" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Ghostty" })).not.toBeInTheDocument();
   });
@@ -567,14 +548,11 @@ describe("SettingsDrawer", () => {
           platform: "macos",
           supportedEditors: [
             { slug: "vscode", label: "VS Code" },
-            { slug: "cursor", label: "Cursor" },
-            { slug: "windsurf", label: "Windsurf" },
             { slug: "zed", label: "Zed" },
           ],
           supportedTerminals: [
             { slug: "terminal", label: "Terminal" },
             { slug: "iterm", label: "iTerm" },
-            { slug: "warp", label: "Warp" },
             { slug: "ghostty", label: "Ghostty" },
           ],
           editors: [{ slug: "vscode", label: "VS Code" }],
@@ -601,7 +579,7 @@ describe("SettingsDrawer", () => {
 
     const vscodeOption = screen.getByRole("option", { name: "VS Code" });
     expect(vscodeOption.querySelector('[data-slot="native-open-option-icon"]')).toBeTruthy();
-    expect(screen.queryByRole("option", { name: "Cursor" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Zed" })).not.toBeInTheDocument();
 
     fireEvent.click(vscodeOption);
     const terminalSelect = screen.getByRole("combobox", { name: "默认终端" });
@@ -620,14 +598,9 @@ describe("SettingsDrawer", () => {
           platform: "windows",
           supportedEditors: [
             { slug: "vscode", label: "VS Code" },
-            { slug: "cursor", label: "Cursor" },
-            { slug: "windsurf", label: "Windsurf" },
             { slug: "zed", label: "Zed" },
           ],
-          supportedTerminals: [
-            { slug: "terminal", label: "Terminal" },
-            { slug: "warp", label: "Warp" },
-          ],
+          supportedTerminals: [{ slug: "terminal", label: "Terminal" }],
           editors: [{ slug: "vscode", label: "VS Code" }],
           terminals: [{ slug: "terminal", label: "Terminal" }],
         };
@@ -648,9 +621,7 @@ describe("SettingsDrawer", () => {
     expect(await screen.findByText("当前系统")).toBeInTheDocument();
     expect(screen.getByText("Windows")).toBeInTheDocument();
     expect(screen.getAllByText("系统默认终端").length).toBeGreaterThan(0);
-    expect(screen.getByText("Warp")).toBeInTheDocument();
     expect(screen.getByText("已检测到")).toBeInTheDocument();
-    expect(screen.getByText("未检测到")).toBeInTheDocument();
   });
 
   it("shows empty detection hints when no supported tools are available locally", async () => {
@@ -660,14 +631,9 @@ describe("SettingsDrawer", () => {
           platform: "windows",
           supportedEditors: [
             { slug: "vscode", label: "VS Code" },
-            { slug: "cursor", label: "Cursor" },
-            { slug: "windsurf", label: "Windsurf" },
             { slug: "zed", label: "Zed" },
           ],
-          supportedTerminals: [
-            { slug: "terminal", label: "Terminal" },
-            { slug: "warp", label: "Warp" },
-          ],
+          supportedTerminals: [{ slug: "terminal", label: "Terminal" }],
           editors: [],
           terminals: [],
         };
@@ -683,8 +649,8 @@ describe("SettingsDrawer", () => {
     });
     renderSettingsDrawer({
       ...WORKSPACE_FIXTURE.app,
-      defaultTerminalApp: "warp",
-      defaultEditorApp: "cursor",
+      defaultTerminalApp: "ghostty",
+      defaultEditorApp: "zed",
     });
 
     expect(await screen.findByText("未检测到可用终端。")).toBeInTheDocument();

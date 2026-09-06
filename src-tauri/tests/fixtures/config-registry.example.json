@@ -9,7 +9,7 @@
     "thirdPartyProviderPricingEnabled": true,
     "uiLanguage": "zh",
     "defaultTerminalApp": "terminal",
-    "defaultEditorApp": "cursor",
+    "defaultEditorApp": "vscode",
     "trayTitleMaxChars": null,
     "sessionTrayCountStyle": "superscriptCompact",
     "trayPulseWaiting": true,
