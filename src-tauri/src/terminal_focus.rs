@@ -117,6 +117,8 @@ pub(crate) fn terminal_app_from_ps_output(output: &str) -> Option<&'static str> 
         "apple_terminal" | "terminal" => Some("terminal"),
         "iterm" | "iterm.app" | "iterm2" => Some("iterm"),
         "ghostty" => Some("ghostty"),
+        // 保留不支持宿主的身份，阻止普通会话与 herdr 回退默认终端后误聚焦。
+        "warp" | "warpterminal" => Some("warp"),
         _ => None,
     }
 }
@@ -842,12 +844,19 @@ mod tests {
             terminal_app_from_ps_output("zsh TERM_PROGRAM=Alacritty"),
             None
         );
-        // 已移除的 Warp 不再识别为受支持终端
-        assert_eq!(
-            terminal_app_from_ps_output("zsh TERM_PROGRAM=WarpTerminal TERM=xterm-256color"),
-            None
-        );
         assert_eq!(terminal_app_from_ps_output("zsh TERM=xterm-256color"), None);
+    }
+
+    #[test]
+    fn removed_warp_host_does_not_fall_back_to_ghostty() {
+        for term_program in ["Warp", "WarpTerminal", "warpterminal"] {
+            let output = format!("zsh TERM_PROGRAM={term_program} TERM=xterm-256color");
+            // 普通会话与 herdr 宿主都会在识别失败时回退默认终端；已知不支持的宿主必须阻止回退。
+            let app_slug = terminal_app_from_ps_output(&output).unwrap_or("ghostty");
+            assert_eq!(app_slug, "warp");
+            assert!(!terminal_supports_focus(app_slug));
+            assert!(tty_terminal_script(app_slug).is_none());
+        }
     }
 
     #[test]
