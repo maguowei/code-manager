@@ -74,12 +74,14 @@ describe("nightly version", () => {
 
   it("--print 的 stdout 只包含纯版本号", () => {
     const scriptPath = resolve(import.meta.dirname, "nightly-version.mjs");
+    const rootDir = resolve(import.meta.dirname, "..");
+    const expectedBaseVersion = readCanonicalBaseVersion(rootDir);
     const stdout = execFileSync(process.execPath, [scriptPath, "--print"], {
-      cwd: resolve(import.meta.dirname, ".."),
+      cwd: rootDir,
       env: { ...process.env, GITHUB_SHA: "0123456789abcdef" },
       encoding: "utf8",
     });
 
-    expect(stdout).toBe("1.6.0-nightly.g0123456\n");
+    expect(stdout).toBe(`${expectedBaseVersion}-nightly.g0123456\n`);
   });
 });
