@@ -66,9 +66,7 @@
     },
     "models": [
       { "id": "k3[1m]", "name": "Kimi K3" },
-      { "id": "k3-256k", "name": "Kimi K3 256K" },
-      { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code" },
-      { "id": "kimi-k2.7-code-highspeed", "name": "Kimi K2.7 Code 高速版" }
+      { "id": "k3-256k", "name": "Kimi K3 256K" }
     ]
   },
   {
@@ -129,9 +127,7 @@
     },
     "models": [
       { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
-      { "id": "deepseek-v4-flash[1m]", "name": "DeepSeek V4 Flash" },
-      { "id": "minimax-m3", "name": "MiniMax M3" },
-      { "id": "qwen3.8-max", "name": "Qwen3.8 Max" }
+      { "id": "deepseek-v4-flash[1m]", "name": "DeepSeek V4 Flash" }
     ]
   },
   {
@@ -141,15 +137,14 @@
     "baseUrl": "http://localhost:11434",
     "docUrl": "https://docs.ollama.com/integrations/claude-code",
     "env": {
-      "ANTHROPIC_MODEL": "glm-5.2:cloud",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2:cloud",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2:cloud",
+      "ANTHROPIC_MODEL": "glm-5.3:cloud",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3:cloud",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3:cloud",
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash:cloud"
     },
     "models": [
-      { "id": "glm-5.2:cloud", "name": "GLM-5.2" },
-      { "id": "kimi-k2.7-code:cloud", "name": "Kimi K2.7 Code" },
-      { "id": "minimax-m3:cloud", "name": "MiniMax M3" },
+      { "id": "glm-5.3:cloud", "name": "GLM-5.3" },
+      { "id": "kimi-k3:cloud", "name": "Kimi K3" },
       { "id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro" },
       { "id": "deepseek-v4-flash:cloud", "name": "DeepSeek V4 Flash" }
     ]
@@ -170,7 +165,6 @@
       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash[1m]"
     },
     "models": [
-      { "id": "kimi-k2.7-code", "name": "Kimi K2.7 Code" },
       { "id": "glm-5.3[1m]", "name": "GLM-5.3" },
       { "id": "minimax-m3", "name": "MiniMax M3" },
       { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
