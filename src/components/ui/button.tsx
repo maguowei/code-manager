@@ -1,6 +1,5 @@
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Slot } from "radix-ui";
-import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -40,20 +39,16 @@ const buttonVariants = cva(
   },
 );
 
+// Base UI 有原生 Button 原语并支持 render 属性，取代 Radix 的 Slot/asChild 多态写法。
 function Button({
   className,
   variant = "default",
   size = "default",
-  asChild = false,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
-  const Comp = asChild ? Slot.Root : "button";
-
+}: Omit<ButtonPrimitive.Props, "className"> &
+  VariantProps<typeof buttonVariants> & { className?: string }) {
   return (
-    <Comp
+    <ButtonPrimitive
       data-slot="button"
       data-variant={variant}
       data-size={size}

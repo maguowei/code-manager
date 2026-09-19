@@ -48,21 +48,21 @@ function CheatSheetPage() {
           <Button
             variant="outline"
             size="sm"
-            asChild
             className="border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
+            render={
+              <a
+                href={sourceUrl}
+                aria-label={t("cheatsheet.openLatest")}
+                title={t("cheatsheet.openLatest")}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleOpenLatest();
+                }}
+              />
+            }
           >
-            <a
-              href={sourceUrl}
-              aria-label={t("cheatsheet.openLatest")}
-              title={t("cheatsheet.openLatest")}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleOpenLatest();
-              }}
-            >
-              <span>{t("cheatsheet.openLatest")}</span>
-              <ExternalLink className="size-3.5" aria-hidden="true" />
-            </a>
+            <span>{t("cheatsheet.openLatest")}</span>
+            <ExternalLink className="size-3.5" aria-hidden="true" />
           </Button>
         }
       />

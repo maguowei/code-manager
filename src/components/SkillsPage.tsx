@@ -518,21 +518,21 @@ function SkillsPage({ onDrawerChange, onEditorExitGuardChange }: SkillsPageProps
             <Button
               variant="outline"
               size="sm"
-              asChild
               className="skills-docs-link border-border bg-transparent px-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:bg-accent hover:text-foreground"
+              render={
+                <a
+                  href={claudeSkillsDocsUrl}
+                  aria-label={t("skills.openDocsAriaLabel")}
+                  title={t("skills.openDocsAriaLabel")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void handleOpenDocs();
+                  }}
+                />
+              }
             >
-              <a
-                href={claudeSkillsDocsUrl}
-                aria-label={t("skills.openDocsAriaLabel")}
-                title={t("skills.openDocsAriaLabel")}
-                onClick={(event) => {
-                  event.preventDefault();
-                  void handleOpenDocs();
-                }}
-              >
-                <span>{t("skills.openDocs")}</span>
-                <ExternalLink className="size-3.5" aria-hidden="true" />
-              </a>
+              <span>{t("skills.openDocs")}</span>
+              <ExternalLink className="size-3.5" aria-hidden="true" />
             </Button>
             <Button
               type="button"

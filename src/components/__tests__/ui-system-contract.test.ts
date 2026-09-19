@@ -246,7 +246,7 @@ describe("ui system contract", () => {
     expect(source).toContain("data-[size=sm]:h-5 data-[size=sm]:w-9");
     expect(source).toContain("group-data-[size=default]/switch:size-5");
     expect(source).toContain("group-data-[size=sm]/switch:size-4");
-    expect(source).toContain("data-[state=checked]:translate-x-[calc(100%+2px)]");
+    expect(source).toContain("data-checked:translate-x-[calc(100%+2px)]");
     expect(source).not.toContain("data-[size=default]:h-[1.15rem]");
     expect(source).not.toContain("data-[size=sm]:h-3.5");
   });

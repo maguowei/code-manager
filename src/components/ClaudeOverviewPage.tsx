@@ -1019,19 +1019,23 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
           ) : null}
         </div>
         <div className="claude-overview-actions flex items-center gap-2">
-          <Button variant="link" size="sm" asChild>
-            <a
-              href={claudeDirectoryDocsUrl}
-              aria-label={t("claudeOverview.openDocsAriaLabel")}
-              title={t("claudeOverview.openDocsAriaLabel")}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleOpenDocs();
-              }}
-            >
-              <span>{t("claudeOverview.openDocs")}</span>
-              <ExternalLink className="size-3.5" aria-hidden="true" />
-            </a>
+          <Button
+            variant="link"
+            size="sm"
+            render={
+              <a
+                href={claudeDirectoryDocsUrl}
+                aria-label={t("claudeOverview.openDocsAriaLabel")}
+                title={t("claudeOverview.openDocsAriaLabel")}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleOpenDocs();
+                }}
+              />
+            }
+          >
+            <span>{t("claudeOverview.openDocs")}</span>
+            <ExternalLink className="size-3.5" aria-hidden="true" />
           </Button>
           <Button
             type="button"
