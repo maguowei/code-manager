@@ -1,5 +1,6 @@
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Slot } from "radix-ui";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -25,22 +26,26 @@ const badgeVariants = cva(
   },
 );
 
+// Base UI 没有 Badge 原语；多态能力由 useRender 的 render 属性承担，
+// 取代原先 Radix Slot 的 asChild 写法。
 function Badge({
   className,
   variant = "default",
-  asChild = false,
+  render,
   ...props
-}: React.ComponentProps<"span"> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : "span";
-
-  return (
-    <Comp
-      data-slot="badge"
-      data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
-      {...props}
-    />
-  );
+}: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+  return useRender({
+    defaultTagName: "span",
+    render,
+    props: mergeProps<"span">(
+      {
+        "data-slot": "badge",
+        "data-variant": variant,
+        className: cn(badgeVariants({ variant }), className),
+      } as React.ComponentProps<"span">,
+      props,
+    ),
+  });
 }
 
 export { Badge, badgeVariants };
