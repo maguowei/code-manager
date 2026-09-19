@@ -34,9 +34,7 @@ function ConfirmAlertDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div>{message}</div>
-          </AlertDialogDescription>
+          <AlertDialogDescription render={<div>{message}</div>} />
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelText}</AlertDialogCancel>
