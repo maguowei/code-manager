@@ -1,5 +1,5 @@
+import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 import { ChevronDown } from "lucide-react";
-import { Slider as SliderPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import { EDITOR_CONTROL_SURFACE_CLASS } from "../editor-layout";
@@ -96,31 +96,34 @@ function EffortLevelField({ options, value, onChange, ariaLabel, id }: EffortLev
               ))}
             </div>
 
-            {/* 滑块:内缩半格使档位落在列中心 */}
+            {/* 滑块:内缩半格使档位落在列中心;Base UI 的布局层在 Control 上,缩进放在这里 */}
             <SliderPrimitive.Root
-              className="relative flex touch-none items-center select-none"
-              style={{ marginInline: insetMargin }}
               min={0}
               max={Math.max(0, count - 1)}
               step={1}
-              value={[activeIndex]}
-              onValueChange={([next]) => onChange(options[next]?.value ?? "")}
+              value={activeIndex}
+              onValueChange={(next) => onChange(options[next]?.value ?? "")}
             >
-              <SliderPrimitive.Track className="relative h-0.5 w-full rounded-full bg-border" />
-              {/* 零宽滑块:Radix 读到宽度 0 不再内缩,中心精确落在刻度列;三角与焦点环溢出渲染 */}
-              <SliderPrimitive.Thumb
-                aria-label={ariaLabel}
-                className="group block size-0 cursor-pointer outline-none"
+              <SliderPrimitive.Control
+                className="relative flex touch-none items-center select-none"
+                style={{ marginInline: insetMargin }}
               >
-                <span
-                  aria-hidden
-                  className="absolute top-1/2 left-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-ring group-focus-visible:ring-2"
-                />
-                <span
-                  aria-hidden
-                  className="absolute top-1/2 left-1/2 size-0 -translate-x-1/2 -translate-y-1/2 border-x-[6px] border-b-[9px] border-x-transparent border-b-primary"
-                />
-              </SliderPrimitive.Thumb>
+                <SliderPrimitive.Track className="relative h-0.5 w-full rounded-full bg-border" />
+                {/* 零宽滑块:Base UI 按元素尺寸补偏移,宽度 0 时中心精确落在刻度列;三角与焦点环溢出渲染 */}
+                <SliderPrimitive.Thumb
+                  aria-label={ariaLabel}
+                  className="group block size-0 cursor-pointer outline-none"
+                >
+                  <span
+                    aria-hidden
+                    className="absolute top-1/2 left-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-ring group-focus-visible:ring-2"
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute top-1/2 left-1/2 size-0 -translate-x-1/2 -translate-y-1/2 border-x-[6px] border-b-[9px] border-x-transparent border-b-primary"
+                  />
+                </SliderPrimitive.Thumb>
+              </SliderPrimitive.Control>
             </SliderPrimitive.Root>
 
             {/* 档位标签行:整宽等分网格,与刻度点对齐 */}
