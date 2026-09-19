@@ -68,7 +68,7 @@ const PIERRE_FILE_OPTIONS = {
   overflow: "scroll",
   theme: PIERRE_FILE_THEME,
   tokenizeMaxLineLength: PIERRE_TOKENIZE_MAX_LINE_LENGTH,
-} satisfies FileOptions<undefined>;
+} satisfies FileOptions<undefined, undefined>;
 
 const PIERRE_WORKER_POOL_OPTIONS = {
   poolSize: 2,
@@ -96,7 +96,7 @@ const PIERRE_FILE_METRICS = {
 
 interface PierreSourcePreviewProps {
   file: ReturnType<typeof fileContentsForPreview>;
-  options: FileOptions<undefined>;
+  options: FileOptions<undefined, undefined>;
   style: CSSProperties;
   previewThemeType: ThemeTypes;
   remountToken?: number;
@@ -116,7 +116,9 @@ function PierreSourcePreview({
   const fileKey = file.cacheKey ?? `${file.name}:${file.contents.length}`;
   const renderKey = `${fileKey}:${previewThemeType}`;
   const [renderedKey, setRenderedKey] = useState<string | null>(null);
-  const handlePostRender = useCallback<NonNullable<FileOptions<undefined>["onPostRender"]>>(() => {
+  const handlePostRender = useCallback<
+    NonNullable<FileOptions<undefined, undefined>["onPostRender"]>
+  >(() => {
     setRenderedKey(renderKey);
   }, [renderKey]);
   const optionsWithPostRender = useMemo(

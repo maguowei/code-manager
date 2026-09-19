@@ -3,7 +3,9 @@ import { MultiFileDiff } from "@pierre/diffs/react";
 import type { CSSProperties } from "react";
 
 export type SettingsMismatchDiffFile = FileContents;
-export type SettingsMismatchDiffOptions = NonNullable<MultiFileDiffProps<undefined>["options"]>;
+export type SettingsMismatchDiffOptions = NonNullable<
+  MultiFileDiffProps<undefined, undefined>["options"]
+>;
 export type SettingsMismatchDiffThemeType = ThemeTypes;
 
 interface SettingsMismatchDiffViewerProps {
