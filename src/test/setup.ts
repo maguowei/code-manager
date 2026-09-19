@@ -11,7 +11,12 @@ Element.prototype.setPointerCapture ??= () => undefined;
 Element.prototype.releasePointerCapture ??= () => undefined;
 Element.prototype.scrollIntoView ??= () => undefined;
 
-// jsdom 不实现 ResizeObserver，Radix UI Slider 组件依赖它
+// jsdom 不实现 Web Animations API，Base UI 的 ScrollAreaViewport 在滚动状态收尾时会对
+// viewport 调用 getAnimations() 取未完成的动画，缺失时在定时器里抛 TypeError（uncaught）。
+// 返回空数组表示"没有进行中的动画"，符合 jsdom 下无动画的事实。
+Element.prototype.getAnimations ??= () => [];
+
+// jsdom 不实现 ResizeObserver，Slider / ScrollArea 等组件依赖它
 globalThis.ResizeObserver ??= class ResizeObserver {
   observe() {}
   unobserve() {}
