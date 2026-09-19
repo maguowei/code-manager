@@ -84,3 +84,4 @@ paths:
 - 抽取或移动共享样式/token 后，检查 source-string contract test 的读文件集合，不要只断言旧入口文件。
 - 测试选择器优先级：`getByRole(role, { name })` -> `getByText` / `getByLabelText` -> `[data-slot="..."]` -> 必要时 `data-testid`。不要用 class 选择作为首选断言。
 - 在测试中触发 mock Tauri 事件时，必须包裹在 `act(async () => { await emitTauriEvent(...); })` 中，确保 React 状态更新落定。
+- `jsdom` 停留在 29.x：升到 30.x 后 `ProfileEditor.test.tsx` 里 11 个 Radix Select 用例（`chooseComboboxOption` / `comboboxOptionNames`）会在前一个 combobox 用例执行后批量失败——下拉内容完全不挂载（dump 里没有 `listbox` / `role="option"`），且失败在用例间游走、与执行顺序无关。再升时先把这两个 helper 改成 `await screen.findByRole(...)` 并逐用例复验，不要只为让门禁变绿弱化断言。
