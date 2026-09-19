@@ -74,20 +74,22 @@ function Sidebar({
     const active = activeTab === key;
     return (
       <Tooltip key={key}>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            className={cn(itemButtonClassName, active && activeItemClassName)}
-            onClick={() => onTabChange(key)}
-            aria-label={t(label)}
-            aria-current={active ? "page" : undefined}
-          >
-            <Icon data-icon="inline-start" data-testid={testId} aria-hidden="true" />
-            <span className={labelClassName}>{t(label)}</span>
-          </Button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-lg"
+              className={cn(itemButtonClassName, active && activeItemClassName)}
+              onClick={() => onTabChange(key)}
+              aria-label={t(label)}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon data-icon="inline-start" data-testid={testId} aria-hidden="true" />
+              <span className={labelClassName}>{t(label)}</span>
+            </Button>
+          }
+        />
         <TooltipContent side="right" sideOffset={8}>
           {t(label)}
         </TooltipContent>
@@ -106,23 +108,25 @@ function Sidebar({
       aria-label={t("nav.ariaLabel")}
     >
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "mb-5 rounded-lg bg-sidebar-primary text-base font-bold text-sidebar-primary-foreground shadow-panel transition-[background-color,box-shadow,transform] duration-150 hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground active:scale-95 max-[700px]:size-8 max-[700px]:text-sm",
-              collapseSidebarByDefault ? "size-10" : "h-10 w-full max-[1000px]:size-10",
-              activeTab === "claudeOverview" && "ring-2 ring-ring/50",
-            )}
-            onClick={onClaudeOverviewClick}
-            aria-label={t("nav.claudeOverview")}
-            aria-current={activeTab === "claudeOverview" ? "page" : undefined}
-          >
-            AI
-          </Button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "mb-5 rounded-lg bg-sidebar-primary text-base font-bold text-sidebar-primary-foreground shadow-panel transition-[background-color,box-shadow,transform] duration-150 hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground active:scale-95 max-[700px]:size-8 max-[700px]:text-sm",
+                collapseSidebarByDefault ? "size-10" : "h-10 w-full max-[1000px]:size-10",
+                activeTab === "claudeOverview" && "ring-2 ring-ring/50",
+              )}
+              onClick={onClaudeOverviewClick}
+              aria-label={t("nav.claudeOverview")}
+              aria-current={activeTab === "claudeOverview" ? "page" : undefined}
+            >
+              AI
+            </Button>
+          }
+        />
         <TooltipContent side="right" sideOffset={8}>
           {t("nav.claudeOverview")}
         </TooltipContent>
@@ -136,19 +140,21 @@ function Sidebar({
 
       <div className="mt-3 flex w-full justify-center border-t border-sidebar-border pt-3">
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-lg"
-              className={itemButtonClassName}
-              onClick={onSettingsClick}
-              aria-label={t("header.settings")}
-            >
-              <Settings data-icon="inline-start" aria-hidden="true" />
-              <span className={labelClassName}>{t("header.settings")}</span>
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-lg"
+                className={itemButtonClassName}
+                onClick={onSettingsClick}
+                aria-label={t("header.settings")}
+              >
+                <Settings data-icon="inline-start" aria-hidden="true" />
+                <span className={labelClassName}>{t("header.settings")}</span>
+              </Button>
+            }
+          />
           <TooltipContent side="right" sideOffset={8}>
             {t("header.settings")}
           </TooltipContent>

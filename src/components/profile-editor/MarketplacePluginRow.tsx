@@ -136,30 +136,32 @@ function MarketplacePluginRow({
           <div className="mt-1.5 min-w-0">
             {canExpandDetails ? (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "h-auto w-full cursor-pointer justify-start whitespace-normal rounded-md bg-transparent p-0 text-left text-xs font-[inherit] leading-relaxed text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                      !expanded && "line-clamp-3",
-                    )}
-                    render={
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        title={detailsTooltip}
-                        aria-expanded={expanded}
-                        aria-label={`${expanded ? t("profileEditor.plugins.browse.collapseDetailsAriaLabel") : t("profileEditor.plugins.browse.expandDetailsAriaLabel")} ${rowLabel}`}
-                        data-expanded={expanded ? "true" : "false"}
-                        data-testid={`marketplace-plugin-details-${plugin.pluginId}`}
-                        onClick={() => onToggleDetails(plugin.pluginId)}
-                        onKeyDown={(event) => onDetailsKeyDown(event, plugin.pluginId)}
-                      />
-                    }
-                  >
-                    {details}
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        "h-auto w-full cursor-pointer justify-start whitespace-normal rounded-md bg-transparent p-0 text-left text-xs font-[inherit] leading-relaxed text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                        !expanded && "line-clamp-3",
+                      )}
+                      render={
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          title={detailsTooltip}
+                          aria-expanded={expanded}
+                          aria-label={`${expanded ? t("profileEditor.plugins.browse.collapseDetailsAriaLabel") : t("profileEditor.plugins.browse.expandDetailsAriaLabel")} ${rowLabel}`}
+                          data-expanded={expanded ? "true" : "false"}
+                          data-testid={`marketplace-plugin-details-${plugin.pluginId}`}
+                          onClick={() => onToggleDetails(plugin.pluginId)}
+                          onKeyDown={(event) => onDetailsKeyDown(event, plugin.pluginId)}
+                        />
+                      }
+                    >
+                      {details}
+                    </Button>
+                  }
+                />
                 <TooltipContent side="top" sideOffset={6}>
                   {detailsTooltip}
                 </TooltipContent>
@@ -180,12 +182,14 @@ function MarketplacePluginRow({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               {componentBadges.map(({ key, icon: Icon, labelKey, count }) => (
                 <Tooltip key={key}>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
-                      <Icon className="size-3.5" aria-hidden="true" />
-                      {count}
-                    </span>
-                  </TooltipTrigger>
+                  <TooltipTrigger
+                    render={
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
+                        <Icon className="size-3.5" aria-hidden="true" />
+                        {count}
+                      </span>
+                    }
+                  />
                   <TooltipContent side="top" sideOffset={6}>
                     {t(labelKey)}
                   </TooltipContent>

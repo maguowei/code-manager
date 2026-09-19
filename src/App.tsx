@@ -334,7 +334,7 @@ function App() {
   });
   if (loading) {
     return (
-      <TooltipProvider delayDuration={200}>
+      <TooltipProvider delay={200}>
         <div className="flex h-screen items-center justify-center bg-background text-base text-muted-foreground">
           {t("loading")}
         </div>
@@ -345,7 +345,7 @@ function App() {
 
   return (
     <UpdaterProvider>
-      <TooltipProvider delayDuration={200}>
+      <TooltipProvider delay={200}>
         <div className="flex h-screen overflow-hidden bg-background text-foreground">
           <Sidebar
             activeTab={activeTab}

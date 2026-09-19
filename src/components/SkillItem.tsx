@@ -72,21 +72,23 @@ function SkillItem({
           </h3>
           <div className="skill-source-row flex min-w-0 flex-wrap items-center gap-2 leading-none">
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge
-                  variant={isSymlink ? "outline" : "secondary"}
-                  className={cn(
-                    "skill-source-badge inline-flex h-[22px] shrink-0 items-center gap-1 rounded-[7px] px-2 text-xs leading-none font-semibold",
-                    isSymlink ? "text-muted-foreground" : "text-primary",
-                  )}
-                  title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}
-                >
-                  {isSymlink ? <Link2 className="size-3" aria-hidden="true" /> : null}
-                  <span title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}>
-                    {isSymlink ? t("skills.symlinkBadge") : t("skills.localDirectoryBadge")}
-                  </span>
-                </Badge>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Badge
+                    variant={isSymlink ? "outline" : "secondary"}
+                    className={cn(
+                      "skill-source-badge inline-flex h-[22px] shrink-0 items-center gap-1 rounded-[7px] px-2 text-xs leading-none font-semibold",
+                      isSymlink ? "text-muted-foreground" : "text-primary",
+                    )}
+                    title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}
+                  >
+                    {isSymlink ? <Link2 className="size-3" aria-hidden="true" /> : null}
+                    <span title={isSymlink ? (skill.linkTarget ?? undefined) : undefined}>
+                      {isSymlink ? t("skills.symlinkBadge") : t("skills.localDirectoryBadge")}
+                    </span>
+                  </Badge>
+                }
+              />
               {isSymlink && skill.linkTarget ? (
                 <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
                   {skill.linkTarget}
@@ -95,14 +97,16 @@ function SkillItem({
             </Tooltip>
             {isSymlink ? (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="outline"
-                    className="skill-readonly-badge inline-flex h-[22px] shrink-0 items-center rounded-[7px] px-2 text-xs leading-none font-semibold text-muted-foreground"
-                  >
-                    {t("skills.readOnlyBadge")}
-                  </Badge>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Badge
+                      variant="outline"
+                      className="skill-readonly-badge inline-flex h-[22px] shrink-0 items-center rounded-[7px] px-2 text-xs leading-none font-semibold text-muted-foreground"
+                    >
+                      {t("skills.readOnlyBadge")}
+                    </Badge>
+                  }
+                />
                 <TooltipContent>{t("skills.symlinkReadonlyHint")}</TooltipContent>
               </Tooltip>
             ) : null}

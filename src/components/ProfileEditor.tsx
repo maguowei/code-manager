@@ -1012,12 +1012,12 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
           behaviorHeaderControl={
             <div className="inline-flex items-center gap-2">
               {testModelDisabledHint ? (
-                <TooltipProvider delayDuration={150}>
+                <TooltipProvider delay={150}>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      {/* 禁用按钮自身不触发 hover，外层 span 承接提示 */}
-                      <span className="inline-flex">{renderTestModelButton()}</span>
-                    </TooltipTrigger>
+                    {/* 禁用按钮自身不触发 hover，外层 span 承接提示 */}
+                    <TooltipTrigger
+                      render={<span className="inline-flex">{renderTestModelButton()}</span>}
+                    />
                     <TooltipContent className="max-w-xs">{testModelDisabledHint}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

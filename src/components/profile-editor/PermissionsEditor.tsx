@@ -683,18 +683,20 @@ function PermissionsEditor({ value, onChange, onError }: PermissionsEditorProps)
           />
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="inline-flex size-6 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  aria-label={t("profileEditor.permissions.looseModeHelpLabel")}
-                  data-tooltip={t("profileEditor.permissions.looseModeHelp")}
-                >
-                  <Info className="size-3.5" aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="inline-flex size-6 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    aria-label={t("profileEditor.permissions.looseModeHelpLabel")}
+                    data-tooltip={t("profileEditor.permissions.looseModeHelp")}
+                  >
+                    <Info className="size-3.5" aria-hidden="true" />
+                  </Button>
+                }
+              />
               <TooltipContent side="top" sideOffset={6} className="max-w-[300px] text-balance">
                 {t("profileEditor.permissions.looseModeHelp")}
               </TooltipContent>

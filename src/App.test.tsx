@@ -106,7 +106,9 @@ vi.mock("@/components/ui/sonner", () => ({
 vi.mock("@/components/ui/tooltip", () => ({
   TooltipProvider: ({ children }: { children: ReactNode }) => children,
   Tooltip: ({ children }: { children: ReactNode }) => children,
-  TooltipTrigger: ({ children }: { children: ReactNode }) => children,
+  // 调用点已改用 Base UI 的 render 形式（元素自带子节点、没有 children），mock 需一并透出
+  TooltipTrigger: ({ children, render }: { children?: ReactNode; render?: ReactNode }) =>
+    render ?? children,
   TooltipContent: () => null,
 }));
 

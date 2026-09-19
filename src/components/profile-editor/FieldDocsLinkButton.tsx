@@ -13,23 +13,25 @@ interface FieldDocsLinkButtonProps {
 // 提示用 shadcn Tooltip（Radix）替代原生 title，延迟可控、带样式。
 function FieldDocsLinkButton({ href, ariaLabel }: FieldDocsLinkButtonProps) {
   return (
-    <TooltipProvider delayDuration={150}>
+    <TooltipProvider delay={150}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="inline-flex size-6 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            aria-label={ariaLabel}
-            data-tooltip={ariaLabel}
-            onClick={() => {
-              void openUrl(href);
-            }}
-          >
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-          </Button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="inline-flex size-6 items-center justify-center rounded-full border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              aria-label={ariaLabel}
+              data-tooltip={ariaLabel}
+              onClick={() => {
+                void openUrl(href);
+              }}
+            >
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </Button>
+          }
+        />
         <TooltipContent className="max-w-xs">{ariaLabel}</TooltipContent>
       </Tooltip>
     </TooltipProvider>

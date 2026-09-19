@@ -41,11 +41,13 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
         <div className="memory-info flex min-w-0 flex-1 flex-col gap-1.5 pt-px">
           <div className="memory-title-row flex items-start justify-between gap-3 group-[.compressed]/list:flex-col group-[.compressed]/list:gap-2">
             <Tooltip>
-              <TooltipTrigger asChild>
-                <h3 className="memory-name truncate text-base leading-snug font-semibold text-foreground">
-                  {memory.name}
-                </h3>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <h3 className="memory-name truncate text-base leading-snug font-semibold text-foreground">
+                    {memory.name}
+                  </h3>
+                }
+              />
               <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
                 {memory.name}
               </TooltipContent>
@@ -81,11 +83,13 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
               {targetLabel}
             </Badge>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-muted-foreground">
-                  {memory.sourcePath}
-                </span>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <span className="memory-target-path min-w-0 flex-1 truncate text-xs leading-[22px] text-muted-foreground">
+                    {memory.sourcePath}
+                  </span>
+                }
+              />
               <TooltipContent className="max-w-[420px] [overflow-wrap:anywhere]">
                 {memory.sourcePath}
               </TooltipContent>
@@ -95,15 +99,17 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
           <div className="memory-meta flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {memory.pathPatterns.length > 0 ? (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="memory-meta-paths inline-flex shrink-0 cursor-default items-center gap-1">
-                    <FolderTree className="size-3.5" aria-hidden="true" />
-                    {t("memory.pathPatternsCount").replace(
-                      "{count}",
-                      String(memory.pathPatterns.length),
-                    )}
-                  </span>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <span className="memory-meta-paths inline-flex shrink-0 cursor-default items-center gap-1">
+                      <FolderTree className="size-3.5" aria-hidden="true" />
+                      {t("memory.pathPatternsCount").replace(
+                        "{count}",
+                        String(memory.pathPatterns.length),
+                      )}
+                    </span>
+                  }
+                />
                 <TooltipContent className="max-w-[320px] [overflow-wrap:anywhere]">
                   <ul className="m-0 flex flex-col gap-0.5 p-0">
                     {memory.pathPatterns.map((pattern) => (
