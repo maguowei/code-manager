@@ -960,8 +960,11 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
 
   // 拖拽结束（pointerup 后库触发 onLayoutChanged）：持久化布局；宽度冻结另由全局 pointer 兜底复位
   const handleLayoutChanged = useCallback(
-    (layout: Parameters<typeof onLayoutChanged>[0]) => {
-      onLayoutChanged(layout);
+    (
+      layout: Parameters<typeof onLayoutChanged>[0],
+      meta: Parameters<typeof onLayoutChanged>[1],
+    ) => {
+      onLayoutChanged(layout, meta);
       stopResizing();
     },
     [onLayoutChanged, stopResizing],

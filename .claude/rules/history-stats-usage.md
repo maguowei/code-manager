@@ -66,7 +66,7 @@ paths:
 - 费用公式是 input、output、cache write、cache read 各自乘价格后统一除以 1_000_000；价格单位是 USD / 1M tokens。
 - 价格表加载顺序是本地缓存 `~/.config/code-manager/model-pricing.json` -> 内置 `src-tauri/resources/model-pricing.json` -> 启动后尝试从 models.dev 刷新。
 - 网络刷新成功后要保存缓存、重算所有 `usage_records.cost_usd` 并发出 `usage-pricing-updated`。
-- 内置价格表只做 Anthropic/Claude 兜底；Kimi、MiMo、GLM、MiniMax、DeepSeek 的价格只来自 models.dev 官方 provider。
+- 内置价格表只做 Anthropic/Claude 兜底，只保留当前在售模型主别名，不收录 4.5 之前的历史模型，也不收录日期快照。`match_model_price()` 的匹配顺序是精确 -> 归一化 -> 逐级剥离尾部段取同族主别名（`prefix_trim_candidates()`，如 `claude-sonnet-4-5-20250929` 剥离到 `claude-sonnet-4-5`）-> 按 opus / sonnet / haiku 子串取该族最低价。前三步都未命中才会回落到族最低价，所以同族多档价并存时日期快照仍可能取到偏低的一档；给同族新增不同价位的模型时，要一并检查该族日期快照的匹配结果。任何情况下都不会整条记 0，也不会进未知模型提示。Kimi、MiMo、GLM、MiniMax、DeepSeek 的价格只来自 models.dev 官方 provider。
 - models.dev 导入范围由 `is_supported_models_dev_provider()` 控制：Anthropic、Moonshot / MoonshotAI、Z.ai / Zhipu / BigModel、MiniMax、Xiaomi / MiMo、DeepSeek。
 - 缺失 cache 字段时只按 input 推导 `cache_write = input * 1.25`、`cache_read = input * 0.1`，不要凭空补 input / output。
 - `thirdPartyProviderPricingEnabled` 默认开启；关闭后 Kimi / MiMo / GLM / MiniMax / DeepSeek 费用按 0 计入，且不作为未知模型提示。

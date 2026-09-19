@@ -32,6 +32,24 @@ globalThis.matchMedia ??= ((query: string) => ({
   },
 })) as typeof globalThis.matchMedia;
 
+// jsdom 30 起，焦点从文档本体（activeElement 为 body）转移到元素时会额外向 window 派发一个
+// 非冒泡的 blur（浏览器不会）。Radix 浮层用 window 的 blur 关闭自身，于是测试里刚用
+// pointerdown 打开的 Select 会在同一次事件内被关掉（ProfileEditor 的 combobox 用例全挂）。
+// 仅在"焦点仍在文档内转移"（activeElement 停在 body）时吞掉该事件，真实窗口失焦不受影响。
+// 注意不能用 event.target === window 判断：vitest 注入的全局 window 与 jsdom 派发事件用的
+// Window 实例不是同一个对象，只能按"持有同一个 document 的非元素对象"识别。
+window.addEventListener(
+  "blur",
+  (event) => {
+    const target = event.target as (Node & { document?: Document }) | null;
+    const isWindowTarget = !(target instanceof Element) && target?.document === document;
+    if (isWindowTarget && !event.bubbles && document.activeElement === document.body) {
+      event.stopImmediatePropagation();
+    }
+  },
+  true,
+);
+
 // jsdom 默认 navigator.language 为 "en-US"，会让 i18n 默认走 en；
 // 而项目大量历史测试在 a7f3e2a 之前依赖默认 zh 行为。统一覆盖为 zh-CN，
 // 让"未显式设语言"的测试与历史一致；显式 setItem 切换语言的测试不受影响。

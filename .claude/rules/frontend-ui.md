@@ -84,3 +84,4 @@ paths:
 - 抽取或移动共享样式/token 后，检查 source-string contract test 的读文件集合，不要只断言旧入口文件。
 - 测试选择器优先级：`getByRole(role, { name })` -> `getByText` / `getByLabelText` -> `[data-slot="..."]` -> 必要时 `data-testid`。不要用 class 选择作为首选断言。
 - 在测试中触发 mock Tauri 事件时，必须包裹在 `act(async () => { await emitTauriEvent(...); })` 中，确保 React 状态更新落定。
+- jsdom 30 在焦点从文档本体（`activeElement` 为 body）转到元素时，会额外向 window 派发一个非冒泡 `blur`（浏览器不会）；Radix 浮层用 window 的 blur 关闭自身，会让刚用 `pointerdown` 打开的 Select 在同一次事件内被关掉。`src/test/setup.ts` 有针对该行为的 shim：识别 window 必须按"持有同一个 `document` 的非元素对象"判断，**不能用 `event.target === window`**（vitest 注入的全局 window 与 jsdom 派发事件的 Window 实例不同一）。升级 jsdom 或改这个 shim 后，必须回归 `ProfileEditor.test.tsx` 的 combobox 用例。

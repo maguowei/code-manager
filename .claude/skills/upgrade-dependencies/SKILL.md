@@ -97,7 +97,7 @@ Vite、TypeScript、pnpm、Rust 主版本依赖逐项独立评估。
 - **不顺手改 UI 文案、Tauri command/capability、产品行为**——升级只动版本号；编译/类型/测试挂时按最小必要修改适配，不顺道做产品改进。
 - **不把 `sqlx` 单独升到 `0.9`**——`tauri-plugin-sql` 当前主版本仍绑定 `sqlx 0.8`，两者共享 `SqlitePool` 类型，主版本错配会运行时崩溃。等 plugin 跟上或先解耦池类型。
 - **不把工具链主版本混入安全批**——Vite/TypeScript/pnpm 主版本属于 Batch D，混入会让"安全修复 PR"丧失快速合并和快速回滚的属性。
-- **`pnpm install` 强制 `CI=true`**——pnpm 11 在无 TTY 场景重建 `node_modules` 会等待交互输入而挂住，`CI=true` 关闭交互。
+- **`pnpm install` 强制 `CI=true`**——无 TTY 场景重建 `node_modules` 可能挂起等待交互输入，`CI=true` 关闭交互。
 
 ## 验证矩阵
 
@@ -112,12 +112,13 @@ Vite、TypeScript、pnpm、Rust 主版本依赖逐项独立评估。
 
 `make verify` 是本地全门禁；时间允许，每批结束都跑一次。
 
-## 已知陷阱（截至 2026-05-24，使用前重新验证）
+## 已知陷阱（截至 2026-09-19，使用前重新验证）
 
 下列是过往升级踩过的具体事实。**版本号会过时，再次升级前必须用"事实源"小节的命令重新查询。** 若历史与当前输出冲突，信任当前输出并就地更新或删除条目。
 
-- `pnpm@11.x` 在本仓库可用（安装命令见"执行约束"）。
-- Vite 8 + `@vitejs/plugin-react` 6 + TypeScript 6 可通过本仓库门禁；TS6 下需显式 Node types，并移除已弃用的 `baseUrl`，仅保留 `paths` alias。
+- `pnpm@12.4.2` 在本仓库可用（版本由 `packageManager` 声明，安装命令见"执行约束"）。
+- pnpm 12 起 `pnpm-lock.yaml` 由 `---` 分成两份 YAML 文档：第一份记录 pnpm 自身（`packageManagerDependencies` + `@pnpm/exe.*` 平台包），第二份才是项目依赖。这是 `pnpm install` 的正常产物，别当手改或误判为锁文件被污染。
+- Vite 8 + `@vitejs/plugin-react` 6 + TypeScript 7 可通过本仓库门禁；TS 下需显式 Node types，并移除已弃用的 `baseUrl`，仅保留 `paths` alias。
 - `schemars 1.x` 弃用了 `RootSchema.schema.object` 访问路径；schema 契约测试改为 `serde_json::to_value(schema_for!(...))` 后读取 `properties` / `required`。
 - `reqwest 0.13` 使用 `default-features = false` 时，Rustls feature 是 `rustls`，不是旧的 `rustls-tls`。
 - `sqlx 0.8.x` 仍与 `tauri-plugin-sql 2.4.0` 绑定（见"执行约束"）。

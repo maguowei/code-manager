@@ -23,8 +23,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 # macos-private-api：浮窗需要 transparent(true) 实现圆角半透明效果，macOS 上依赖该 feature
 tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
-tauri-plugin-dialog = "=2.7.1"
-tauri-plugin-log = "2.8.0"
+tauri-plugin-dialog = "=2.7.3"
+tauri-plugin-log = "2.9.1"
 tauri-plugin-opener = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-os = "2"

@@ -105,7 +105,7 @@ Stack overview: Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust.
 ### Prerequisites
 
 - Node.js LTS
-- `pnpm`, the project currently declares `pnpm@11.2.2`
+- `pnpm`, the project currently declares `pnpm@12.4.2`
 - Rust stable
 - The system dependencies required to run Tauri 2
 

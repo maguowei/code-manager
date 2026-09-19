@@ -188,6 +188,10 @@ pub struct Provider {
     pub models: Option<Vec<ProviderModel>>,
     #[serde(default)]
     pub model_suggestions: Vec<String>,
+    /// 供应商要求客户端声明的会话标识头名（如 OpenCode Go 的 `x-opencode-session`）。
+    /// 属于请求路由相关的客观供应商信息，值由请求方按会话生成，因此不写进 `env` 交给 Claude Code。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_header: Option<String>,
     // 供应商只承载连接相关环境变量（地址 / 模型映射 / 可选附加 env），不含认证密钥
     #[serde(default)]
     #[specta(type = std::collections::HashMap<String, String>)]
@@ -332,6 +336,15 @@ enum ModelTestAuthScheme {
     ApiKey,
 }
 
+/// 模型测试请求要携带的供应商会话标识头（头名 + 按会话生成的值）。
+/// OpenCode Go 这类网关要求客户端对每个会话声明稳定 ID（用于网关路由与 prompt caching）；
+/// 一次模型测试请求就是一次单轮会话，因此逐请求生成一个 UUID 即满足“按会话稳定”语义。
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ModelTestSessionHeader {
+    name: String,
+    value: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ModelTestRequest {
     base_url: String,
@@ -339,6 +352,7 @@ struct ModelTestRequest {
     auth_scheme: ModelTestAuthScheme,
     resolved_model: String,
     prompt_text: String,
+    session_header: Option<ModelTestSessionHeader>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -443,6 +457,8 @@ struct BuiltinProviderSeed {
     slug: String,
     base_url: String,
     doc_url: Option<String>,
+    #[serde(default)]
+    session_header: Option<String>,
     #[serde(default)]
     env: BTreeMap<String, String>,
     models: Vec<BuiltinProviderModel>,
@@ -561,6 +577,13 @@ fn get_user_settings_path() -> Result<PathBuf, String> {
         .join("settings.json"))
 }
 
+/// 归一化供应商会话标识头名：去空白并转小写，保证与出站请求头、展示名一致；空值视为未声明。
+fn normalize_session_header(session_header: Option<String>) -> Option<String> {
+    session_header
+        .map(|name| name.trim().to_ascii_lowercase())
+        .filter(|name| !name.is_empty())
+}
+
 fn parse_builtin_providers() -> Vec<Provider> {
     let seeds: Vec<BuiltinProviderSeed> =
         serde_json::from_str(include_str!("../resources/builtin-providers.json"))
@@ -603,6 +626,7 @@ fn parse_builtin_providers() -> Vec<Provider> {
                 model_suggestions: normalize_model_suggestions(
                     seed.models.into_iter().map(|model| model.id).collect(),
                 ),
+                session_header: normalize_session_header(seed.session_header),
                 env,
             }
         })
@@ -1559,8 +1583,21 @@ fn strip_model_context_suffix(model: &str) -> &str {
     model.strip_suffix("[1m]").map_or(model, str::trim_end)
 }
 
+/// 解析供应商声明的会话标识头并生成本次请求的值；provider 解析不到或未声明时返回 `None`。
+fn resolve_model_test_session_header(provider_id: Option<&str>) -> Option<ModelTestSessionHeader> {
+    let name = provider_id
+        .and_then(find_provider)
+        .and_then(|provider| provider.session_header)?;
+
+    Some(ModelTestSessionHeader {
+        name,
+        value: uuid::Uuid::new_v4().to_string(),
+    })
+}
+
 fn resolve_model_test_request(
     resolved_settings: &Value,
+    provider_id: Option<&str>,
     prompt_text_override: Option<String>,
 ) -> Result<ModelTestRequest, String> {
     // 认证方式对齐 Claude Code：优先 ANTHROPIC_AUTH_TOKEN(Bearer)，回退 ANTHROPIC_API_KEY(x-api-key)。
@@ -1588,12 +1625,20 @@ fn resolve_model_test_request(
         resolved_model,
         prompt_text: prompt_text_override
             .unwrap_or_else(|| resolve_model_test_prompt(resolved_settings)),
+        session_header: resolve_model_test_session_header(provider_id),
     })
+}
+
+/// 客户端自标识 UA。OpenCode Go 等网关的文档明确要求客户端用自己的名字标识，
+/// 而不是通用的 SDK / HTTP 库名；reqwest 默认不发 User-Agent，这里显式补上。
+fn model_test_user_agent() -> String {
+    format!("code-manager/{}", env!("CARGO_PKG_VERSION"))
 }
 
 fn build_model_test_request_headers(
     auth_token: &str,
     auth_scheme: ModelTestAuthScheme,
+    session_header: Option<&ModelTestSessionHeader>,
 ) -> BTreeMap<String, String> {
     let auth_header = match auth_scheme {
         ModelTestAuthScheme::Bearer => {
@@ -1601,13 +1646,38 @@ fn build_model_test_request_headers(
         }
         ModelTestAuthScheme::ApiKey => ("x-api-key".to_string(), auth_token.to_string()),
     };
-    [
+    let mut headers: BTreeMap<String, String> = [
         auth_header,
         ("anthropic-version".to_string(), "2023-06-01".to_string()),
         ("content-type".to_string(), "application/json".to_string()),
+        ("user-agent".to_string(), model_test_user_agent()),
     ]
     .into_iter()
-    .collect()
+    .collect();
+
+    if let Some(session_header) = session_header {
+        headers.insert(session_header.name.clone(), session_header.value.clone());
+    }
+
+    headers
+}
+
+/// 把展示 / 导出用的字符串请求头转成 reqwest HeaderMap。
+/// 不直接交给 `RequestBuilder::header`：后者遇到非法头名 / 头值会 panic，
+/// 而认证 token 等值来自用户输入，这里改为返回可读错误，由调用方包装成失败结果。
+fn build_reqwest_headers(
+    headers: &BTreeMap<String, String>,
+) -> Result<reqwest::header::HeaderMap, String> {
+    let mut header_map = reqwest::header::HeaderMap::new();
+    for (name, value) in headers {
+        let header_name = reqwest::header::HeaderName::from_bytes(name.as_bytes())
+            .map_err(|error| format!("模型测试请求头名称非法（{name}）：{error}"))?;
+        let header_value = reqwest::header::HeaderValue::from_str(value)
+            .map_err(|error| format!("模型测试请求头 {name} 的值非法：{error}"))?;
+        header_map.insert(header_name, header_value);
+    }
+
+    Ok(header_map)
 }
 
 fn is_sensitive_request_header(name: &str) -> bool {
@@ -1807,8 +1877,11 @@ async fn execute_model_test_request(request: ModelTestRequest) -> Result<ModelTe
         .build()
         .map_err(|error| format!("创建模型测试客户端失败：{error}"))?;
     let payload = build_model_test_payload(&request);
-    let request_headers =
-        build_model_test_request_headers(&request.auth_token, request.auth_scheme);
+    let request_headers = build_model_test_request_headers(
+        &request.auth_token,
+        request.auth_scheme,
+        request.session_header.as_ref(),
+    );
     let request_body = serialize_model_test_request_body(&payload)?;
     let base_exchange = ModelTestHttpExchange {
         request_method: "POST".to_string(),
@@ -1819,21 +1892,37 @@ async fn execute_model_test_request(request: ModelTestRequest) -> Result<ModelTe
     };
 
     let started_at = Instant::now();
-    let auth_builder = match request.auth_scheme {
-        ModelTestAuthScheme::Bearer => client.post(&endpoint).header(
-            reqwest::header::AUTHORIZATION,
-            request_headers["authorization"].as_str(),
-        ),
-        ModelTestAuthScheme::ApiKey => client
-            .post(&endpoint)
-            .header("x-api-key", request_headers["x-api-key"].as_str()),
+    // 下发与展示共用同一份 request_headers，保证请求头面板 / cURL 与会真实发出的请求一致
+    let reqwest_headers = match build_reqwest_headers(&request_headers) {
+        Ok(headers) => headers,
+        Err(error) => {
+            let duration_ms = started_at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+            let result = build_model_test_error_result(
+                ModelTestResultContext {
+                    prompt_text: request.prompt_text,
+                    resolved_model: request.resolved_model,
+                    duration_ms,
+                    request_id: None,
+                    exchange: base_exchange,
+                },
+                None,
+                error,
+                None,
+            );
+            log::warn!(
+                "event=profile.model_test status=error model={} duration_ms={} error={}",
+                result.resolved_model,
+                result.duration_ms,
+                crate::logging::redact_sensitive_message(
+                    result.error_message.as_deref().unwrap_or_default()
+                )
+            );
+            return Ok(result);
+        }
     };
-    let response = match auth_builder
-        .header(
-            "anthropic-version",
-            request_headers["anthropic-version"].as_str(),
-        )
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
+    let response = match client
+        .post(&endpoint)
+        .headers(reqwest_headers)
         .json(&payload)
         .send()
         .await
@@ -2919,7 +3008,11 @@ pub async fn test_profile_model(data: ModelTestInput) -> Result<ModelTestResult,
     registry.profiles.push(profile.clone());
 
     let resolved = resolve_profile_settings(&profile)?;
-    let request = resolve_model_test_request(&resolved, prompt_text_override)?;
+    let request = resolve_model_test_request(
+        &resolved,
+        profile.provider_id.as_deref(),
+        prompt_text_override,
+    )?;
     execute_model_test_request(request).await
 }
 
@@ -3245,10 +3338,7 @@ mod tests {
         );
         assert_eq!(
             deepseek.model_suggestions,
-            vec![
-                "deepseek-v4-pro[1m]".to_string(),
-                "deepseek-v4-flash[1m]".to_string()
-            ]
+            vec!["deepseek-flash[1m]".to_string()]
         );
         assert_eq!(
             env.get("ANTHROPIC_BASE_URL"),
@@ -3258,23 +3348,23 @@ mod tests {
         );
         assert_eq!(
             env.get("ANTHROPIC_MODEL"),
-            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+            Some(&Value::String("deepseek-flash[1m]".to_string()))
         );
         assert_eq!(
             env.get("ANTHROPIC_DEFAULT_OPUS_MODEL"),
-            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+            Some(&Value::String("deepseek-flash[1m]".to_string()))
         );
         assert_eq!(
             env.get("ANTHROPIC_DEFAULT_SONNET_MODEL"),
-            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+            Some(&Value::String("deepseek-flash[1m]".to_string()))
         );
         assert_eq!(
             env.get("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
-            Some(&Value::String("deepseek-v4-flash".to_string()))
+            Some(&Value::String("deepseek-flash".to_string()))
         );
         assert_eq!(
             env.get("CLAUDE_CODE_SUBAGENT_MODEL"),
-            Some(&Value::String("deepseek-v4-flash".to_string()))
+            Some(&Value::String("deepseek-flash".to_string()))
         );
         assert_eq!(
             env.get("CLAUDE_CODE_EFFORT_LEVEL"),
@@ -3298,10 +3388,7 @@ mod tests {
         );
         assert_eq!(
             opencode_go.model_suggestions,
-            vec![
-                "deepseek-v4-pro[1m]".to_string(),
-                "deepseek-v4-flash[1m]".to_string(),
-            ]
+            vec!["deepseek-v4.1-flash[1m]".to_string()]
         );
         assert_eq!(
             env.get("ANTHROPIC_BASE_URL"),
@@ -3309,15 +3396,15 @@ mod tests {
         );
         assert_eq!(
             env.get("ANTHROPIC_MODEL"),
-            Some(&Value::String("deepseek-v4-pro[1m]".to_string()))
+            Some(&Value::String("deepseek-v4.1-flash[1m]".to_string()))
         );
         assert_eq!(
             env.get("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
-            Some(&Value::String("deepseek-v4-flash".to_string()))
+            Some(&Value::String("deepseek-v4.1-flash[1m]".to_string()))
         );
         assert_eq!(
             env.get("CLAUDE_CODE_SUBAGENT_MODEL"),
-            Some(&Value::String("deepseek-v4-flash".to_string()))
+            Some(&Value::String("deepseek-v4.1-flash[1m]".to_string()))
         );
     }
 
@@ -4374,6 +4461,7 @@ mod tests {
                 }
             }),
             None,
+            None,
         )
         .unwrap();
 
@@ -4394,6 +4482,7 @@ mod tests {
                 }
             }),
             None,
+            None,
         )
         .unwrap();
 
@@ -4413,6 +4502,7 @@ mod tests {
                 }
             }),
             None,
+            None,
         )
         .unwrap();
 
@@ -4429,6 +4519,7 @@ mod tests {
                     "ANTHROPIC_AUTH_TOKEN": "token"
                 }
             }),
+            None,
             Some("Custom prompt".to_string()),
         )
         .unwrap();
@@ -4458,6 +4549,7 @@ mod tests {
                 "model": "claude-sonnet-4-6"
             }),
             None,
+            None,
         )
         .unwrap_err();
 
@@ -4475,6 +4567,7 @@ mod tests {
                     "ANTHROPIC_AUTH_TOKEN": "token"
                 }
             }),
+            None,
             None,
         )
         .unwrap_err();
@@ -4502,6 +4595,7 @@ mod tests {
                 }
             }),
             None,
+            None,
         )
         .unwrap();
 
@@ -4518,6 +4612,7 @@ mod tests {
                     "ANTHROPIC_API_KEY": "key"
                 }
             }),
+            None,
             None,
         )
         .unwrap();
@@ -4536,6 +4631,7 @@ mod tests {
                 }
             }),
             None,
+            None,
         )
         .unwrap();
 
@@ -4545,7 +4641,7 @@ mod tests {
 
     #[test]
     fn build_model_test_request_headers_uses_bearer_for_auth_token() {
-        let headers = build_model_test_request_headers("token", ModelTestAuthScheme::Bearer);
+        let headers = build_model_test_request_headers("token", ModelTestAuthScheme::Bearer, None);
 
         assert_eq!(headers["authorization"], "Bearer token");
         assert!(!headers.contains_key("x-api-key"));
@@ -4555,12 +4651,110 @@ mod tests {
 
     #[test]
     fn build_model_test_request_headers_uses_x_api_key_for_api_key() {
-        let headers = build_model_test_request_headers("token", ModelTestAuthScheme::ApiKey);
+        let headers = build_model_test_request_headers("token", ModelTestAuthScheme::ApiKey, None);
 
         assert_eq!(headers["x-api-key"], "token");
         assert!(!headers.contains_key("authorization"));
         assert_eq!(headers["anthropic-version"], "2023-06-01");
         assert_eq!(headers["content-type"], "application/json");
+    }
+
+    #[test]
+    fn build_model_test_request_headers_identifies_client_and_injects_session_header() {
+        let session_header = ModelTestSessionHeader {
+            name: "x-opencode-session".to_string(),
+            value: "0f6b3b7e-6f7a-4c2f-9a2b-1d2c3b4a5e6f".to_string(),
+        };
+
+        let headers = build_model_test_request_headers(
+            "token",
+            ModelTestAuthScheme::ApiKey,
+            Some(&session_header),
+        );
+
+        // 网关按文档要求客户端用自有 UA 标识自己，不能用通用 SDK / HTTP 库名
+        assert_eq!(
+            headers["user-agent"],
+            format!("code-manager/{}", env!("CARGO_PKG_VERSION"))
+        );
+        assert_eq!(
+            headers["x-opencode-session"],
+            "0f6b3b7e-6f7a-4c2f-9a2b-1d2c3b4a5e6f"
+        );
+
+        let headers = build_model_test_request_headers("token", ModelTestAuthScheme::ApiKey, None);
+        assert!(!headers.contains_key("x-opencode-session"));
+    }
+
+    #[test]
+    fn build_reqwest_headers_rejects_invalid_values_without_leaking_them() {
+        let mut headers = BTreeMap::new();
+        headers.insert("x-api-key".to_string(), "line\nbreak".to_string());
+
+        let error = build_reqwest_headers(&headers).unwrap_err();
+
+        assert!(error.contains("x-api-key"));
+        assert!(!error.contains("line"));
+
+        let valid = build_model_test_request_headers("token", ModelTestAuthScheme::Bearer, None);
+        let header_map = build_reqwest_headers(&valid).unwrap();
+        assert_eq!(
+            header_map["user-agent"].to_str().unwrap(),
+            model_test_user_agent()
+        );
+        assert!(header_map.contains_key("authorization"));
+    }
+
+    #[test]
+    fn builtin_opencode_go_declares_session_header() {
+        let opencode_go = builtin_providers()
+            .iter()
+            .find(|provider| provider.id == "builtin:opencode-go")
+            .unwrap();
+
+        assert_eq!(
+            opencode_go.session_header,
+            Some("x-opencode-session".to_string())
+        );
+        // 目前只有 opencode-go 声明会话标识头，其余供应商不应凭空多带请求头
+        assert!(builtin_providers()
+            .iter()
+            .filter(|provider| provider.id != "builtin:opencode-go")
+            .all(|provider| provider.session_header.is_none()));
+    }
+
+    #[test]
+    fn resolve_model_test_session_header_follows_provider_declaration() {
+        let header = resolve_model_test_session_header(Some("builtin:opencode-go"))
+            .expect("opencode-go 应声明会话标识头");
+
+        assert_eq!(header.name, "x-opencode-session");
+        // 值按“每个会话一个稳定 ID”生成，模型测试即单轮会话
+        assert!(uuid::Uuid::parse_str(&header.value).is_ok());
+
+        assert!(resolve_model_test_session_header(None).is_none());
+        assert!(resolve_model_test_session_header(Some("builtin:deepseek")).is_none());
+        assert!(resolve_model_test_session_header(Some("builtin:missing")).is_none());
+    }
+
+    #[test]
+    fn resolve_model_test_request_carries_provider_session_header() {
+        let request = resolve_model_test_request(
+            &serde_json::json!({
+                "env": {
+                    "ANTHROPIC_API_KEY": "key",
+                    "ANTHROPIC_MODEL": "deepseek-v4.1-flash"
+                }
+            }),
+            Some("builtin:opencode-go"),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.session_header.map(|header| header.name),
+            Some("x-opencode-session".to_string())
+        );
     }
 
     #[test]

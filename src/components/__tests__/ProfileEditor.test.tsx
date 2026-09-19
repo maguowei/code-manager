@@ -4354,10 +4354,10 @@ describe("ProfileEditor", () => {
       name: "OpenCode Go",
       localizedName: { zh: "OpenCode Go", en: "OpenCode Go" },
       description: "OpenCode Go",
-      modelSuggestions: ["deepseek-v4-pro", "deepseek-v4-flash"],
+      modelSuggestions: ["deepseek-v4.1-flash[1m]"],
       env: {
         ANTHROPIC_BASE_URL: "https://opencode.ai/zen/go",
-        ANTHROPIC_MODEL: "deepseek-v4-flash",
+        ANTHROPIC_MODEL: "deepseek-v4.1-flash[1m]",
       },
     };
   }

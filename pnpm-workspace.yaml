@@ -25,10 +25,16 @@ minimumReleaseAgeExclude:
   - '@typescript/typescript-win32-x64@7.0.2'
   - typescript@7.0.2
 overrides:
-  js-yaml: 4.2.0
-  undici: 7.28.0
+  js-yaml: 4.3.2
+  undici: 7.29.1
+  # ajv 的传递依赖，仅 commitlint 使用；3.1.2 受 GHSA-v2hh-gcrm-f6hx 等 5 条 high 影响
+  fast-uri: 3.1.8
   # CodeMirror 要求 @codemirror/state 全局单例，多版本会导致 EditorView 构造崩溃（配置预览白屏/报错）
-  '@codemirror/state': 6.7.0
-  '@codemirror/view': 6.43.3
+  '@codemirror/state': 6.7.5
+  '@codemirror/view': 6.43.12
   # @codemirror/language 也须单实例：多版本会让主题的高亮插件读不到语言语法树，语法高亮静默失效
   '@codemirror/language': 6.12.4
+  # 上游 trees(1.0.0)/diffs(1.0.1) 各自精确 pin 了不同 theming 版本，pnpm 无法去重；两版 dist
+  # 逐字节一致，1.0.1 仅把 @pierre/theme 的 peer 放宽到 ^1.1.0 || ^2.0.0。统一到这里可去掉重复
+  # 副本，并让 peer 声明与实际解析到的 theme 2.0.0 一致（上游再抬版本时同步抬这条）
+  '@pierre/theming': 1.0.1

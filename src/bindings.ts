@@ -947,6 +947,11 @@ export type Provider_Deserialize = {
 	docUrl: string | null,
 	models: ProviderModel[] | null,
 	modelSuggestions?: string[],
+	/**
+	 *  供应商要求客户端声明的会话标识头名（如 OpenCode Go 的 `x-opencode-session`）。
+	 *  属于请求路由相关的客观供应商信息，值由请求方按会话生成，因此不写进 `env` 交给 Claude Code。
+	 */
+	sessionHeader?: string | null,
 	env?: { [key in string]: string },
 };
 
@@ -958,6 +963,11 @@ export type Provider_Serialize = {
 	docUrl?: string | null,
 	models?: ProviderModel[] | null,
 	modelSuggestions: string[],
+	/**
+	 *  供应商要求客户端声明的会话标识头名（如 OpenCode Go 的 `x-opencode-session`）。
+	 *  属于请求路由相关的客观供应商信息，值由请求方按会话生成，因此不写进 `env` 交给 Claude Code。
+	 */
+	sessionHeader?: string | null,
 	env: { [key in string]: string },
 };
 

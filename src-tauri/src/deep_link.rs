@@ -447,6 +447,8 @@ fn build_pinned_http_client(
     safe_addrs: &[SocketAddr],
 ) -> Result<reqwest::Client, String> {
     let mut builder = reqwest::Client::builder()
+        // 代理会重新解析原始域名，绕过已校验公网地址的 DNS 钉定；远端导入必须直连。
+        .no_proxy()
         .timeout(REMOTE_FETCH_TIMEOUT)
         .redirect(reqwest::redirect::Policy::none());
 
@@ -759,6 +761,72 @@ mod tests {
         assert!(is_blocked_ip("198.18.0.1".parse().unwrap()));
         assert!(is_blocked_ip("198.19.255.255".parse().unwrap()));
         assert!(!is_blocked_ip("198.20.0.1".parse().unwrap()));
+    }
+
+    #[test]
+    fn pinned_http_client_bypasses_proxy() {
+        const CHILD_ENV: &str = "CODE_MANAGER_PINNED_PROXY_TEST_CHILD";
+        // 代理环境变量只在独立测试进程中修改，避免污染并行测试的 HTTP 客户端。
+        if std::env::var_os(CHILD_ENV).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "deep_link::tests::pinned_http_client_bypasses_proxy",
+                    "--nocapture",
+                ])
+                .env(CHILD_ENV, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+
+        let target = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let proxy = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let target_addr = target.local_addr().unwrap();
+        let proxy_url = format!("http://{}", proxy.local_addr().unwrap());
+        for key in ["HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"] {
+            std::env::set_var(key, &proxy_url);
+        }
+        for key in ["NO_PROXY", "no_proxy"] {
+            std::env::set_var(key, "");
+        }
+        target.set_nonblocking(true).unwrap();
+        proxy.set_nonblocking(true).unwrap();
+        let connection = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            loop {
+                for (name, listener) in [("target", &target), ("proxy", &proxy)] {
+                    match listener.accept() {
+                        Ok((stream, _)) => {
+                            // 无需 TLS 证书：确认实际 TCP 目标后关闭连接，使请求立即结束。
+                            drop(stream);
+                            return name;
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                        Err(error) => panic!("accept failed: {error}"),
+                    }
+                }
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "no connection received"
+                );
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        });
+
+        // 保留 HTTPS 请求路径，用回环地址代替已校验地址，测试不访问外网。
+        let url = Url::parse(&format!("https://pinned.invalid:{}/", target_addr.port())).unwrap();
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let client = build_pinned_http_client(&url, &[target_addr]).unwrap();
+            assert!(client.get(url).send().await.is_err());
+        });
+        assert_eq!(connection.join().unwrap(), "target");
     }
 
     #[test]

@@ -503,6 +503,9 @@ const translations = {
     "providers.fields.model.subagent": "Subagent",
     "providers.fields.effortLevel": "努力级别",
     "providers.fields.modelSuggestions": "模型列表",
+    "providers.fields.sessionHeader": "客户端会话头",
+    "providers.fields.sessionHeaderHint":
+      "该供应商要求客户端按会话声明此请求头，模型测试会自动带上。",
     "providers.editor.hints.behaviorJson":
       "这里直接编辑当前行为区块相关的顶层键，以及相关的 env 覆盖，不会创建新的 behavior 嵌套对象。",
     "providers.editor.hints.commonJson":
@@ -2225,6 +2228,9 @@ const translations = {
     "providers.fields.model.subagent": "Subagent",
     "providers.fields.effortLevel": "Effort Level",
     "providers.fields.modelSuggestions": "Model List",
+    "providers.fields.sessionHeader": "Client Session Header",
+    "providers.fields.sessionHeaderHint":
+      "This provider requires clients to declare this header per session; model tests send it automatically.",
     "providers.editor.hints.behaviorJson":
       "Edit the related top-level behavior keys and scoped env overrides directly without creating a nested behavior object.",
     "providers.editor.hints.commonJson":
