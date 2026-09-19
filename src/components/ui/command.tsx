@@ -31,11 +31,13 @@ function CommandDialog({
   className,
   showCloseButton = true,
   ...props
-}: React.ComponentProps<typeof Dialog> & {
+}: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
   title?: string;
   description?: string;
   className?: string;
   showCloseButton?: boolean;
+  // Base UI 的 Dialog children 允许渲染函数形式，cmdk 只接受 ReactNode，这里收窄类型
+  children?: React.ReactNode;
 }) {
   const { t } = useI18n();
   const dialogTitle = title ?? t("ui.commandDialogTitle");

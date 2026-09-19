@@ -411,9 +411,7 @@ function ModelTestResultDialog({
           <div className="flex min-w-0 items-start justify-between gap-3 max-[640px]:flex-col">
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <DialogTitle asChild>
-                  <h3>{t("profiles.editor.modelTest.dialogTitle")}</h3>
-                </DialogTitle>
+                <DialogTitle render={<h3>{t("profiles.editor.modelTest.dialogTitle")}</h3>} />
                 <Badge
                   variant={isSuccess ? "default" : "destructive"}
                   className={cn("font-bold", isSuccess && TONE_SOLID_CLASS.success)}

@@ -172,25 +172,21 @@ function ProjectPurgeDialog({ dialog, onCancel, onConfirm, t }: ProjectPurgeDial
   return (
     <Dialog
       open
-      onOpenChange={(open) => {
-        if (!open) {
-          onCancel();
+      onOpenChange={(open, eventDetails) => {
+        if (open) {
+          return;
         }
+        // 清理进行中不允许 ESC / 点击外部关闭（等价 Radix 的两个 preventDefault）
+        const isDismissReason =
+          eventDetails.reason === "escape-key" || eventDetails.reason === "outside-press";
+        if (dialog.isPurging && isDismissReason) {
+          eventDetails.cancel();
+          return;
+        }
+        onCancel();
       }}
     >
-      <DialogContent
-        className="projects-purge-dialog max-h-[min(720px,88vh)] w-[min(760px,92vw)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg p-0"
-        onEscapeKeyDown={(event) => {
-          if (dialog.isPurging) {
-            event.preventDefault();
-          }
-        }}
-        onPointerDownOutside={(event) => {
-          if (dialog.isPurging) {
-            event.preventDefault();
-          }
-        }}
-      >
+      <DialogContent className="projects-purge-dialog max-h-[min(720px,88vh)] w-[min(760px,92vw)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg p-0">
         <div className="flex max-h-[min(720px,88vh)] flex-col gap-4 p-6">
           <DialogHeader>
             <DialogTitle>{t("projects.purgeDialogTitle")}</DialogTitle>
@@ -344,25 +340,21 @@ function ProjectGitCleanupDialog({
   return (
     <Dialog
       open
-      onOpenChange={(open) => {
-        if (!open) {
-          onCancel();
+      onOpenChange={(open, eventDetails) => {
+        if (open) {
+          return;
         }
+        // 清理进行中不允许 ESC / 点击外部关闭（等价 Radix 的两个 preventDefault）
+        const isDismissReason =
+          eventDetails.reason === "escape-key" || eventDetails.reason === "outside-press";
+        if (dialog.isCleaning && isDismissReason) {
+          eventDetails.cancel();
+          return;
+        }
+        onCancel();
       }}
     >
-      <DialogContent
-        className="projects-git-cleanup-dialog max-h-[min(720px,88vh)] w-[min(760px,92vw)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg p-0"
-        onEscapeKeyDown={(event) => {
-          if (dialog.isCleaning) {
-            event.preventDefault();
-          }
-        }}
-        onPointerDownOutside={(event) => {
-          if (dialog.isCleaning) {
-            event.preventDefault();
-          }
-        }}
-      >
+      <DialogContent className="projects-git-cleanup-dialog max-h-[min(720px,88vh)] w-[min(760px,92vw)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg p-0">
         <div className="flex max-h-[min(720px,88vh)] flex-col gap-4 p-6">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>

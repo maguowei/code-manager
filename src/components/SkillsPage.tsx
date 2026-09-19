@@ -113,12 +113,18 @@ function SkillImportResultDialog({ result, onConfirm }: SkillImportResultDialogP
       : "text-primary";
 
   return (
-    <Dialog open>
+    <Dialog
+      open
+      onOpenChange={(_open, eventDetails) => {
+        // 结果对话框只能显式关闭：ESC 与点击外部都不生效（等价 Radix 的两个 preventDefault）
+        if (eventDetails.reason === "escape-key" || eventDetails.reason === "outside-press") {
+          eventDetails.cancel();
+        }
+      }}
+    >
       <DialogContent
         showCloseButton={false}
         className="skills-import-result-dialog flex max-h-[min(720px,88vh)] flex-col overflow-hidden !flex sm:max-w-xl"
-        onEscapeKeyDown={(event) => event.preventDefault()}
-        onPointerDownOutside={(event) => event.preventDefault()}
       >
         <DialogHeader className="shrink-0">
           <DialogTitle>{t("skills.importResultTitle")}</DialogTitle>
