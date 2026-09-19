@@ -105,7 +105,7 @@ Code Manager 主要读写本机文件。配置合并、目录扫描、用量聚�
 ### 前置要求
 
 - Node.js LTS
-- `pnpm`，项目当前声明 `pnpm@11.2.2`
+- `pnpm`，项目当前声明 `pnpm@12.4.2`
 - Rust stable
 - 满足 Tauri 2 运行所需的系统依赖
 
