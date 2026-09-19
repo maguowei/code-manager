@@ -1140,23 +1140,55 @@ fn is_target_third_party_model(model: &str) -> bool {
         .any(|part| matches!(part, "kimi" | "mimo" | "glm" | "minimax" | "deepseek"))
 }
 
-/// 根据 model id 查价格，未命中时按子串模糊匹配（opus / sonnet / haiku）
+/// 逐级剥离尾部 '-' 分隔段，产出「同族主别名」候选，供 `match_model_price` 兜底。
+///
+/// 例：`claude-opus-4-8-20260401` -> `claude-opus-4-8`、`claude-opus-4`。
+/// 越靠前的候选越精确，调用方按序取首个在价格表中存在的候选。这样带日期快照
+/// 或构建号的 model id 能命中同族主别名，而不是掉进按最低价选择的类别兜底。
+fn prefix_trim_candidates(model: &str) -> Vec<String> {
+    let mut current = model.trim().to_string();
+    let mut candidates = Vec::new();
+    while let Some(index) = current.rfind('-') {
+        if index == 0 {
+            break;
+        }
+        current.truncate(index);
+        if current.ends_with(|c: char| c.is_ascii_digit()) {
+            candidates.push(current.clone());
+        }
+    }
+    candidates
+}
+
+/// 根据 model id 查价格，匹配顺序：精确 -> 归一化 -> 剥离尾部段取同族主别名
+/// -> 按 opus / sonnet / haiku 子串取该族最低价
 pub fn match_model_price(model: &str, table: &PricingTable) -> Option<ModelPrice> {
     if let Some(p) = table.models.get(model) {
         return Some(p.clone());
     }
     let lower = model.to_lowercase();
-    for (k, v) in &table.models {
-        if lower == k.to_lowercase() {
-            return Some(v.clone());
+    // 归一化索引只构建一次，供后续所有匹配阶段复用
+    let normalized_table: Vec<(String, &ModelPrice)> = table
+        .models
+        .iter()
+        .map(|(k, v)| (normalize_model_key(k), v))
+        .collect();
+    let lookup_normalized = |key: &str| -> Option<ModelPrice> {
+        if key.is_empty() {
+            return None;
         }
+        normalized_table
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| (*v).clone())
+    };
+    if let Some(p) = lookup_normalized(&normalize_model_key(model)) {
+        return Some(p);
     }
-    let normalized = normalize_model_key(model);
-    if !normalized.is_empty() {
-        for (k, v) in &table.models {
-            if normalized == normalize_model_key(k) {
-                return Some(v.clone());
-            }
+    // 完整 id 没有同族主别名时才逐级剥离尾部，避免误命中更短的名字
+    for candidate in prefix_trim_candidates(model) {
+        if let Some(p) = lookup_normalized(&normalize_model_key(&candidate)) {
+            return Some(p);
         }
     }
     let category = if lower.contains("opus") {
@@ -2887,6 +2919,77 @@ mod tests {
         let table = sample_pricing();
         let p = match_model_price("claude-opus-4-7", &table).unwrap();
         assert_eq!(p.input, 5.0);
+    }
+
+    #[test]
+    fn match_model_price_trims_snapshot_suffix_to_family_alias() {
+        let mut table = sample_pricing();
+        // 同族内存在两档价，用于验证剥离后命中的是主别名而不是类别最低价
+        table.models.insert(
+            "claude-sonnet-4-5".to_string(),
+            ModelPrice {
+                input: 3.0,
+                output: 15.0,
+                cache_read: 0.3,
+                cache_write: 3.75,
+            },
+        );
+        table.models.insert(
+            "claude-sonnet-5".to_string(),
+            ModelPrice {
+                input: 2.0,
+                output: 10.0,
+                cache_read: 0.2,
+                cache_write: 2.5,
+            },
+        );
+
+        // 日期快照与构建号剥离尾部后命中同族主别名
+        for id in [
+            "claude-sonnet-4-5-20250929",
+            "claude-sonnet-4-5-99",
+            "claude-haiku-4-5-20251001",
+            "claude-haiku-4-5-1",
+        ] {
+            let price = match_model_price(id, &table).unwrap();
+            let expected = if id.contains("sonnet") { 3.0 } else { 1.0 };
+            assert_eq!(price.input, expected, "{id} 未剥离到同族主别名");
+        }
+
+        // 完整 id 优先精确命中，不被误降到更短的族名
+        assert_eq!(
+            match_model_price("claude-sonnet-4-5", &table)
+                .unwrap()
+                .input,
+            3.0
+        );
+        assert_eq!(
+            match_model_price("claude-sonnet-5", &table).unwrap().input,
+            2.0
+        );
+
+        // 剥离后仍无同族主别名时，继续走类别兜底
+        assert_eq!(
+            match_model_price("claude-opus-4-99", &table).unwrap().input,
+            5.0
+        );
+        assert!(match_model_price("gpt-4o", &table).is_none());
+
+        // 内置表回归保护：sonnet 族同时存在 4.5(3/15) 与 5(2/10) 两档价时，
+        // 4.5 的日期快照必须剥离到主别名，而不是落到族内最低价 2/10
+        let builtin = load_builtin_pricing();
+        let legacy = match_model_price("claude-sonnet-4-5-20250929", &builtin).unwrap();
+        assert_eq!(
+            (legacy.input, legacy.output),
+            (3.0, 15.0),
+            "sonnet-4-5 日期快照落到了 sonnet-5 的价，前缀剥离未生效"
+        );
+        assert_eq!(
+            match_model_price("claude-sonnet-5", &builtin)
+                .unwrap()
+                .input,
+            2.0
+        );
     }
 
     #[test]
