@@ -6,7 +6,7 @@ import { TYPOGRAPHY } from "../typography-classes";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Slider } from "../ui/slider";
+import { firstSliderValue, Slider } from "../ui/slider";
 import { formatTokens } from "../usage/format";
 
 // 自动压缩窗口取值范围(token);0 = 未设置,与 schema 的 CLAUDE_CODE_AUTO_COMPACT_WINDOW 对应
@@ -86,7 +86,10 @@ function AutoCompactWindowField({
             max={MAX}
             step={STEP}
             value={[numeric ?? 0]}
-            onValueChange={([next]) => onChange(next === 0 ? "" : String(next))}
+            onValueChange={(value) => {
+              const next = firstSliderValue(value) ?? 0;
+              onChange(next === 0 ? "" : String(next));
+            }}
           />
           <div
             className={cn("flex justify-between text-muted-foreground", TYPOGRAPHY.auxiliary)}

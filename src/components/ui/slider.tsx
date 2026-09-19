@@ -1,10 +1,12 @@
 "use client";
 
-import { Slider as SliderPrimitive } from "radix-ui";
+import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Base UI 的 Slider 多了一层 Control：布局类从 Root 移到 Control，
+// 已完成区间由 Range 改名为 Indicator，拇指仍在 Track 内。
 function Slider({
   className,
   defaultValue,
@@ -37,35 +39,44 @@ function Slider({
       min={min}
       max={max}
       aria-label={ariaLabel}
-      className={cn(
-        "relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col",
-        className,
-      )}
+      className={className}
       {...props}
     >
-      <SliderPrimitive.Track
-        data-slot="slider-track"
+      <SliderPrimitive.Control
+        data-slot="slider-control"
         className={cn(
-          "relative grow overflow-hidden rounded-full bg-muted data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5",
+          "relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col",
         )}
       >
-        <SliderPrimitive.Range
-          data-slot="slider-range"
+        <SliderPrimitive.Track
+          data-slot="slider-track"
           className={cn(
-            "absolute bg-primary data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
+            "relative grow overflow-hidden rounded-full bg-muted data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5",
           )}
-        />
-      </SliderPrimitive.Track>
-      {thumbIds.map((thumbId) => (
-        <SliderPrimitive.Thumb
-          data-slot="slider-thumb"
-          key={thumbId}
-          aria-label={ariaLabel}
-          className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
-        />
-      ))}
+        >
+          <SliderPrimitive.Indicator
+            data-slot="slider-range"
+            className={cn(
+              "absolute bg-primary data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
+            )}
+          />
+        </SliderPrimitive.Track>
+        {thumbIds.map((thumbId) => (
+          <SliderPrimitive.Thumb
+            data-slot="slider-thumb"
+            key={thumbId}
+            aria-label={ariaLabel}
+            className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden data-disabled:pointer-events-none data-disabled:opacity-50"
+          />
+        ))}
+      </SliderPrimitive.Control>
     </SliderPrimitive.Root>
   );
 }
 
-export { Slider };
+/** Base UI 的 Slider 回调对单值场景给 number、多值场景给数组，这里统一取首个值。 */
+function firstSliderValue(value: number | readonly number[]): number | undefined {
+  return typeof value === "number" ? value : value[0];
+}
+
+export { firstSliderValue, Slider };

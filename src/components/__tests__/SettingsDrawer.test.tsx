@@ -491,9 +491,10 @@ describe("SettingsDrawer", () => {
       cacheHitRateThreshold: 90,
     });
     const thumb = await screen.findByRole("slider", { name: "缓存命中率告警阈值" });
-    const root = thumb.closest('[data-slot="slider"]');
-    if (!root) throw new Error("Missing slider root");
-    const bounds = vi.spyOn(root, "getBoundingClientRect").mockReturnValue({
+    // Base UI 的指针交互与坐标换算都发生在 Control 层，不是 Root
+    const control = thumb.closest('[data-slot="slider-control"]');
+    if (!control) throw new Error("Missing slider control");
+    const bounds = vi.spyOn(control, "getBoundingClientRect").mockReturnValue({
       x: 0,
       y: 0,
       left: 0,
@@ -504,13 +505,13 @@ describe("SettingsDrawer", () => {
       height: 10,
       toJSON() {},
     });
-    const capture = vi.spyOn(root, "hasPointerCapture").mockReturnValue(true);
+    const capture = vi.spyOn(control, "hasPointerCapture").mockReturnValue(true);
     try {
       // 指针按下后先渲染草稿，再松开提交，覆盖键盘测试未经过的路径。
-      fireEvent(root, new MouseEvent("pointerdown", { bubbles: true, clientX: 50, clientY: 5 }));
+      fireEvent(control, new MouseEvent("pointerdown", { bubbles: true, clientX: 50, clientY: 5 }));
       expect(thumb).toHaveAttribute("aria-valuenow", "55");
       expect(invokeMock).not.toHaveBeenCalledWith("set_app_preferences", expect.anything());
-      fireEvent(root, new MouseEvent("pointerup", { bubbles: true, clientX: 50, clientY: 5 }));
+      fireEvent(control, new MouseEvent("pointerup", { bubbles: true, clientX: 50, clientY: 5 }));
       await waitFor(() => {
         expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
           data: expect.objectContaining({ cacheHitRateThreshold: 55 }),

@@ -75,7 +75,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
-import { Slider } from "./ui/slider";
+import { firstSliderValue, Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 
 interface SettingsDrawerProps {
@@ -1147,14 +1147,15 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                     max={TRAY_TITLE_SLIDER_MAX}
                     step={1}
                     value={[trayTitleSliderValue]}
-                    onValueChange={([value]) => {
+                    onValueChange={(value) => {
+                      const next = firstSliderValue(value) ?? 0;
                       // 0 档关闭托盘标题；MAX 档为全展示（null）；中间档限制为该字数
                       const patch =
-                        value === 0
+                        next === 0
                           ? { showTrayTitle: false }
                           : {
                               showTrayTitle: true,
-                              trayTitleMaxChars: value >= TRAY_TITLE_SLIDER_MAX ? null : value,
+                              trayTitleMaxChars: next >= TRAY_TITLE_SLIDER_MAX ? null : next,
                             };
                       void persistPreferences({ ...nextPreferences, ...patch }, nextPreferences);
                     }}
@@ -1322,11 +1323,11 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                         step={1}
                         aria-label={t("settings.floatingWidgetOpacity")}
                         onValueChange={(value) => {
-                          const next = value[0] ?? floatingWidgetOpacity;
+                          const next = firstSliderValue(value) ?? floatingWidgetOpacity;
                           setPreferences((prev) => ({ ...prev, floatingWidgetOpacity: next }));
                         }}
-                        onValueCommit={(value) => {
-                          const next = value[0] ?? floatingWidgetOpacity;
+                        onValueCommitted={(value) => {
+                          const next = firstSliderValue(value) ?? floatingWidgetOpacity;
                           void persistPreferences(
                             { ...nextPreferences, floatingWidgetOpacity: next },
                             nextPreferences,
@@ -1476,11 +1477,11 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                       step={1}
                       aria-label={t("settings.cacheHitRateNotificationThreshold")}
                       onValueChange={(value) => {
-                        const next = value[0] ?? cacheHitRateThreshold;
+                        const next = firstSliderValue(value) ?? cacheHitRateThreshold;
                         setCacheHitRateThresholdDraft(next);
                       }}
-                      onValueCommit={async (value) => {
-                        const next = value[0] ?? cacheHitRateThreshold;
+                      onValueCommitted={async (value) => {
+                        const next = firstSliderValue(value) ?? cacheHitRateThreshold;
                         await persistPreferences(
                           { ...nextPreferences, cacheHitRateThreshold: next },
                           nextPreferences,
