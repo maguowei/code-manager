@@ -1624,7 +1624,7 @@ describe("ProfilesPage", () => {
           ok: true,
           responseText: "ok",
           promptText: "请确认测试成功。",
-          resolvedModel: "deepseek-v4-pro[1m]",
+          resolvedModel: "deepseek-flash[1m]",
           durationMs: 119,
           rawResponse: JSON.stringify({ content: [{ type: "text", text: "ok" }] }),
         });
@@ -1640,9 +1640,9 @@ describe("ProfilesPage", () => {
           name: "DeepSeek",
           localizedName: { zh: "DeepSeek", en: "DeepSeek" },
           description: "DeepSeek",
-          modelSuggestions: ["deepseek-v4-pro[1m]"],
+          modelSuggestions: ["deepseek-flash[1m]"],
           env: {
-            ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
+            ANTHROPIC_MODEL: "deepseek-flash[1m]",
             CLAUDE_CODE_EFFORT_LEVEL: "max",
           },
         },
@@ -1668,7 +1668,7 @@ describe("ProfilesPage", () => {
     renderPage(workspace);
 
     const card = getProfileCard("DeepSeek User");
-    expect(within(card).getByText("deepseek-v4-pro[1m]")).toBeInTheDocument();
+    expect(within(card).getByText("deepseek-flash[1m]")).toBeInTheDocument();
     expect(within(card).getByText("max")).toBeInTheDocument();
 
     await act(async () => {

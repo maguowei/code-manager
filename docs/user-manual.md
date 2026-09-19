@@ -127,7 +127,7 @@ The configuration editor on the right is divided into several sections.
 
 After you click Test Model, a request is sent based on the current edits. The result dialog shows whether it succeeded, the model used and the returned model, the request endpoint, the status code, the elapsed time, the request ID, the stop reason, the input prompt, the returned content, the request / response headers, the request body, and the raw response, along with the ability to copy cURL and to modify the prompt and retest.
 
-Model testing requires a valid `ANTHROPIC_AUTH_TOKEN` and an accessible model API.
+Model testing requires a valid `ANTHROPIC_AUTH_TOKEN` and an accessible model API. Some gateways (for example OpenCode Go) require clients to declare a session header per conversation; model tests generate and send it automatically for every request, so no manual configuration is needed.
 
 ### Deep Link Import
 
@@ -145,7 +145,7 @@ The scheme is registered for packaged installs on macOS / Windows / Linux; Linux
 
 Providers are all built-in and read-only. They carry only objective provider information (the connection endpoint `ANTHROPIC_BASE_URL`, the model mapping, and optional additional environment variables) and contain no authentication keys. They currently cover Anthropic, DeepSeek, Zhipu GLM Coding Plan, Kimi Code Plan, MiniMax Token Plan, Xiaomi MiMo Token Plan, OpenRouter, Volcengine Ark Coding Plan, Wanjie Ark, OpenCode Go, and Ollama.
 
-Custom providers are not supported. After you select a built-in provider under the "Provider" option in the configuration editor, its connection endpoint and model mapping are filled in automatically; you only need to add the authentication key and behavior settings. Clicking "View built-in providers" below that option opens a read-only overview where you can see each provider's name, ID, API endpoint, official documentation link, and recommended models.
+Custom providers are not supported. After you select a built-in provider under the "Provider" option in the configuration editor, its connection endpoint and model mapping are filled in automatically; you only need to add the authentication key and behavior settings. Clicking "View built-in providers" below that option opens a read-only overview where you can see each provider's name, ID, API endpoint, official documentation link, recommended models, and the client session header (if that gateway requires one).
 
 ## Memory Management
 

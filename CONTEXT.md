@@ -11,7 +11,7 @@ Code Manager 的领域术语表(glossary),只记录本项目语境下需要统�
 _Avoid_: Profile(裸用英文)、预设/preset(已移除的旧继承模型残留,仅存于 `presetId` 兼容别名)、方案
 
 **Provider(供应商)**:
-只承载供应商客观信息的单元:连接地址 `env.ANTHROPIC_BASE_URL`、模型映射与元数据(`models`/`docUrl`)。**全部内置只读、不支持自定义、无继承**,且**不含认证密钥、不含 permissions/hooks**——那些都属于[配置](#配置profile)。
+只承载供应商客观信息的单元:连接地址 `env.ANTHROPIC_BASE_URL`、模型映射与元数据(`models`/`docUrl`),以及网关要求的客户端会话标识头声明(`sessionHeader`)。**全部内置只读、不支持自定义、无继承**,且**不含认证密钥、不含 permissions/hooks**——那些都属于[配置](#配置profile)。
 _Avoid_: 预设/preset、渠道、服务商、模型源
 
 **应用(Apply)**:

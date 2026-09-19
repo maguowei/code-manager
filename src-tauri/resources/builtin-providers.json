@@ -14,17 +14,16 @@
     "baseUrl": "https://api.deepseek.com/anthropic",
     "docUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/agent_integrations/claude_code",
     "env": {
-      "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1m]",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1m]",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
-      "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-flash",
+      "ANTHROPIC_MODEL": "deepseek-flash[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-flash[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-flash[1m]",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-flash",
+      "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-flash",
       "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "786432",
       "CLAUDE_CODE_EFFORT_LEVEL": "max"
     },
     "models": [
-      { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
-      { "id": "deepseek-v4-flash[1m]", "name": "DeepSeek V4 Flash" }
+      { "id": "deepseek-flash[1m]", "name": "DeepSeek Flash" }
     ]
   },
   {
@@ -118,16 +117,16 @@
     "slug": "opencode-go",
     "baseUrl": "https://opencode.ai/zen/go",
     "docUrl": "https://opencode.ai/docs/zh-cn/go",
+    "sessionHeader": "x-opencode-session",
     "env": {
-      "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1m]",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-flash[1m]",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
-      "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-flash"
+      "ANTHROPIC_MODEL": "deepseek-v4.1-flash[1m]",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4.1-flash[1m]",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4.1-flash[1m]",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4.1-flash[1m]",
+      "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4.1-flash[1m]"
     },
     "models": [
-      { "id": "deepseek-v4-pro[1m]", "name": "DeepSeek V4 Pro" },
-      { "id": "deepseek-v4-flash[1m]", "name": "DeepSeek V4 Flash" }
+      { "id": "deepseek-v4.1-flash[1m]", "name": "DeepSeek V4.1 Flash" }
     ]
   },
   {
@@ -140,13 +139,12 @@
       "ANTHROPIC_MODEL": "glm-5.3:cloud",
       "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3:cloud",
       "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3:cloud",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash:cloud"
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4.1-flash:cloud"
     },
     "models": [
       { "id": "glm-5.3:cloud", "name": "GLM-5.3" },
       { "id": "kimi-k3:cloud", "name": "Kimi K3" },
-      { "id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro" },
-      { "id": "deepseek-v4-flash:cloud", "name": "DeepSeek V4 Flash" }
+      { "id": "deepseek-v4.1-flash:cloud", "name": "DeepSeek V4.1 Flash" }
     ]
   },
   {

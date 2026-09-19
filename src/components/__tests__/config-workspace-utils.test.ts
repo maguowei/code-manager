@@ -87,15 +87,15 @@ const PRESETS: Provider[] = [
       zh: "DeepSeek",
       en: "DeepSeek",
     },
-    models: [{ id: "deepseek-v4-pro[1m]" }, { id: "deepseek-v4-flash" }],
-    modelSuggestions: ["deepseek-v4-pro[1m]", "deepseek-v4-flash"],
+    models: [{ id: "deepseek-flash[1m]" }],
+    modelSuggestions: ["deepseek-flash[1m]"],
     env: {
       ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
-      ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
-      ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
-      ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash",
-      CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-v4-flash",
+      ANTHROPIC_MODEL: "deepseek-flash[1m]",
+      ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-flash[1m]",
+      ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-flash[1m]",
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-flash",
+      CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-flash",
       CLAUDE_CODE_EFFORT_LEVEL: "max",
     },
   },
@@ -186,11 +186,11 @@ describe("config-workspace-utils preset autofill", () => {
   it("resolves DeepSeek official model/subagent/effort env defaults from provider env", () => {
     expect(resolveProviderAutofillValues(PRESETS, "builtin:deepseek")).toEqual({
       resolvedBaseUrl: "https://api.deepseek.com/anthropic",
-      resolvedModel: "deepseek-v4-pro[1m]",
-      resolvedOpusModel: "deepseek-v4-pro[1m]",
-      resolvedSonnetModel: "deepseek-v4-pro[1m]",
-      resolvedHaikuModel: "deepseek-v4-flash",
-      resolvedSubagentModel: "deepseek-v4-flash",
+      resolvedModel: "deepseek-flash[1m]",
+      resolvedOpusModel: "deepseek-flash[1m]",
+      resolvedSonnetModel: "deepseek-flash[1m]",
+      resolvedHaikuModel: "deepseek-flash",
+      resolvedSubagentModel: "deepseek-flash",
       resolvedEffortLevel: "max",
     });
   });
@@ -294,7 +294,7 @@ describe("config-workspace-utils profile effective summary", () => {
       },
     };
 
-    expect(resolveProfileEffectiveModel(profile, PRESETS)).toBe("deepseek-v4-pro[1m]");
+    expect(resolveProfileEffectiveModel(profile, PRESETS)).toBe("deepseek-flash[1m]");
     expect(resolveProfileEffectiveEffort(profile, PRESETS)).toBe("max");
   });
 

@@ -113,6 +113,8 @@ export interface Provider {
   docUrl?: string;
   models?: ProviderModel[];
   modelSuggestions: string[];
+  /** 供应商要求客户端声明的会话标识头名（如 OpenCode Go 的 `x-opencode-session`），值由请求方按会话生成 */
+  sessionHeader?: string;
   /** 供应商连接与模型映射环境变量（扁平键值对，不含认证密钥） */
   env: Record<string, string>;
 }

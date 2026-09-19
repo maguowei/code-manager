@@ -37,16 +37,26 @@ const BUILTIN_PROVIDERS: Provider[] = [
     localizedName: { zh: "DeepSeek", en: "DeepSeek" },
     description: "DeepSeek provider",
     docUrl: "https://docs.example.com/deepseek",
-    modelSuggestions: ["deepseek-v4-pro[1m]", "deepseek-v4-flash"],
+    modelSuggestions: ["deepseek-flash[1m]"],
     env: {
       ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
-      ANTHROPIC_MODEL: "deepseek-v4-pro[1m]",
-      ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]",
-      ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash",
-      CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-v4-flash",
+      ANTHROPIC_MODEL: "deepseek-flash[1m]",
+      ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-flash[1m]",
+      ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-flash[1m]",
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-flash",
+      CLAUDE_CODE_SUBAGENT_MODEL: "deepseek-flash",
       CLAUDE_CODE_EFFORT_LEVEL: "max",
     },
+  },
+  {
+    id: "builtin:opencode-go",
+    name: "OpenCode Go",
+    localizedName: { zh: "OpenCode Go", en: "OpenCode Go" },
+    description: "OpenCode Go provider",
+    docUrl: "https://docs.example.com/opencode-go",
+    modelSuggestions: ["deepseek-v4.1-flash[1m]"],
+    sessionHeader: "x-opencode-session",
+    env: { ANTHROPIC_BASE_URL: "https://opencode.ai/zen/go" },
   },
 ];
 
@@ -117,8 +127,34 @@ describe("ProvidersPage", () => {
     expect(within(card).getByText("Haiku")).toBeInTheDocument();
     expect(within(card).getByText("Effort Level")).toBeInTheDocument();
     // 模型值按 env 映射展示
-    expect(within(card).getAllByText("deepseek-v4-pro[1m]").length).toBeGreaterThan(0);
+    expect(within(card).getAllByText("deepseek-flash[1m]").length).toBeGreaterThan(0);
     expect(within(card).getByText("max")).toBeInTheDocument();
+  });
+
+  it("renders the client session header only for providers that declare it", () => {
+    renderPage();
+
+    const opencodeCard = screen
+      .getByRole("heading", { name: "OpenCode Go", level: 3 })
+      .closest('[data-slot="preset-card"]') as HTMLElement | null;
+    expect(opencodeCard).not.toBeNull();
+    if (!opencodeCard) {
+      return;
+    }
+
+    expect(within(opencodeCard).getByText("Client Session Header")).toBeInTheDocument();
+    expect(within(opencodeCard).getByText("x-opencode-session")).toBeInTheDocument();
+
+    const openRouterCard = screen
+      .getByRole("heading", { name: "OpenRouter", level: 3 })
+      .closest('[data-slot="preset-card"]') as HTMLElement | null;
+    expect(openRouterCard).not.toBeNull();
+    if (!openRouterCard) {
+      return;
+    }
+
+    // 未声明会话头的供应商不渲染该区块
+    expect(within(openRouterCard).queryByText("Client Session Header")).not.toBeInTheDocument();
   });
 
   it("copies the full provider id to the clipboard", async () => {

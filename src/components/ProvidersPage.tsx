@@ -92,6 +92,28 @@ function ProvidersPage({ providers }: ProvidersPageProps) {
     );
   }
 
+  function renderSessionHeader(sessionHeader?: string) {
+    // 仅展示显式声明的会话标识头；未声明（多数供应商）则整块不渲染
+    const value = sessionHeader?.trim() ?? "";
+    if (!value) {
+      return null;
+    }
+
+    return (
+      <div className="preset-summary-block rounded-lg border border-border bg-muted/50 px-3 py-[11px]">
+        <span className="preset-summary-label inline-flex items-center text-xs leading-normal font-semibold text-muted-foreground">
+          {t("providers.fields.sessionHeader")}
+        </span>
+        <div className="preset-session-header mt-[7px] font-mono text-xs leading-normal text-foreground [overflow-wrap:anywhere]">
+          {value}
+        </div>
+        <p className="preset-session-header-hint mt-1.5 text-xs leading-normal text-muted-foreground">
+          {t("providers.fields.sessionHeaderHint")}
+        </p>
+      </div>
+    );
+  }
+
   function renderModelSection(modelSuggestions: string[]) {
     return (
       <div className="preset-model-section flex flex-col gap-[7px]">
@@ -180,6 +202,8 @@ function ProvidersPage({ providers }: ProvidersPageProps) {
                     </div>
                   </div>
                 )}
+
+                {renderSessionHeader(provider.sessionHeader)}
 
                 {renderDefaultModels(provider.env)}
 

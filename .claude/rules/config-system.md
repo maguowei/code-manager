@@ -19,7 +19,7 @@ paths:
 
 ## 模型
 
-项目采用 **Provider -> 配置** 两层模型：Provider（供应商）只承载供应商客观信息——`env`（连接地址 `ANTHROPIC_BASE_URL` + 模型映射 + 可选附加环境变量）与元数据（`models`/`modelSuggestions`/`docUrl`），**不含认证密钥、不含 permissions/hooks 等其它 Claude Code 配置、无继承**。Provider **全部内置只读、不支持自定义**：定义在 `src-tauri/resources/builtin-providers.json`，无 `customProviders`、无 `ProviderInput` / `upsert_provider` / `delete_provider`，也无 `ProviderSource`。配置引用一个 `providerId`，在 Provider 的 `env` 之上叠加自身 `settings`（认证密钥、permissions/hooks、行为等都在配置）。地址单一事实源是 `env.ANTHROPIC_BASE_URL`（不单列 baseUrl 字段）。
+项目采用 **Provider -> 配置** 两层模型：Provider（供应商）只承载供应商客观信息——`env`（连接地址 `ANTHROPIC_BASE_URL` + 模型映射 + 可选附加环境变量）与元数据（`models`/`modelSuggestions`/`docUrl`/`sessionHeader`），**不含认证密钥、不含 permissions/hooks 等其它 Claude Code 配置、无继承**。Provider **全部内置只读、不支持自定义**：定义在 `src-tauri/resources/builtin-providers.json`，无 `customProviders`、无 `ProviderInput` / `upsert_provider` / `delete_provider`，也无 `ProviderSource`。配置引用一个 `providerId`，在 Provider 的 `env` 之上叠加自身 `settings`（认证密钥、permissions/hooks、行为等都在配置）。地址单一事实源是 `env.ANTHROPIC_BASE_URL`（不单列 baseUrl 字段）。
 
 > 限期兼容（COMPAT，0.23.0 移除）：`ConfigProfile.provider_id` 带 serde `alias = "presetId"` 读旧字段；`resolve_profile_settings` 对悬空 `providerId` 容错跳过。详见 `config.rs` 中 `COMPAT(presetId→providerId)` 标记。
 
@@ -50,6 +50,7 @@ paths:
 
 - 内置 Provider 维护在 `src-tauri/resources/builtin-providers.json`，是唯一供应商来源（不支持自定义），当前覆盖 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、万界方舟、OpenCode Go 和 Ollama。
 - 新增 provider 时同步 `localizedName`、`slug`、`baseUrl`、`docUrl` 和模型 `category`。
+- 网关要求客户端按会话声明标识头时（如 OpenCode Go 的 `x-opencode-session`），在 provider 的 `sessionHeader` 声明头名：模型测试会为每个请求生成 UUID 注入该头，不写进 `env`（Claude Code 自身有原生会话头，写死静态值反而损害 prompt cache）。当前只有 `builtin:opencode-go` 声明。
 - 配置编辑器的环境变量自动填充逻辑要覆盖默认 model 字段：`ANTHROPIC_MODEL`、`ANTHROPIC_DEFAULT_OPUS_MODEL`、`ANTHROPIC_DEFAULT_SONNET_MODEL`、`ANTHROPIC_DEFAULT_HAIKU_MODEL`、`CLAUDE_CODE_SUBAGENT_MODEL`。
 
 ## 结构化编辑器
