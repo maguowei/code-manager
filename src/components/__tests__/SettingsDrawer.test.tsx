@@ -210,7 +210,10 @@ describe("SettingsDrawer", () => {
 
     expect(await screen.findByText("会话计数样式")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("combobox", { name: "会话计数样式" }));
-    fireEvent.click(await screen.findByRole("option", { name: "上标 🔴¹ 🟢¹" }));
+    const option = await screen.findByRole("option", { name: "上标 🔴¹ 🟢¹" });
+    // Base UI 的选项只在 pointerdown 之后的 click 才提交选中。
+    fireEvent.pointerDown(option, { button: 0, pointerType: "mouse" });
+    fireEvent.click(option);
 
     expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
       data: {

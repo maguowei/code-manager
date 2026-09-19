@@ -531,6 +531,12 @@ function LedControlSection({
       { key: "idleMode", labelKey: "settings.ledControlIdle" },
     ];
 
+  // Base UI 的 Select 只在传入 items 时才会把展示名写进触发器，缺省会退化显示原始 value。
+  const ledModeItems = LED_MODE_OPTIONS.map((option) => ({
+    value: String(option.value),
+    label: t(option.labelKey),
+  }));
+
   return (
     <SettingsSectionCard
       title={t("settings.ledControl")}
@@ -572,7 +578,10 @@ function LedControlSection({
                 <div className="flex items-center gap-2">
                   <Select
                     value={String(value[row.key])}
-                    onValueChange={(next) => onChange({ ...value, [row.key]: Number(next) })}
+                    items={ledModeItems}
+                    onValueChange={(next) =>
+                      onChange({ ...value, [row.key]: Number(next ?? value[row.key]) })
+                    }
                   >
                     <SelectTrigger aria-label={t(row.labelKey)} className="w-full">
                       <SelectValue />
@@ -864,6 +873,15 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
     !nativeOpenOptions?.terminals || nativeOpenOptions.terminals.length > 0;
   const hasDetectedEditorOptions =
     !nativeOpenOptions?.editors || nativeOpenOptions.editors.length > 0;
+  // Base UI 的 Select 只在传入 items 时才会把展示名写进触发器，缺省会退化显示原始 value。
+  const terminalSelectItems = visibleTerminalOptions.map((option) => ({
+    value: option.value,
+    label: getNativeOpenOptionLabel(option, "terminal", t),
+  }));
+  const editorSelectItems = [
+    { value: EDITOR_UNSET_VALUE, label: t("settings.editorUnset") },
+    ...visibleEditorOptions.map((option) => ({ value: option.value, label: option.label })),
+  ];
   const isCurrentTerminalUnavailable =
     Boolean(nativeOpenOptions?.terminals) &&
     !nativeOpenOptions?.terminals?.some((option) => option.slug === defaultTerminalApp);
@@ -945,7 +963,10 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
     }
   }
 
-  function handleLanguageChange(nextLanguage: string) {
+  function handleLanguageChange(nextLanguage: string | null) {
+    if (!nextLanguage) {
+      return;
+    }
     const resolvedLanguage = nextLanguage as Language;
     const rollback = nextPreferences;
     setLanguage(resolvedLanguage);
@@ -958,7 +979,10 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
     );
   }
 
-  function handleTerminalChange(nextTerminal: string) {
+  function handleTerminalChange(nextTerminal: string | null) {
+    if (!nextTerminal) {
+      return;
+    }
     void persistPreferences(
       {
         ...nextPreferences,
@@ -968,7 +992,10 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
     );
   }
 
-  function handleEditorChange(nextEditor: string) {
+  function handleEditorChange(nextEditor: string | null) {
+    if (!nextEditor) {
+      return;
+    }
     void persistPreferences(
       {
         ...nextPreferences,
@@ -1023,7 +1050,14 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
             >
               <FieldGroup className="gap-4">
                 <Field>
-                  <Select value={language} onValueChange={handleLanguageChange}>
+                  <Select
+                    value={language}
+                    items={languageOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    }))}
+                    onValueChange={handleLanguageChange}
+                  >
                     <SelectTrigger
                       id="settings-language-select"
                       aria-label={t("settings.language")}
@@ -1199,11 +1233,15 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                   </FieldTitle>
                   <Select
                     value={sessionTrayCountStyle}
+                    items={sessionTrayCountStyleOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    }))}
                     onValueChange={(value) => {
                       void persistPreferences(
                         {
                           ...nextPreferences,
-                          sessionTrayCountStyle: value as SessionTrayCountStyle,
+                          sessionTrayCountStyle: (value ?? "plain") as SessionTrayCountStyle,
                         },
                         nextPreferences,
                       );
@@ -1531,11 +1569,16 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                     <div className="flex items-center gap-2">
                       <Select
                         value={preferences.waitingSound}
+                        items={waitingSoundOptions.map((option) => ({
+                          value: option.value,
+                          label: t(option.labelKey),
+                        }))}
                         onValueChange={(next) =>
                           void persistPreferences(
                             {
                               ...nextPreferences,
-                              waitingSound: next as AppPreferences["waitingSound"],
+                              waitingSound: (next ??
+                                preferences.waitingSound) as AppPreferences["waitingSound"],
                             },
                             nextPreferences,
                           )
@@ -1642,7 +1685,11 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
             >
               <FieldGroup className="gap-4">
                 <Field>
-                  <Select value={defaultTerminalApp} onValueChange={handleTerminalChange}>
+                  <Select
+                    value={defaultTerminalApp}
+                    items={terminalSelectItems}
+                    onValueChange={handleTerminalChange}
+                  >
                     <SelectTrigger
                       id="settings-terminal-select"
                       aria-label={t("settings.defaultTerminal")}
@@ -1655,7 +1702,7 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                         {visibleTerminalOptions.map((option) => {
                           const label = getNativeOpenOptionLabel(option, "terminal", t);
                           return (
-                            <SelectItem key={option.value} value={option.value} textValue={label}>
+                            <SelectItem key={option.value} value={option.value} label={label}>
                               <NativeOpenOptionContent kind="terminal" label={label} />
                             </SelectItem>
                           );
@@ -1695,6 +1742,7 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                 <Field>
                   <Select
                     value={defaultEditorApp ?? EDITOR_UNSET_VALUE}
+                    items={editorSelectItems}
                     onValueChange={handleEditorChange}
                   >
                     <SelectTrigger
@@ -1710,11 +1758,7 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                           {t("settings.editorUnset")}
                         </SelectItem>
                         {visibleEditorOptions.map((option) => (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            textValue={option.label}
-                          >
+                          <SelectItem key={option.value} value={option.value} label={option.label}>
                             <NativeOpenOptionContent kind="editor" label={option.label} />
                           </SelectItem>
                         ))}

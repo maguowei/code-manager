@@ -120,6 +120,23 @@ function EnabledPluginsTab({
   );
   const hasMetadataFilters = categoryFilter !== "all";
 
+  // Base UI 的 Select 只在传入 items 时才会把展示名写进触发器，缺省会退化显示原始 value。
+  const statusFilterItems = useMemo(
+    () => [
+      { value: "all", label: t("profileEditor.plugins.statusFilterAll") },
+      { value: "enabled", label: t("profileEditor.plugins.statusFilterEnabled") },
+      { value: "disabled", label: t("profileEditor.plugins.statusFilterDisabled") },
+    ],
+    [t],
+  );
+  const categoryFilterItems = useMemo(
+    () => [
+      { value: "all", label: t("profileEditor.plugins.metadataFilterAll") },
+      ...categoryOptions.map((category) => ({ value: category, label: category })),
+    ],
+    [categoryOptions, t],
+  );
+
   const filteredPlugins = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     return plugins.filter((plugin) => {
@@ -204,7 +221,10 @@ function EnabledPluginsTab({
                 </span>
                 <Select
                   value={statusFilter}
-                  onValueChange={(nextValue) => setStatusFilter(nextValue as PluginStatusFilter)}
+                  items={statusFilterItems}
+                  onValueChange={(nextValue) =>
+                    setStatusFilter((nextValue ?? "all") as PluginStatusFilter)
+                  }
                 >
                   <SelectTrigger
                     aria-label={statusFilterLabel}
@@ -234,7 +254,13 @@ function EnabledPluginsTab({
                 >
                   {categoryFilterFieldLabel}
                 </span>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <Select
+                  value={categoryFilter}
+                  items={categoryFilterItems}
+                  onValueChange={(nextValue) =>
+                    setCategoryFilter((nextValue ?? "all") as PluginMetadataFilterValue)
+                  }
+                >
                   <SelectTrigger
                     aria-label={categoryFilterLabel}
                     className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0"

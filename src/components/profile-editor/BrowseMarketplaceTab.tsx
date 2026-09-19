@@ -320,6 +320,38 @@ export default function BrowseMarketplaceTab({
     [language],
   );
 
+  // Base UI 的 Select 只在传入 items 时才会把展示名写进触发器，缺省会退化显示原始 value。
+  const marketplaceFilterItems = useMemo(
+    () => [
+      { value: "all", label: t("profileEditor.plugins.browse.marketplaceFilterAll") },
+      ...sources.map((source) => ({ value: source.marketplaceId, label: source.marketplaceId })),
+    ],
+    [sources, t],
+  );
+  const statusFilterItems = useMemo(
+    () => [
+      { value: "all", label: t("profileEditor.plugins.statusFilterAll") },
+      { value: "enabled", label: t("profileEditor.plugins.statusFilterEnabled") },
+      { value: "disabled", label: t("profileEditor.plugins.statusFilterDisabled") },
+    ],
+    [t],
+  );
+  const categoryFilterItems = useMemo(
+    () => [
+      { value: "all", label: t("profileEditor.plugins.metadataFilterAll") },
+      ...categoryOptions.map((category) => ({ value: category, label: category })),
+    ],
+    [categoryOptions, t],
+  );
+  const providerFilterItems = useMemo(
+    () => [
+      { value: "all", label: t("profileEditor.plugins.metadataFilterAll") },
+      { value: "anthropic", label: t("profileEditor.plugins.browse.providerAnthropic") },
+      { value: "partner", label: t("profileEditor.plugins.browse.providerPartner") },
+    ],
+    [t],
+  );
+
   const filtered = useMemo(() => {
     const q = deferredSearchQuery.trim().toLowerCase();
     const comparePluginId = (a: MarketplacePluginEntry, b: MarketplacePluginEntry) =>
@@ -630,7 +662,11 @@ export default function BrowseMarketplaceTab({
             >
               {t("profileEditor.plugins.browse.marketplaceFilterLabel")}
             </span>
-            <Select value={marketplaceFilter} onValueChange={setMarketplaceFilter}>
+            <Select
+              value={marketplaceFilter}
+              items={marketplaceFilterItems}
+              onValueChange={(value) => setMarketplaceFilter(value ?? "all")}
+            >
               <SelectTrigger
                 aria-label={t("profileEditor.plugins.browse.marketplaceFilterLabel")}
                 className={FILTER_TRIGGER_CLASS}
@@ -662,7 +698,8 @@ export default function BrowseMarketplaceTab({
             </span>
             <Select
               value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+              items={statusFilterItems}
+              onValueChange={(v) => setStatusFilter((v ?? "all") as typeof statusFilter)}
             >
               <SelectTrigger
                 aria-label={t("profileEditor.plugins.statusFilterLabel")}
@@ -693,7 +730,11 @@ export default function BrowseMarketplaceTab({
               >
                 {t("profileEditor.plugins.categoryFilterFieldLabel")}
               </span>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <Select
+                value={categoryFilter}
+                items={categoryFilterItems}
+                onValueChange={(value) => setCategoryFilter(value ?? "all")}
+              >
                 <SelectTrigger
                   aria-label={t("profileEditor.plugins.categoryFilterLabel")}
                   className={FILTER_TRIGGER_CLASS}
@@ -726,7 +767,8 @@ export default function BrowseMarketplaceTab({
             </span>
             <Select
               value={providerFilter}
-              onValueChange={(value) => setProviderFilter(value as ProviderFilter)}
+              items={providerFilterItems}
+              onValueChange={(value) => setProviderFilter((value ?? "all") as ProviderFilter)}
             >
               <SelectTrigger
                 aria-label={t("profileEditor.plugins.browse.providerFilterLabel")}

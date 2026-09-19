@@ -273,12 +273,19 @@ export function PermissionDefaultModeSelect({
   const { t } = useI18n();
   const label = t("profileEditor.permissions.defaultModeLabel");
   const modeOptions = getPermissionModeSelectOptions(value);
+  const unsetLabel = t("profileEditor.permissions.unset");
+  // Base UI 的触发器文案来自 items，不再从渲染出来的 SelectItem 文本推导。
+  const modeItems = [
+    { value: UNSET_PERMISSION_MODE_VALUE, label: unsetLabel },
+    ...modeOptions.map((mode) => ({ value: mode, label: mode })),
+  ];
 
   const select = (
     <Select
       value={value || UNSET_PERMISSION_MODE_VALUE}
+      items={modeItems}
       onValueChange={(nextValue) =>
-        onChange(nextValue === UNSET_PERMISSION_MODE_VALUE ? "" : nextValue)
+        onChange(!nextValue || nextValue === UNSET_PERMISSION_MODE_VALUE ? "" : nextValue)
       }
     >
       <SelectTrigger
@@ -297,9 +304,7 @@ export function PermissionDefaultModeSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          <SelectItem value={UNSET_PERMISSION_MODE_VALUE}>
-            {t("profileEditor.permissions.unset")}
-          </SelectItem>
+          <SelectItem value={UNSET_PERMISSION_MODE_VALUE}>{unsetLabel}</SelectItem>
           {modeOptions.map((mode) => (
             <SelectItem key={mode} value={mode}>
               {mode}

@@ -64,6 +64,14 @@ type StructuredObjectKey =
   | "statusLine";
 const EMPTY_SELECT_VALUE = "__empty__";
 
+/** Base UI 的 Select 只在传入 items 时才会把展示名写进触发器，缺省会显示原始 value。 */
+function selectItems(options: SettingsFieldOption[], language: "zh" | "en") {
+  return options.map((option) => ({
+    value: option.value || EMPTY_SELECT_VALUE,
+    label: option.label[language],
+  }));
+}
+
 interface BehaviorFieldState {
   mappedToEnv: boolean;
   /** 用户的显式覆盖值（可能为空） */
@@ -431,10 +439,12 @@ function StructuredSettingsSections({
                         />
                         <Select
                           value={fieldState.effectiveValue || EMPTY_SELECT_VALUE}
+                          // Base UI 的触发器文案来自 items，不再从渲染出来的 SelectItem 文本推导。
+                          items={selectItems(options, language)}
                           onValueChange={(value) =>
                             onMappedFieldChange(
                               field,
-                              value === EMPTY_SELECT_VALUE ? "" : value,
+                              !value || value === EMPTY_SELECT_VALUE ? "" : value,
                               fieldState.mappedToEnv,
                             )
                           }
@@ -597,10 +607,12 @@ function StructuredSettingsSections({
                         />
                         <Select
                           value={value || EMPTY_SELECT_VALUE}
+                          // Base UI 的触发器文案来自 items，不再从渲染出来的 SelectItem 文本推导。
+                          items={selectItems(options, language)}
                           onValueChange={(nextValue) =>
                             onSimpleFieldChange(
                               field,
-                              nextValue === EMPTY_SELECT_VALUE ? "" : nextValue,
+                              !nextValue || nextValue === EMPTY_SELECT_VALUE ? "" : nextValue,
                             )
                           }
                         >

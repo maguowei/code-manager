@@ -795,6 +795,15 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
         .replace("{result}", latestModelTestLabel)
     : messages.reopenModelTest;
 
+  // Base UI 的 Select 只在传入 items 时才会把展示名写进触发器，缺省会退化显示原始 value。
+  const providerSelectItems = [
+    { value: CUSTOM_PROVIDER_VALUE, label: t("profiles.editor.options.customProvider") },
+    ...providers.map((provider) => ({
+      value: provider.id,
+      label: providerDisplayName(provider, language),
+    })),
+  ];
+
   return (
     <div
       data-slot="profile-editor-panel"
@@ -884,8 +893,10 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
               <div className="min-w-0">
                 <Select
                   value={providerId || CUSTOM_PROVIDER_VALUE}
+                  // Base UI 的 Select 只在传入 items 时才会把展示名写进触发器，缺省会退化显示原始 value。
+                  items={providerSelectItems}
                   onValueChange={(value) =>
-                    handleProviderChange(value === CUSTOM_PROVIDER_VALUE ? "" : value)
+                    handleProviderChange(!value || value === CUSTOM_PROVIDER_VALUE ? "" : value)
                   }
                 >
                   <SelectTrigger

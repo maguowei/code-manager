@@ -392,22 +392,26 @@ function getSectionModeRow(section: HTMLElement, label: string): HTMLElement {
   return modeRow as HTMLElement;
 }
 
-function chooseComboboxOption(label: string | RegExp, optionName: string | RegExp) {
+function openCombobox(label: string | RegExp) {
   const combobox = screen.getByRole("combobox", { name: label });
   act(() => {
-    fireEvent.pointerDown(combobox, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(combobox);
   });
+  return combobox;
+}
+
+function chooseComboboxOption(label: string | RegExp, optionName: string | RegExp) {
+  openCombobox(label);
   const option = screen.getByRole("option", { name: optionName });
   act(() => {
+    // Base UI 的选项只在 pointerdown 之后的 click 才提交选中。
+    fireEvent.pointerDown(option, { button: 0, pointerType: "mouse" });
     fireEvent.click(option);
   });
 }
 
 function comboboxOptionNames(label: string | RegExp): string[] {
-  const combobox = screen.getByRole("combobox", { name: label });
-  act(() => {
-    fireEvent.pointerDown(combobox, { button: 0, ctrlKey: false, pointerType: "mouse" });
-  });
+  const combobox = openCombobox(label);
   const names = screen.getAllByRole("option").map((option) => option.textContent ?? "");
   act(() => {
     fireEvent.keyDown(combobox, { key: "Escape" });
