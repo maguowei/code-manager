@@ -34,3 +34,7 @@ overrides:
   '@codemirror/view': 6.43.12
   # @codemirror/language 也须单实例：多版本会让主题的高亮插件读不到语言语法树，语法高亮静默失效
   '@codemirror/language': 6.12.4
+  # 上游 trees(1.0.0)/diffs(1.0.1) 各自精确 pin 了不同 theming 版本，pnpm 无法去重；两版 dist
+  # 逐字节一致，1.0.1 仅把 @pierre/theme 的 peer 放宽到 ^1.1.0 || ^2.0.0。统一到这里可去掉重复
+  # 副本，并让 peer 声明与实际解析到的 theme 2.0.0 一致（上游再抬版本时同步抬这条）
+  '@pierre/theming': 1.0.1
