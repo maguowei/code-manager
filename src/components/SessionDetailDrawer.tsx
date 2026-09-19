@@ -330,19 +330,21 @@ function CollapsibleBlock({
       onOpenChange={setExpanded}
       className={cn("min-w-0 max-w-full [overflow-wrap:anywhere]", wrapClass)}
     >
-      <CollapsibleTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-auto min-w-0 max-w-full justify-start gap-2 bg-transparent p-0 text-left text-xs text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
-        >
-          <Chevron className="size-3 shrink-0" aria-hidden="true" />
-          <span className="shrink-0" aria-hidden="true">
-            {icon}
-          </span>
-          <span className="shrink-0 font-medium">{label}</span>
-          {summary && <span className="min-w-0 truncate">{summary}</span>}
-        </Button>
+      <CollapsibleTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto min-w-0 max-w-full justify-start gap-2 bg-transparent p-0 text-left text-xs text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
+          />
+        }
+      >
+        <Chevron className="size-3 shrink-0" aria-hidden="true" />
+        <span className="shrink-0" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="shrink-0 font-medium">{label}</span>
+        {summary && <span className="min-w-0 truncate">{summary}</span>}
       </CollapsibleTrigger>
       <CollapsibleContent className={cn("min-w-0 max-w-full", contentClass)}>
         {children}
@@ -552,25 +554,27 @@ function ToolCallCard({
       data-slot="session-tool-card"
       className="min-w-0 max-w-full rounded-md border bg-card"
     >
-      <CollapsibleTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-auto min-w-0 max-w-full justify-start gap-2 px-3 py-2 text-left whitespace-normal"
-        >
-          <Chevron className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <Wrench className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="shrink-0 text-xs font-semibold text-muted-foreground">{toolLabel}</span>
-          <span className="shrink-0 font-semibold">{stripAnsiForDisplay(name)}</span>
-          {!expanded && headerHint.primary && (
-            <span className="flex min-w-0 flex-1 gap-2 text-muted-foreground">
-              <span className="min-w-0 truncate">{headerHint.primary}</span>
-              {headerHint.secondary && (
-                <span className="min-w-0 truncate">{headerHint.secondary}</span>
-              )}
-            </span>
-          )}
-        </Button>
+      <CollapsibleTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto min-w-0 max-w-full justify-start gap-2 px-3 py-2 text-left whitespace-normal"
+          />
+        }
+      >
+        <Chevron className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Wrench className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="shrink-0 text-xs font-semibold text-muted-foreground">{toolLabel}</span>
+        <span className="shrink-0 font-semibold">{stripAnsiForDisplay(name)}</span>
+        {!expanded && headerHint.primary && (
+          <span className="flex min-w-0 flex-1 gap-2 text-muted-foreground">
+            <span className="min-w-0 truncate">{headerHint.primary}</span>
+            {headerHint.secondary && (
+              <span className="min-w-0 truncate">{headerHint.secondary}</span>
+            )}
+          </span>
+        )}
       </CollapsibleTrigger>
       <CollapsibleContent className="border-t px-3 py-3">
         <div className="flex min-w-0 max-w-full flex-col gap-3">
