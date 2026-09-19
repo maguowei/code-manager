@@ -94,7 +94,7 @@ describe("EnabledPluginsEditor", () => {
   describe("双 Tab 结构", () => {
     it("默认显示「已配置」Tab", () => {
       renderEditor({ value: { "a@x": true, "b@y": false } });
-      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-state", "active");
+      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-active");
       expect(screen.getByText("a@x")).toBeInTheDocument();
       expect(screen.getByText("b@y")).toBeInTheDocument();
     });
@@ -162,7 +162,7 @@ describe("EnabledPluginsEditor", () => {
         name: "管理",
       });
       await user.click(manageBtn);
-      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-state", "active");
+      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-active");
       const betaConfiguredRow = screen
         .getByText("beta@claude-plugins-official")
         .closest("[data-slot='plugin-list-row']");
@@ -203,7 +203,7 @@ describe("EnabledPluginsEditor", () => {
       await user.click(screen.getByRole("tab", { name: /浏览市场/ }));
       await user.click(screen.getByRole("tab", { name: /已配置/ }));
 
-      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-state", "active");
+      expect(screen.getByRole("tab", { name: /已配置/ })).toHaveAttribute("data-active");
       const betaConfiguredRow = screen
         .getByText("beta@claude-plugins-official")
         .closest("[data-slot='plugin-list-row']");
@@ -219,10 +219,7 @@ describe("EnabledPluginsEditor", () => {
       // 「去浏览市场」按钮调用 onGoBrowse 切换 activeTab
       fireEvent.click(browseBtn);
       await waitFor(() => {
-        expect(screen.getByRole("tab", { name: /浏览市场/ })).toHaveAttribute(
-          "data-state",
-          "active",
-        );
+        expect(screen.getByRole("tab", { name: /浏览市场/ })).toHaveAttribute("data-active");
       });
     });
 
@@ -303,10 +300,7 @@ describe("EnabledPluginsEditor", () => {
       expect(browseMoreBtn).toBeInTheDocument();
       fireEvent.click(browseMoreBtn);
       await waitFor(() => {
-        expect(screen.getByRole("tab", { name: /浏览市场/ })).toHaveAttribute(
-          "data-state",
-          "active",
-        );
+        expect(screen.getByRole("tab", { name: /浏览市场/ })).toHaveAttribute("data-active");
       });
     });
   });
