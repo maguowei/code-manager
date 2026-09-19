@@ -1985,20 +1985,22 @@ function DatePickerField({ label, language, value, placeholder, onChange }: Date
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={cn(
-            "h-8 min-w-32 justify-start px-2 font-normal",
-            !value && "text-muted-foreground",
-          )}
-          aria-label={`${label} ${displayValue}`}
-        >
-          <CalendarIcon data-icon="inline-start" />
-          <span>{displayValue}</span>
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-8 min-w-32 justify-start px-2 font-normal",
+              !value && "text-muted-foreground",
+            )}
+            aria-label={`${label} ${displayValue}`}
+          />
+        }
+      >
+        <CalendarIcon data-icon="inline-start" />
+        <span>{displayValue}</span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0">
         <Calendar

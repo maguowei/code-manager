@@ -1000,24 +1000,26 @@ function SessionDetailDrawer({ project, sessionId, onClose }: Props) {
                   data-slot="session-detail-context"
                   className="flex min-w-[180px] flex-1 flex-wrap items-center gap-2"
                 >
-                  <SheetDescription asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="min-w-0 truncate rounded-md border border-transparent px-1 text-sm font-semibold text-foreground transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-0"
-                      title={stripAnsiForDisplay(headerProject)}
-                      aria-label={t("history.copyProjectPath")}
-                      onClick={() =>
-                        void handleCopyHeaderValue(
-                          stripAnsiForDisplay(headerProject),
-                          "history.projectPathCopied",
-                          "history.projectPathCopyError",
-                        )
-                      }
-                    >
-                      {headerProjectName}
-                    </Button>
+                  <SheetDescription
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="min-w-0 truncate rounded-md border border-transparent px-1 text-sm font-semibold text-foreground transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground focus-visible:border-primary/70 focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-0"
+                        title={stripAnsiForDisplay(headerProject)}
+                        aria-label={t("history.copyProjectPath")}
+                        onClick={() =>
+                          void handleCopyHeaderValue(
+                            stripAnsiForDisplay(headerProject),
+                            "history.projectPathCopied",
+                            "history.projectPathCopyError",
+                          )
+                        }
+                      />
+                    }
+                  >
+                    {headerProjectName}
                   </SheetDescription>
                   <Button
                     type="button"

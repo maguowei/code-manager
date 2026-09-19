@@ -16,6 +16,14 @@ Element.prototype.scrollIntoView ??= () => undefined;
 // 返回空数组表示"没有进行中的动画"，符合 jsdom 下无动画的事实。
 Element.prototype.getAnimations ??= () => [];
 
+// jsdom 不运行 CSS 动画，而 Base UI 的浮层要等退场动画结束才从 DOM 卸载；测试里的
+// vi.useFakeTimers() 会一并 mock requestAnimationFrame，于是已关闭的 Popover/Dialog
+// 会永久残留（UsagePage 的日期筛选取到上一个日历即由此而来）。BASE_UI_ANIMATIONS_DISABLED
+// 是 Base UI 的官方开关，置位后跳过动画等待、立即执行卸载。
+(
+  globalThis as typeof globalThis & { BASE_UI_ANIMATIONS_DISABLED?: boolean }
+).BASE_UI_ANIMATIONS_DISABLED = true;
+
 // jsdom 不实现 ResizeObserver，Slider / ScrollArea 等组件依赖它
 globalThis.ResizeObserver ??= class ResizeObserver {
   observe() {}

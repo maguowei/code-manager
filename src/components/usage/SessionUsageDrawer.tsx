@@ -82,11 +82,13 @@ function SessionUsageDrawer({ sessionId, onClose }: Props) {
           >
             <X className="size-4" aria-hidden="true" />
           </Button>
-          <SheetTitle asChild>
-            <h2 className={cn("min-w-0 truncate", TYPOGRAPHY.drawerTitle)}>
-              {t("usage.detail.title")} - {shortSessionId(sessionId)}
-            </h2>
-          </SheetTitle>
+          <SheetTitle
+            render={
+              <h2 className={cn("min-w-0 truncate", TYPOGRAPHY.drawerTitle)}>
+                {t("usage.detail.title")} - {shortSessionId(sessionId)}
+              </h2>
+            }
+          />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto bg-secondary px-6 py-6">

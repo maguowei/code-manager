@@ -641,16 +641,18 @@ function NativeOpenHelpButton({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="size-7 rounded-full text-muted-foreground hover:text-foreground"
-          aria-label={ariaLabel}
-        >
-          <Info className="size-3.5" aria-hidden="true" />
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="size-7 rounded-full text-muted-foreground hover:text-foreground"
+            aria-label={ariaLabel}
+          />
+        }
+      >
+        <Info className="size-3.5" aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">
         <PopoverHeader>
@@ -710,16 +712,18 @@ function SystemNotificationsHelpButton() {
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="size-7 rounded-full text-muted-foreground hover:text-foreground"
-          aria-label={t("settings.systemNotificationsHelp")}
-        >
-          <Info className="size-3.5" aria-hidden="true" />
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="size-7 rounded-full text-muted-foreground hover:text-foreground"
+            aria-label={t("settings.systemNotificationsHelp")}
+          />
+        }
+      >
+        <Info className="size-3.5" aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">
         <PopoverHeader>

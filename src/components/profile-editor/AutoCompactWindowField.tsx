@@ -66,17 +66,19 @@ function AutoCompactWindowField({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          id={id}
-          aria-label={ariaLabel}
-          className={cn("w-full justify-between font-normal", EDITOR_CONTROL_SURFACE_CLASS)}
-        >
-          <span>{triggerLabel}</span>
-          <ChevronDown className="size-4 opacity-60" aria-hidden="true" />
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            id={id}
+            aria-label={ariaLabel}
+            className={cn("w-full justify-between font-normal", EDITOR_CONTROL_SURFACE_CLASS)}
+          />
+        }
+      >
+        <span>{triggerLabel}</span>
+        <ChevronDown className="size-4 opacity-60" aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[22rem]">
         <div className="grid gap-3" data-slot="auto-compact-window-control">

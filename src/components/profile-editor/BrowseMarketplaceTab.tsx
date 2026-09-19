@@ -1,7 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowDown, ArrowUp, ArrowUpDown, CircleCheck, Info, RefreshCw, Store } from "lucide-react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent, ReactElement } from "react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
@@ -105,7 +105,8 @@ function AddMarketplacePopover({
   existingMarketplaceIds: string[];
   onAddMarketplace: (input: AddMarketplaceInput) => void;
   onOpenAdvancedConfig?: () => void;
-  trigger: ReactNode;
+  // Base UI 的 render 需要元素本身（而非 ReactNode），此处类型收窄为 ReactElement
+  trigger: ReactElement;
 }) {
   const { t } = useI18n();
   const { showToast } = useToast();
@@ -162,7 +163,7 @@ function AddMarketplacePopover({
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverTrigger render={trigger} />
       <PopoverContent align="end" className="w-80">
         <div className="flex flex-col gap-3">
           <div className="text-sm font-semibold">
@@ -757,16 +758,18 @@ export default function BrowseMarketplaceTab({
         <div className="flex flex-wrap items-center gap-3">
           {catalog.meta.generatedAt && (
             <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto cursor-pointer gap-1 p-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
-                  aria-label={t("profileEditor.plugins.browse.catalogMetaAriaLabel")}
-                >
-                  <Info className="size-3.5" aria-hidden="true" />
-                  {t("profileEditor.plugins.browse.catalogMetaTrigger")}
-                </Button>
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto cursor-pointer gap-1 p-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    aria-label={t("profileEditor.plugins.browse.catalogMetaAriaLabel")}
+                  />
+                }
+              >
+                <Info className="size-3.5" aria-hidden="true" />
+                {t("profileEditor.plugins.browse.catalogMetaTrigger")}
               </PopoverTrigger>
               <PopoverContent className="w-80">
                 <div className="mb-2 text-sm font-semibold">
@@ -825,14 +828,16 @@ export default function BrowseMarketplaceTab({
           )}
           {failures.length > 0 && (
             <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto cursor-pointer p-0 text-xs text-primary hover:bg-transparent hover:underline"
-                >
-                  {failureSummary}
-                </Button>
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto cursor-pointer p-0 text-xs text-primary hover:bg-transparent hover:underline"
+                  />
+                }
+              >
+                {failureSummary}
               </PopoverTrigger>
               <PopoverContent className="w-80">
                 <div className="mb-2 text-sm font-semibold">

@@ -1,12 +1,12 @@
 import { Check, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../../i18n";
 import { EDITOR_CONTROL_SURFACE_CLASS } from "../editor-layout";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "../ui/command";
 import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../ui/input-group";
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 interface ModelComboboxFieldProps {
   id?: string;
@@ -34,6 +34,9 @@ function ModelComboboxField({
 }: ModelComboboxFieldProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  // 下拉需要对齐整个输入组而不是尾部小按钮：Base UI 没有 Anchor 部件，
+  // 改为把输入组作为 Positioner 的 anchor。
+  const inputGroupRef = useRef<HTMLDivElement>(null);
 
   // 无候选模型时退化为纯文本输入,与其它文本字段一致
   if (suggestions.length === 0) {
@@ -57,29 +60,29 @@ function ModelComboboxField({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverAnchor asChild>
-        <InputGroup className={EDITOR_CONTROL_SURFACE_CLASS}>
-          <InputGroupInput
-            id={id}
-            aria-label={ariaLabel}
-            className="font-mono"
-            value={value}
-            placeholder={placeholder}
-            onChange={(event) => onChange(event.target.value)}
-          />
-          <InputGroupAddon align="inline-end">
-            <PopoverTrigger asChild>
+      <InputGroup ref={inputGroupRef} className={EDITOR_CONTROL_SURFACE_CLASS}>
+        <InputGroupInput
+          id={id}
+          aria-label={ariaLabel}
+          className="font-mono"
+          value={value}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <InputGroupAddon align="inline-end">
+          <PopoverTrigger
+            render={
               <InputGroupButton
                 size="icon-xs"
                 aria-label={t("profiles.editor.modelCombobox.trigger")}
-              >
-                <ChevronDown className="opacity-60" aria-hidden="true" />
-              </InputGroupButton>
-            </PopoverTrigger>
-          </InputGroupAddon>
-        </InputGroup>
-      </PopoverAnchor>
-      <PopoverContent align="start" className="min-w-56 p-0">
+              />
+            }
+          >
+            <ChevronDown className="opacity-60" aria-hidden="true" />
+          </PopoverTrigger>
+        </InputGroupAddon>
+      </InputGroup>
+      <PopoverContent anchor={inputGroupRef} align="start" className="min-w-56 p-0">
         <Command shouldFilter={false}>
           <CommandList>
             <CommandEmpty>{t("profiles.editor.modelCombobox.empty")}</CommandEmpty>
