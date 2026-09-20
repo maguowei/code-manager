@@ -28,8 +28,10 @@ function ResizableHandle({
     <ResizablePrimitive.Separator
       data-slot="resizable-handle"
       className={cn(
-        // 命中区透明，分隔线由 after 伪元素绝对定位绘制，hover/拖拽变粗时不挤压相邻面板
-        "relative flex items-center justify-center bg-transparent outline-none",
+        // 命中区透明，分隔线由 after 伪元素绝对定位绘制，hover/拖拽变粗时不挤压相邻面板。
+        // base-nova 反过来把分隔线画在元素本身、命中区交给 after，并去掉了 hover 反馈；
+        // 这里保留项目版，只对齐 nova 的 outline-hidden 与握把旋转。
+        "relative flex items-center justify-center bg-transparent outline-hidden",
         // 横向分组（aria-orientation=vertical）：竖向分隔条，左右留白
         "aria-[orientation=vertical]:mx-1 aria-[orientation=vertical]:w-2",
         // 纵向分组（aria-orientation=horizontal）：横向分隔条，上下留白
@@ -46,11 +48,15 @@ function ResizableHandle({
         "aria-[orientation=horizontal]:hover:after:h-[3px] aria-[orientation=horizontal]:focus-visible:after:h-[3px] aria-[orientation=horizontal]:data-[separator=hover]:after:h-[3px] aria-[orientation=horizontal]:data-[separator=active]:after:h-[3px]",
         // hover / focus / 拖拽：染成 primary
         "hover:after:bg-primary focus-visible:after:bg-primary data-[separator=hover]:after:bg-primary data-[separator=active]:after:bg-primary",
+        // base-nova：横向分隔条上的握把转 90°，与分隔线方向保持一致
+        "[&[aria-orientation=horizontal]>div]:rotate-90",
         className,
       )}
       {...props}
     >
       {withHandle && (
+        // base-nova 的握把是无图标的圆角短棒（h-6 w-1 rounded-lg bg-border），
+        // 这里保留项目的抓手盒 + lucide 图标写法，图标随上面的 rotate 跟随分隔条方向。
         <div className="z-10 flex h-4 w-3 items-center justify-center rounded-xs border bg-border">
           <GripVerticalIcon className="size-2.5" />
         </div>

@@ -161,7 +161,9 @@ function ChartTooltipContent({
   return (
     <div
       className={cn(
-        "grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+        // base-nova：min-w-32 等价于原先的 min-w-[8rem]。描边与阴影沿用 nova 的内联值
+        // （与全局类 cn-chart-tooltip 同值），未套用项目的 FLOATING_SURFACE_CLASS。
+        "grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
         className,
       )}
     >

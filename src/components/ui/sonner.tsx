@@ -8,6 +8,11 @@ import {
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { useTheme } from "@/components/theme-provider";
 
+// base-nova 的 Toaster 与本文件在类名上一致（className="toaster group"、图标 size-4、
+// --normal-* 变量），差异只有两处，都保留项目版本：
+// 1. 主题来源：nova 用 next-themes，本项目用 @/components/theme-provider；
+// 2. toast 外观类：nova 用占位类 cn-toast，本项目用 index.css 里定义的 ai-toast*，
+//    并通过下面的 toastOptions 合并保留调用方传入的 classNames。
 const toastClassNames: NonNullable<NonNullable<ToasterProps["toastOptions"]>["classNames"]> = {
   content: "ai-toast-content",
   description: "ai-toast-description",
