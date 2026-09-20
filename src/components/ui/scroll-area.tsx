@@ -13,6 +13,8 @@ function ScrollArea({
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
+      // overflow-hidden 与 viewport 的 max-h-[inherit] 是项目定制（见 66e622f：长列表滚动 +
+      // 确认按钮可见），nova 只写了 relative，这里保留定制不下沉。
       className={cn("relative overflow-hidden", className)}
       {...props}
     >
@@ -37,11 +39,11 @@ function ScrollBar({
   return (
     <ScrollAreaPrimitive.Scrollbar
       data-slot="scroll-area-scrollbar"
+      data-orientation={orientation}
       orientation={orientation}
       className={cn(
-        "flex touch-none p-px transition-colors select-none",
-        orientation === "vertical" && "h-full w-2.5 border-l border-l-transparent",
-        orientation === "horizontal" && "h-2.5 flex-col border-t border-t-transparent",
+        // base-nova：方向样式改为 data-horizontal / data-vertical（index.css 已把二者映射到 data-orientation）。
+        "flex touch-none p-px transition-colors select-none data-horizontal:h-2.5 data-horizontal:flex-col data-horizontal:border-t data-horizontal:border-t-transparent data-vertical:h-full data-vertical:w-2.5 data-vertical:border-l data-vertical:border-l-transparent",
         className,
       )}
       {...props}

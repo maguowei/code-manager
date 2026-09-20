@@ -3,6 +3,21 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Base UI 用 data-orientation 表达方向，shadcn 的 base-* 风格统一写 data-horizontal / data-vertical。
+   这里补上映射（与 shadcn 的 tailwind.css 一致），让上游类名可以原样使用；
+   其余裸 data-* 变体保持 Tailwind 的默认「属性存在即匹配」语义，不做覆盖以免改变既有类的特异性。 */
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
 :root {
   --app-sidebar-width: 168px;
   --background: oklch(0.986 0.012 230);
