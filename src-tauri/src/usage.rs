@@ -22,6 +22,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::RwLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Listener, Manager, State};
+use tauri_plugin_notification::NotificationExt;
 
 // ============ 数据结构 ============
 
@@ -217,9 +218,77 @@ pub struct UsageStateInner {
     pub last_scan_ms: Option<i64>,
 }
 
+/// 最近 5 分钟缓存命中率告警窗口（毫秒）
+pub const CACHE_HIT_RATE_WINDOW_MS: i64 = 5 * 60 * 1000;
+/// 缓存命中率告警阈值百分比（低于 90% 时提醒）
+pub const CACHE_HIT_RATE_THRESHOLD_PERCENT: f64 = 90.0;
+/// 触发告警所需的最小输入 Token 数（防止冷启动或零星调用时误触发）
+pub const MIN_CACHE_ALERT_INPUT_TOKENS: u64 = 10_000;
+/// 命中率持续偏低时的重复提醒冷却时间（10 分钟）
+pub const CACHE_ALERT_COOLDOWN_MS: i64 = 10 * 60 * 1000;
+
+/// 缓存命中率告警状态跟踪
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct CacheHitRateAlertState {
+    pub last_alert_time_ms: i64,
+    pub was_below_threshold: bool,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum CacheAlertDecision {
+    Notify { hit_rate: f64 },
+    NoAction,
+}
+
+impl CacheHitRateAlertState {
+    /// 评估当前窗口内的缓存命中率并决定是否告警
+    pub fn evaluate(
+        &mut self,
+        now_ms: i64,
+        total_input_tokens: u64,
+        cache_read_tokens: u64,
+        system_notifications_enabled: bool,
+    ) -> CacheAlertDecision {
+        if total_input_tokens < MIN_CACHE_ALERT_INPUT_TOKENS {
+            return CacheAlertDecision::NoAction;
+        }
+
+        let hit_rate = (cache_read_tokens as f64 / total_input_tokens as f64) * 100.0;
+        if hit_rate < CACHE_HIT_RATE_THRESHOLD_PERCENT {
+            let should_notify = !self.was_below_threshold
+                || (now_ms.saturating_sub(self.last_alert_time_ms) >= CACHE_ALERT_COOLDOWN_MS);
+            self.was_below_threshold = true;
+            if should_notify {
+                self.last_alert_time_ms = now_ms;
+                if system_notifications_enabled {
+                    return CacheAlertDecision::Notify { hit_rate };
+                }
+            }
+        } else {
+            self.was_below_threshold = false;
+        }
+
+        CacheAlertDecision::NoAction
+    }
+
+    /// 启动时初始化基线，避免冷启动时因既有低命中率数据立刻弹窗
+    pub fn init_baseline(&mut self, now_ms: i64, total_input_tokens: u64, cache_read_tokens: u64) {
+        if total_input_tokens >= MIN_CACHE_ALERT_INPUT_TOKENS {
+            let hit_rate = (cache_read_tokens as f64 / total_input_tokens as f64) * 100.0;
+            if hit_rate < CACHE_HIT_RATE_THRESHOLD_PERCENT {
+                self.was_below_threshold = true;
+                self.last_alert_time_ms = now_ms;
+                return;
+            }
+        }
+        self.was_below_threshold = false;
+    }
+}
+
 pub struct UsageState {
     pub inner: RwLock<UsageStateInner>,
     db: RwLock<Option<SqlitePool>>,
+    pub cache_alert: std::sync::Mutex<CacheHitRateAlertState>,
 }
 
 impl UsageState {
@@ -227,6 +296,7 @@ impl UsageState {
         Self {
             inner: RwLock::new(UsageStateInner::default()),
             db: RwLock::new(None),
+            cache_alert: std::sync::Mutex::new(CacheHitRateAlertState::default()),
         }
     }
 
@@ -1020,6 +1090,44 @@ async fn save_data_format_version_db(pool: &SqlitePool, value: i64) -> Result<()
     .await
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 查询自 `since_ms` 以来所有模型累计的全部输入 Token（input + cache_creation + cache_read）与缓存读取 Token
+async fn query_recent_cache_tokens_db(
+    pool: &SqlitePool,
+    since_ms: i64,
+) -> Result<(u64, u64), String> {
+    let row = sqlx::query(
+        "SELECT
+            COALESCE(SUM(input_tokens), 0) AS total_input,
+            COALESCE(SUM(cache_creation_5m + cache_creation_1h), 0) AS total_create,
+            COALESCE(SUM(cache_read), 0) AS total_read
+         FROM usage_records
+         WHERE timestamp_ms >= ?1",
+    )
+    .bind(since_ms)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let get_val = |col: &str| -> u64 {
+        if let Ok(val) = row.try_get::<i64, _>(col) {
+            val.max(0) as u64
+        } else if let Ok(val) = row.try_get::<f64, _>(col) {
+            val.max(0.0) as u64
+        } else {
+            0
+        }
+    };
+
+    let total_input = get_val("total_input");
+    let total_create = get_val("total_create");
+    let total_read = get_val("total_read");
+    let total_all_input = total_input
+        .saturating_add(total_create)
+        .saturating_add(total_read);
+
+    Ok((total_all_input, total_read))
 }
 
 fn push_usage_filter_sql(builder: &mut QueryBuilder<Sqlite>, filter: &UsageFilter) {
@@ -2722,6 +2830,83 @@ pub async fn rescan_usage(state: State<'_, UsageState>) -> Result<ScanResult, St
     scan_all(&state, true).await
 }
 
+/// 检查最近 5 分钟的缓存命中率，并在低于阈值且达到 Token 消耗门槛时发送系统通知
+async fn check_and_notify_cache_hit_rate(app: &AppHandle, state: &UsageState) {
+    let pool = match state.db_pool() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let prefs = crate::config::load_registry_or_default().app;
+    let now_ms = utils::current_timestamp_ms();
+    let since_ms = now_ms.saturating_sub(CACHE_HIT_RATE_WINDOW_MS);
+
+    let (total_input, cache_read) = match query_recent_cache_tokens_db(&pool, since_ms).await {
+        Ok(vals) => vals,
+        Err(e) => {
+            log::warn!("event=usage.cache_hit_rate_check status=err error={e}");
+            return;
+        }
+    };
+
+    let decision = {
+        let mut alert_state = match state.cache_alert.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        alert_state.evaluate(
+            now_ms,
+            total_input,
+            cache_read,
+            prefs.system_notifications_enabled,
+        )
+    };
+
+    if let CacheAlertDecision::Notify { hit_rate } = decision {
+        let is_zh = prefs.ui_language.starts_with("zh");
+        let (title, body) = if is_zh {
+            (
+                "Claude 缓存命中率偏低".to_string(),
+                format!("最近 5 分钟缓存命中率为 {:.1}%（低于 90% 阈值）", hit_rate),
+            )
+        } else {
+            (
+                "Low Claude Cache Hit Rate".to_string(),
+                format!(
+                    "Cache hit rate in the last 5 minutes is {:.1}% (below the 90% threshold).",
+                    hit_rate
+                ),
+            )
+        };
+
+        if let Err(e) = app
+            .notification()
+            .builder()
+            .title(&title)
+            .body(&body)
+            .show()
+        {
+            log::warn!("event=usage.cache_hit_rate_notify status=err error={e}");
+        } else {
+            log::info!(
+                "event=usage.cache_hit_rate_notify status=ok hit_rate={hit_rate:.1} input_tokens={total_input}"
+            );
+        }
+    }
+}
+
+/// 启动扫描后初始化缓存命中率基线，防止冷启动即触发历史告警
+async fn init_cache_alert_baseline(state: &UsageState, pool: &SqlitePool) {
+    let now_ms = utils::current_timestamp_ms();
+    let since_ms = now_ms.saturating_sub(CACHE_HIT_RATE_WINDOW_MS);
+    if let Ok((total_input, cache_read)) = query_recent_cache_tokens_db(pool, since_ms).await {
+        let mut alert_state = match state.cache_alert.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        alert_state.init_baseline(now_ms, total_input, cache_read);
+    }
+}
+
 // ============ 启动入口 ============
 
 /// 在 lib.rs setup 中调用：构造状态、加载价格、启动后台扫描与价格刷新、监听 watcher 事件。
@@ -2762,6 +2947,9 @@ pub fn start_usage_runtime(app: &tauri::App) -> Result<(), String> {
                         );
                     }
                     let _ = app_handle.emit("usage-records-changed", ());
+                    if let Ok(pool) = &pool {
+                        init_cache_alert_baseline(&state, pool).await;
+                    }
                 }
                 Err(e) => log::warn!("event=usage.scan status=warn err={e}"),
             }
@@ -2820,6 +3008,7 @@ pub fn start_usage_runtime(app: &tauri::App) -> Result<(), String> {
                 match handle_files_changed(&state, files).await {
                     Ok(outcome) if outcome.changed => {
                         let _ = app_handle.emit("usage-records-changed", ());
+                        check_and_notify_cache_hit_rate(&app_handle, &state).await;
                     }
                     Ok(_) => {}
                     Err(e) => log::warn!("event=usage.incremental status=warn err={e}"),
@@ -4449,5 +4638,134 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(ids, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_state_triggers_when_below_threshold() {
+        let mut state = CacheHitRateAlertState::default();
+        let decision = state.evaluate(1_000_000, 100_000, 80_000, true);
+        assert_eq!(decision, CacheAlertDecision::Notify { hit_rate: 80.0 });
+        assert!(state.was_below_threshold);
+        assert_eq!(state.last_alert_time_ms, 1_000_000);
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_state_skips_when_tokens_below_threshold() {
+        let mut state = CacheHitRateAlertState::default();
+        // 9_999 tokens (< MIN_CACHE_ALERT_INPUT_TOKENS of 10,000)
+        let decision = state.evaluate(1_000_000, 9_999, 1_000, true);
+        assert_eq!(decision, CacheAlertDecision::NoAction);
+        assert!(!state.was_below_threshold);
+        assert_eq!(state.last_alert_time_ms, 0);
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_state_skips_when_hit_rate_is_high() {
+        let mut state = CacheHitRateAlertState::default();
+        // 95% hit rate (>= 90%)
+        let decision = state.evaluate(1_000_000, 100_000, 95_000, true);
+        assert_eq!(decision, CacheAlertDecision::NoAction);
+        assert!(!state.was_below_threshold);
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_state_respects_cooldown() {
+        let mut state = CacheHitRateAlertState::default();
+        let t0 = 1_000_000;
+        let decision1 = state.evaluate(t0, 100_000, 70_000, true);
+        assert_eq!(decision1, CacheAlertDecision::Notify { hit_rate: 70.0 });
+
+        // 5 分钟后（仍在 10 分钟冷却期内）依然偏低，不应重复提醒
+        let t1 = t0 + 5 * 60 * 1000;
+        let decision2 = state.evaluate(t1, 100_000, 70_000, true);
+        assert_eq!(decision2, CacheAlertDecision::NoAction);
+
+        // 10 分钟后（冷却期已满）依然偏低，应再次提醒
+        let t2 = t0 + 10 * 60 * 1000;
+        let decision3 = state.evaluate(t2, 100_000, 75_000, true);
+        assert_eq!(decision3, CacheAlertDecision::Notify { hit_rate: 75.0 });
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_state_recovers_and_retriggers() {
+        let mut state = CacheHitRateAlertState::default();
+        let t0 = 1_000_000;
+        let d1 = state.evaluate(t0, 100_000, 60_000, true);
+        assert_eq!(d1, CacheAlertDecision::Notify { hit_rate: 60.0 });
+
+        // 命中率回升到 92% (>= 90%)
+        let t1 = t0 + 60 * 1000;
+        let d2 = state.evaluate(t1, 100_000, 92_000, true);
+        assert_eq!(d2, CacheAlertDecision::NoAction);
+        assert!(!state.was_below_threshold);
+
+        // 命中率再次跌落，即使距离 t0 不到 10 分钟，也应当立刻提醒新的一轮低命中率事件
+        let t2 = t0 + 120 * 1000;
+        let d3 = state.evaluate(t2, 100_000, 65_000, true);
+        assert_eq!(d3, CacheAlertDecision::Notify { hit_rate: 65.0 });
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_state_suppresses_when_notifications_disabled() {
+        let mut state = CacheHitRateAlertState::default();
+        let decision = state.evaluate(1_000_000, 100_000, 70_000, false);
+        assert_eq!(decision, CacheAlertDecision::NoAction);
+        // 但内部状态依然更新，记录 baseline
+        assert!(state.was_below_threshold);
+        assert_eq!(state.last_alert_time_ms, 1_000_000);
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_state_init_baseline() {
+        let mut state = CacheHitRateAlertState::default();
+        // 启动时已存在偏低数据
+        state.init_baseline(1_000_000, 100_000, 60_000);
+        assert!(state.was_below_threshold);
+        assert_eq!(state.last_alert_time_ms, 1_000_000);
+
+        // 启动后第一次检查（冷却期内）不立刻弹窗
+        let decision = state.evaluate(1_000_000 + 10_000, 100_000, 60_000, true);
+        assert_eq!(decision, CacheAlertDecision::NoAction);
+    }
+
+    #[test]
+    fn query_recent_cache_tokens_db_aggregates_correctly() {
+        tauri::async_runtime::block_on(async {
+            let pool = test_usage_pool().await;
+
+            // 插入不同时间的记录
+            // 1. 过去的记录 (t = 1000)
+            sqlx::query(
+                "INSERT INTO usage_records (message_id, session_id, project_path, project_dir, timestamp_ms, model, input_tokens, output_tokens, cache_creation_5m, cache_creation_1h, cache_read, cost_usd)
+                 VALUES ('m1', 's1', '/p', '-p', 1000, 'm', 500, 100, 1000, 0, 8000, 0.0)"
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+
+            // 2. 窗口内的记录 (t = 6000)
+            sqlx::query(
+                "INSERT INTO usage_records (message_id, session_id, project_path, project_dir, timestamp_ms, model, input_tokens, output_tokens, cache_creation_5m, cache_creation_1h, cache_read, cost_usd)
+                 VALUES ('m2', 's1', '/p', '-p', 6000, 'm', 1000, 200, 2000, 1000, 16000, 0.0)"
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+
+            // 查询 since_ms = 5000（仅包含 m2）：
+            // total_input: input(1000) + create_5m(2000) + create_1h(1000) + read(16000) = 20000
+            // total_read: 16000
+            let (all_input, read) = query_recent_cache_tokens_db(&pool, 5000).await.unwrap();
+            assert_eq!(all_input, 20_000);
+            assert_eq!(read, 16_000);
+
+            // 查询 since_ms = 0（包含 m1 + m2）：
+            // m1: 500 + 1000 + 0 + 8000 = 9500 (read: 8000)
+            // m2: 20000 (read: 16000)
+            // total: 29500 (read: 24000)
+            let (all_input_all, read_all) = query_recent_cache_tokens_db(&pool, 0).await.unwrap();
+            assert_eq!(all_input_all, 29_500);
+            assert_eq!(read_all, 24_000);
+        });
     }
 }

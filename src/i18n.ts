@@ -1329,6 +1329,8 @@ const translations = {
     "settings.systemNotificationsHelpDesc": "当前开启后可能触发的系统通知：",
     "settings.systemNotificationsTriggerPendingSession": "Claude 会话进入待处理状态。",
     "settings.systemNotificationsTriggerFocusFailure": "点击会话跳转但终端定位失败。",
+    "settings.systemNotificationsTriggerCacheHitRate":
+      "最近 5 分钟缓存命中率低于 90%（且有实际 Token 消耗）。",
     "settings.waitingSound": "等待提示音效",
     "settings.waitingSoundDesc": "会话等待输入时播放系统提示音（仅 macOS）",
     "settings.waitingSoundChoice": "音效",
@@ -3098,6 +3100,8 @@ const translations = {
       "A Claude session enters the waiting state.",
     "settings.systemNotificationsTriggerFocusFailure":
       "A session jump is clicked, but terminal focus fails.",
+    "settings.systemNotificationsTriggerCacheHitRate":
+      "Cache hit rate in the last 5 minutes falls below 90% (with token activity).",
     "settings.waitingSound": "Waiting sound",
     "settings.waitingSoundDesc":
       "Play a system sound when a session is waiting for input (macOS only)",

@@ -724,6 +724,7 @@ function SystemNotificationsHelpButton() {
         <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-sm text-muted-foreground">
           <li>{t("settings.systemNotificationsTriggerPendingSession")}</li>
           <li>{t("settings.systemNotificationsTriggerFocusFailure")}</li>
+          <li>{t("settings.systemNotificationsTriggerCacheHitRate")}</li>
         </ul>
       </PopoverContent>
     </Popover>

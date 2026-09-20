@@ -464,6 +464,9 @@ describe("SettingsDrawer", () => {
     expect(await screen.findByText("系统通知触发场景")).toBeInTheDocument();
     expect(screen.getByText("Claude 会话进入待处理状态。")).toBeInTheDocument();
     expect(screen.getByText("点击会话跳转但终端定位失败。")).toBeInTheDocument();
+    expect(
+      screen.getByText("最近 5 分钟缓存命中率低于 90%（且有实际 Token 消耗）。"),
+    ).toBeInTheDocument();
   });
 
   it("hides macOS-only terminal choices on Linux", async () => {

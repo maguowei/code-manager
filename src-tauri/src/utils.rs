@@ -99,6 +99,14 @@ pub fn current_timestamp() -> u64 {
         .as_secs()
 }
 
+/// 获取当前 Unix 时间戳（毫秒）
+pub fn current_timestamp_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 /// 获取当前 RFC3339 UTC 时间戳，格式如 `2026-04-18T12:34:56Z`。
 pub fn current_rfc3339_timestamp() -> String {
     unix_secs_to_rfc3339(current_timestamp())
