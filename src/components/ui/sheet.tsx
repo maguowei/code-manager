@@ -3,6 +3,7 @@ import { XIcon } from "lucide-react";
 import type * as React from "react";
 
 import { TYPOGRAPHY } from "@/components/typography-classes";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -74,8 +75,12 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary">
-            <XIcon className="size-4" />
+          // base-nova：关闭按钮复用 Button ghost + icon-sm（原先手写样式里的
+          // data-[state=open] 是 Radix 时代的死规则）。
+          <SheetPrimitive.Close
+            render={<Button variant="ghost" className="absolute top-3 right-3" size="icon-sm" />}
+          >
+            <XIcon />
             <span className="sr-only">{t("common.close")}</span>
           </SheetPrimitive.Close>
         )}
