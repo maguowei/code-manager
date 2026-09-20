@@ -504,4 +504,26 @@ describe("ui system contract", () => {
     expect(source).toContain("InputGroup");
     expect(source).toContain("InputGroupInput");
   });
+
+  it("keeps Base UI popups stacked on the positioner so modal layers cannot cover them", () => {
+    // Base UI 的 Positioner 是 position: fixed，自身就会形成层叠上下文：层级写在 Popup 上会被困在
+    // Positioner 内部，整个浮层落到 Sheet / Dialog 的 z-50 层下面 —— 浮层可见但点不到，点击落到
+    // 遮罩上被当成外部点击关掉，表现为「下拉无效」。层级必须写在 Positioner 上。
+    for (const file of [
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/popover.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/tooltip.tsx",
+    ]) {
+      const source = readFileSync(file, "utf8");
+      const positioners = source.match(/<[A-Za-z]+Primitive\.Positioner(?=[\s/>])/g) ?? [];
+      const stacked = source.match(/className="[^"]*\bisolate z-50\b[^"]*"/g) ?? [];
+
+      expect(positioners.length, `${file} 应使用 Base UI Positioner`).toBeGreaterThan(0);
+      expect(
+        stacked.length,
+        `${file} 的每个 Positioner 都要带 isolate z-50`,
+      ).toBeGreaterThanOrEqual(positioners.length);
+    }
+  });
 });

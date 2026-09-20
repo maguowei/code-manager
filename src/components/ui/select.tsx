@@ -64,6 +64,10 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
+        // Positioner 是 position: fixed，本身就会形成层叠上下文；层级必须写在这里，
+        // 写在 Popup 上会被困在 Positioner 内部，导致浮层整体落在 Sheet/Dialog 的 z-50 层下面
+        // （浮层可见但点不到：点击落到遮罩上，被当作外部点击关掉）。
+        className="isolate z-50"
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
