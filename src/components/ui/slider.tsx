@@ -39,26 +39,24 @@ function Slider({
       min={min}
       max={max}
       aria-label={ariaLabel}
-      className={className}
+      className={cn("data-horizontal:w-full data-vertical:h-full", className)}
       {...props}
     >
       <SliderPrimitive.Control
         data-slot="slider-control"
         className={cn(
-          "relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col",
+          "relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
         )}
       >
         <SliderPrimitive.Track
           data-slot="slider-track"
           className={cn(
-            "relative grow overflow-hidden rounded-full bg-muted data-[orientation=horizontal]:h-1 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1",
+            "relative grow overflow-hidden rounded-full bg-muted data-horizontal:h-1 data-horizontal:w-full data-vertical:h-full data-vertical:w-1",
           )}
         >
           <SliderPrimitive.Indicator
             data-slot="slider-range"
-            className={cn(
-              "absolute bg-primary data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
-            )}
+            className={cn("absolute bg-primary data-horizontal:h-full data-vertical:w-full")}
           />
         </SliderPrimitive.Track>
         {thumbIds.map((thumbId) => (
@@ -66,7 +64,7 @@ function Slider({
             data-slot="slider-thumb"
             key={thumbId}
             aria-label={ariaLabel}
-            className="relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden data-disabled:pointer-events-none data-disabled:opacity-50"
+            className="relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50 data-disabled:pointer-events-none data-disabled:opacity-50"
           />
         ))}
       </SliderPrimitive.Control>
