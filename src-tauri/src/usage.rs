@@ -228,6 +228,7 @@ pub const CACHE_ALERT_COOLDOWN_MS: i64 = 10 * 60 * 1000;
 /// 缓存命中率告警状态跟踪
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct CacheHitRateAlertState {
+    baseline_initialized: bool,
     pub last_alert_time_ms: i64,
     pub was_below_threshold: bool,
 }
@@ -248,7 +249,7 @@ impl CacheHitRateAlertState {
         threshold_percent: f64,
         system_notifications_enabled: bool,
     ) -> CacheAlertDecision {
-        if total_input_tokens < MIN_CACHE_ALERT_INPUT_TOKENS {
+        if !self.baseline_initialized || total_input_tokens < MIN_CACHE_ALERT_INPUT_TOKENS {
             return CacheAlertDecision::NoAction;
         }
 
@@ -281,6 +282,7 @@ impl CacheHitRateAlertState {
         cache_read_tokens: u64,
         threshold_percent: f64,
     ) {
+        self.baseline_initialized = true;
         if total_input_tokens >= MIN_CACHE_ALERT_INPUT_TOKENS {
             let hit_rate = (cache_read_tokens as f64 / total_input_tokens as f64) * 100.0;
             if hit_rate < threshold_percent {
@@ -2840,6 +2842,16 @@ pub async fn rescan_usage(state: State<'_, UsageState>) -> Result<ScanResult, St
 
 /// 检查最近 5 分钟的缓存命中率，并在低于阈值且达到 Token 消耗门槛时发送系统通知
 async fn check_and_notify_cache_hit_rate(app: &AppHandle, state: &UsageState) {
+    // 先检查门控，避免启动期间取得的旧快照在基线就绪后才进入评估。
+    {
+        let alert_state = match state.cache_alert.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        if !alert_state.baseline_initialized {
+            return;
+        }
+    }
     let pool = match state.db_pool() {
         Ok(p) => p,
         Err(_) => return,
@@ -2917,13 +2929,19 @@ async fn init_cache_alert_baseline(state: &UsageState, pool: &SqlitePool) {
     let threshold_percent = prefs.cache_hit_rate_threshold as f64;
     let now_ms = utils::current_timestamp_ms();
     let since_ms = now_ms.saturating_sub(CACHE_HIT_RATE_WINDOW_MS);
-    if let Ok((total_input, cache_read)) = query_recent_cache_tokens_db(pool, since_ms).await {
-        let mut alert_state = match state.cache_alert.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        alert_state.init_baseline(now_ms, total_input, cache_read, threshold_percent);
-    }
+    let (total_input, cache_read) = match query_recent_cache_tokens_db(pool, since_ms).await {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            // 查询失败仍结束启动门控，允许后续成功的增量检查继续告警。
+            log::warn!("event=usage.cache_hit_rate_baseline status=err error={e}");
+            (0, 0)
+        }
+    };
+    let mut alert_state = match state.cache_alert.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    alert_state.init_baseline(now_ms, total_input, cache_read, threshold_percent);
 }
 
 // ============ 启动入口 ============
@@ -2966,11 +2984,12 @@ pub fn start_usage_runtime(app: &tauri::App) -> Result<(), String> {
                         );
                     }
                     let _ = app_handle.emit("usage-records-changed", ());
-                    if let Ok(pool) = &pool {
-                        init_cache_alert_baseline(&state, pool).await;
-                    }
                 }
                 Err(e) => log::warn!("event=usage.scan status=warn err={e}"),
+            }
+            // 扫描失败也必须完成初始化，避免后续 watcher 永久无法告警。
+            if let Ok(pool) = &pool {
+                init_cache_alert_baseline(&state, pool).await;
             }
         }
         // 2. 联网刷新价格
@@ -4660,8 +4679,54 @@ mod tests {
     }
 
     #[test]
+    fn cache_hit_rate_alert_waits_for_startup_baseline() {
+        let usage = UsageState::new();
+        let mut state = usage.cache_alert.lock().unwrap();
+        let t0 = 1_000_000;
+
+        // 模拟 watcher 在启动扫描后的基线查询完成前抢先检查。
+        assert_eq!(
+            state.evaluate(t0, 100_000, 60_000, 90.0, true),
+            CacheAlertDecision::NoAction
+        );
+        state.init_baseline(t0 + 1, 100_000, 60_000, 90.0);
+        assert_eq!(
+            state.evaluate(t0 + 2, 100_000, 60_000, 90.0, true),
+            CacheAlertDecision::NoAction
+        );
+        assert!(matches!(
+            state.evaluate(
+                t0 + 1 + CACHE_ALERT_COOLDOWN_MS,
+                100_000,
+                60_000,
+                90.0,
+                true
+            ),
+            CacheAlertDecision::Notify { .. }
+        ));
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_baseline_query_failure_releases_startup_gate() {
+        tauri::async_runtime::block_on(async {
+            let pool = test_usage_pool().await;
+            pool.close().await;
+            let usage = UsageState::new();
+
+            init_cache_alert_baseline(&usage, &pool).await;
+
+            let mut state = usage.cache_alert.lock().unwrap();
+            assert!(matches!(
+                state.evaluate(1_000_000, 100_000, 60_000, 90.0, true),
+                CacheAlertDecision::Notify { .. }
+            ));
+        });
+    }
+
+    #[test]
     fn cache_hit_rate_alert_state_triggers_when_below_threshold() {
         let mut state = CacheHitRateAlertState::default();
+        state.init_baseline(0, 0, 0, 90.0);
         let decision = state.evaluate(1_000_000, 100_000, 80_000, 90.0, true);
         assert_eq!(
             decision,
@@ -4677,6 +4742,7 @@ mod tests {
     #[test]
     fn cache_hit_rate_alert_state_supports_custom_threshold() {
         let mut state = CacheHitRateAlertState::default();
+        state.init_baseline(0, 0, 0, 90.0);
         // 阈值设为 70%：命中率 75% 高于阈值不告警
         let d1 = state.evaluate(1_000_000, 100_000, 75_000, 70.0, true);
         assert_eq!(d1, CacheAlertDecision::NoAction);
@@ -4695,6 +4761,7 @@ mod tests {
     #[test]
     fn cache_hit_rate_alert_state_skips_when_tokens_below_threshold() {
         let mut state = CacheHitRateAlertState::default();
+        state.init_baseline(0, 0, 0, 90.0);
         // 9_999 tokens (< MIN_CACHE_ALERT_INPUT_TOKENS of 10,000)
         let decision = state.evaluate(1_000_000, 9_999, 1_000, 90.0, true);
         assert_eq!(decision, CacheAlertDecision::NoAction);
@@ -4705,6 +4772,7 @@ mod tests {
     #[test]
     fn cache_hit_rate_alert_state_skips_when_hit_rate_is_high() {
         let mut state = CacheHitRateAlertState::default();
+        state.init_baseline(0, 0, 0, 90.0);
         // 95% hit rate (>= 90%)
         let decision = state.evaluate(1_000_000, 100_000, 95_000, 90.0, true);
         assert_eq!(decision, CacheAlertDecision::NoAction);
@@ -4714,6 +4782,7 @@ mod tests {
     #[test]
     fn cache_hit_rate_alert_state_respects_cooldown() {
         let mut state = CacheHitRateAlertState::default();
+        state.init_baseline(0, 0, 0, 90.0);
         let t0 = 1_000_000;
         let decision1 = state.evaluate(t0, 100_000, 70_000, 90.0, true);
         assert_eq!(
@@ -4744,6 +4813,7 @@ mod tests {
     #[test]
     fn cache_hit_rate_alert_state_recovers_and_retriggers() {
         let mut state = CacheHitRateAlertState::default();
+        state.init_baseline(0, 0, 0, 90.0);
         let t0 = 1_000_000;
         let d1 = state.evaluate(t0, 100_000, 60_000, 90.0, true);
         assert_eq!(
@@ -4775,6 +4845,7 @@ mod tests {
     #[test]
     fn cache_hit_rate_alert_state_suppresses_when_notifications_disabled() {
         let mut state = CacheHitRateAlertState::default();
+        state.init_baseline(0, 0, 0, 90.0);
         let decision = state.evaluate(1_000_000, 100_000, 70_000, 90.0, false);
         assert_eq!(decision, CacheAlertDecision::NoAction);
         // 但内部状态依然更新，记录 baseline
