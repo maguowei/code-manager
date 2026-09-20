@@ -29,7 +29,7 @@
 - 所有前端通知优先走 `useToast()`，不要把 `console.error` 当作用户反馈。
 - `pnpm check` 会执行 `biome check --write .` 并修改文件，`make fmt` 同样改写，都别当只读验证；只读前端检查用 `make lint-frontend`，只读格式检查用 `make fmt-check`。
 - 新增有层叠关系或浮层的样式时，使用 shadcn 语义变量和 shadcn 原子组件内置层级，不要硬编码十六进制色值或 z-index 数字。
-- 前端视觉默认采用“均衡管理台”风格：克制、紧凑、可扫描，不做营销式 hero、大字号展示或装饰性卡片堆叠。
+- 前端视觉以 shadcn **base-nova** 为基线（`components.json` 的 `style: "base-nova"`），叠加“均衡管理台”的项目密度：克制、紧凑、可扫描，不做营销式 hero、大字号展示或装饰性卡片堆叠。细节见 `.claude/rules/frontend-ui.md`。
 - Rust 新增文件读写、锁、时间、JSON 工具时，优先复用 `src-tauri/src/utils.rs`。
 - `package.json` 的 `prepare` 脚本会自动安装 lefthook git hooks；本地门禁分三层：`.claude/settings.json` 做会话级提醒和绕过拦截，lefthook 做 pre-commit / commit-msg / pre-push 快反馈，GitHub Actions 做远端权威检查。
 - 提交信息遵守 Conventional Commits，commit-msg 与 CI 都通过 commitlint 检查；本地分支 `pre-push` 会运行 `make verify`，tag-only push 交给 release workflow 的 quality job。

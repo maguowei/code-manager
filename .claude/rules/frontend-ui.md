@@ -38,7 +38,8 @@ paths:
 - 样式使用 Tailwind v4 工具类；颜色走 shadcn 语义变量，禁止硬编码十六进制色值。
 - 类名拼接走 `cn(...)`；不要手写字符串拼接。
 - 字号层级统一通过 `TYPOGRAPHY.*` 获取；新增层级先扩 `typography-classes.ts` 并同步契约测试。
-- 卡片、抽屉、浮层、控件背景统一使用 `surface-classes.ts` 中的命名常量和 `shadow-panel` / `shadow-toolbar` / `shadow-floating`。
+- 卡片、抽屉、浮层、控件背景统一使用 `surface-classes.ts` 中的命名常量。面板与浮层走 base-nova 的 ring 语言（`bg-card ring-1 ring-foreground/10`、`bg-popover ring-1 ring-foreground/10 shadow-md`），不再叠 `shadow-panel`；`shadow-toolbar` / `shadow-floating` 仍用于工具栏与抽屉壳。
+- `src/index.css` 里把 `data-horizontal` / `data-vertical` 映射到 Base UI 的 `data-orientation`：与上游 base-* 风格保持同名类，写方向样式时优先用这两个变体；其余裸 `data-*` 变体保持 Tailwind 默认语义。
 - 列表/详情抽屉宽度复用 `layout-size-classes.ts` 中的常量；新增固定尺寸要说明用途并优先补源码契约测试。
 - 圆角使用 `rounded-md` / `rounded-lg`，间距使用 Tailwind `gap-*` / `p-*` / `m-*`，不要回退到旧 `--space-*` / `--radius-*` 令牌。
 - 图标库统一使用 `lucide-react`，按 Tailwind size 类控制尺寸。
@@ -70,8 +71,16 @@ paths:
 
 ## 当前设计风格
 
+视觉语言以 shadcn **base-nova** 为基线（`components.json` 的 `style: "base-nova"`），
+项目在它之上只做两类改动：语义 token 化（`TYPOGRAPHY.*`、`surface-classes.ts`、`layout-size-classes.ts`）
+和业务密度微调。新增组件用 `shadcn add <component>` 会直接拿到 Base UI + nova 变体；
+手工改 wrapper 时对照 `https://ui.shadcn.com/r/styles/base-nova/<component>.json`。
+
 - Code Manager 是本地桌面管理台，不是营销站点；第一屏直接呈现可操作信息，不做 hero、宣传文案、装饰性大图或卡片堆叠。
 - 默认密度是“均衡管理台”：信息密度高但不拥挤，优先扫描、比较和重复操作。
+- 几何：控件 h-8 起（sm 变体 h-7）、面板 `rounded-xl`、控件与浮层 `rounded-lg`、菜单项 `rounded-md`；描边一律用 `ring-1 ring-foreground/10` 或 `border-input`，不要同时用 border + shadow 表达层次。
+- 状态：危险操作用淡色底（`bg-destructive/10 text-destructive`）而不是实心红；控件禁用态用 `disabled:bg-input/50` 而不是只降透明度。
+- 反馈：可点区域统一补 `after:absolute after:-inset-*` 命中区（switch / checkbox / radio / slider 拇指），不要靠放大控件本体换取点击舒适度。
 - 页面标题用 `TYPOGRAPHY.pageTitle`，区块/卡片标题用 `sectionTitle` / `cardTitle`，正文/表格用 `body`，辅助文本、徽标、计数和标签用 `auxiliary` / `badge`。
 - 不新增任意 10px/11px 字号或 hero 级数据字号；热力图、图表轴标等确有空间约束的组件必须在测试或注释中明确白名单。
 - 数据密集页表格保持 `text-sm`、`px-3`、`py-2` 左右密度；列多时用稳定 `min-w-*` 加横向滚动，不压缩到文字重叠。
