@@ -51,9 +51,10 @@ function SkillItem({
   return (
     <Card
       className={cn(
-        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-300 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        skill.isActive && "active border-primary ring-1 ring-primary/30",
-        isEditing && "editing border-chart-3 ring-1 ring-chart-3/30 hover:border-chart-3",
+        // base-nova：卡片边缘由 Card 的 ring 提供，悬停改描边颜色而不是 border。
+        "skill-item group relative flex cursor-pointer flex-col gap-4 rounded-lg bg-card p-4 text-foreground transition-[transform,box-shadow,background-color,opacity] duration-300 hover:-translate-y-px hover:bg-accent/40 hover:ring-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        skill.isActive && "active ring-primary/30",
+        isEditing && "editing ring-chart-3/30 hover:ring-chart-3",
       )}
       role="button"
       tabIndex={0}

@@ -171,7 +171,7 @@ function SettingsSectionModePanel({
     return (
       <section
         data-slot="settings-section"
-        className="group flex flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-panel transition-colors hover:border-muted-foreground/40 focus-within:border-muted-foreground/40"
+        className="group flex flex-col overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10 transition-colors hover:ring-muted-foreground/40 focus-within:ring-muted-foreground/40"
       >
         <div
           data-slot="settings-section-header"
@@ -261,7 +261,7 @@ function SettingsSectionModePanel({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-border/80 bg-card p-5 shadow-panel">
+    <section className="flex flex-col gap-4 rounded-lg bg-card p-5 ring-1 ring-foreground/10">
       <div className="-mx-5 flex flex-wrap items-center justify-between gap-3 border-b border-border/80 px-5 pb-4">
         <h3 className={cn("min-w-0 flex-1", TYPOGRAPHY.sectionTitle)}>{title}</h3>
         {hasHeaderMeta || headerControl ? (

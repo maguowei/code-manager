@@ -15,7 +15,7 @@ interface ProvidersPageProps {
 }
 
 const PROVIDER_CARD_CLASS =
-  "preset-card flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-foreground shadow-panel";
+  "preset-card flex flex-col gap-3 rounded-lg bg-card p-4 text-foreground ring-1 ring-foreground/10";
 
 const PROVIDER_CHIP_CLASS =
   "preset-chip inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground";

@@ -46,7 +46,7 @@ function DocumentEditorSection({
   const [clearJsonDialogOpen, setClearJsonDialogOpen] = useState(false);
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-border/80 bg-card p-5 shadow-panel">
+    <section className="flex flex-col gap-4 rounded-lg bg-card p-5 ring-1 ring-foreground/10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className={TYPOGRAPHY.sectionTitle}>{title}</h3>

@@ -1515,7 +1515,7 @@ function ProfilesPage({
       <Card
         key="unmanaged-user-settings"
         data-slot="unmanaged-user-settings-card"
-        className="flex cursor-default flex-col gap-3 rounded-lg border border-dashed border-border bg-card p-4 text-foreground shadow-panel"
+        className="flex cursor-default flex-col gap-3 rounded-lg border border-dashed border-border bg-card p-4 text-foreground"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
@@ -1801,9 +1801,10 @@ function ProfilesPage({
               <Card
                 key={profile.id}
                 className={cn(
-                  "group relative flex cursor-pointer flex-col gap-4 rounded-lg border border-border bg-card p-4 py-4 shadow-panel transition-[transform,border-color,box-shadow,opacity] duration-200 hover:-translate-y-px hover:border-primary hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  isAppliedProfile && "active border-primary ring-1 ring-primary/30",
-                  isEditingProfile && "editing border-chart-3 ring-1 ring-chart-3/30",
+                  // base-nova：卡片边缘由 Card 的 ring 提供，悬停改描边颜色而不是 border。
+                  "group relative flex cursor-pointer flex-col gap-4 rounded-lg bg-card p-4 py-4 transition-[transform,box-shadow,opacity] duration-200 hover:-translate-y-px hover:bg-accent/40 hover:ring-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  isAppliedProfile && "active ring-primary/30",
+                  isEditingProfile && "editing ring-chart-3/30",
                   dragState.draggingIndex === index &&
                     "dragging scale-[0.985] opacity-50 shadow-md",
                   dragState.overIndex === index &&

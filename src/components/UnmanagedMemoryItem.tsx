@@ -27,7 +27,7 @@ function UnmanagedMemoryItem({ memory, onImport }: UnmanagedMemoryItemProps) {
 
   return (
     <Card
-      className="memory-item memory-item-unmanaged relative flex cursor-default flex-col gap-4 rounded-lg border border-dashed border-border bg-card p-4 text-foreground shadow-panel transition-[transform,border-color,box-shadow,background-color,opacity] duration-300 hover:-translate-y-px hover:border-chart-3 hover:bg-accent/40"
+      className="memory-item memory-item-unmanaged relative flex cursor-default flex-col gap-4 rounded-lg border border-dashed border-border bg-card p-4 text-foreground transition-[transform,border-color,background-color,opacity] duration-300 hover:-translate-y-px hover:border-chart-3 hover:bg-accent/40"
       data-slot="memory-item"
     >
       <div className="memory-header flex gap-3">

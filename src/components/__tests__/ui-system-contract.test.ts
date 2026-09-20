@@ -72,7 +72,8 @@ describe("ui system contract", () => {
     expect(source).not.toMatch(/<Icon[^>]*className=/);
     expect(source).not.toMatch(/<Settings[^>]*className=/);
     expect(source).toContain('size="icon-lg"');
-    expect(buttonSource).toContain(`"icon-lg": "size-10 [&_svg:not([class*='size-'])]:size-5"`);
+    // base-nova 的 icon-lg 为 36px（原 40px）。
+    expect(buttonSource).toContain(`"icon-lg": "size-9"`);
   });
 
   it("keeps primary list item cards on semantic surfaces", () => {
@@ -207,7 +208,7 @@ describe("ui system contract", () => {
 
     expect(source).toContain("focus-visible:ring-0");
     expect(source).toContain("focus-visible:outline-primary/60");
-    expect(source).toContain("hover:border-muted-foreground/40");
+    expect(source).toContain("hover:ring-muted-foreground/40");
     expect(source).toContain("dark:hover:bg-transparent");
     expect(source).toContain("cursor-pointer");
     expect(source).toContain("px-5 py-3");
@@ -239,14 +240,16 @@ describe("ui system contract", () => {
     }
   });
 
-  it("keeps switch controls large enough for comfortable pointer use", () => {
+  it("keeps switch controls on base-nova sizes with a larger pointer hit area", () => {
     const source = readFileSync("src/components/ui/switch.tsx", "utf8");
 
-    expect(source).toContain("data-[size=default]:h-6 data-[size=default]:w-11");
-    expect(source).toContain("data-[size=sm]:h-5 data-[size=sm]:w-9");
-    expect(source).toContain("group-data-[size=default]/switch:size-5");
-    expect(source).toContain("group-data-[size=sm]/switch:size-4");
-    expect(source).toContain("data-checked:translate-x-[calc(100%+2px)]");
+    // base-nova 把开关收到 32×18.4 / 24×14，点击舒适度由 after 伪元素的 -inset 命中区保证。
+    expect(source).toContain("data-[size=default]:h-[18.4px] data-[size=default]:w-[32px]");
+    expect(source).toContain("data-[size=sm]:h-[14px] data-[size=sm]:w-[24px]");
+    expect(source).toContain("after:absolute after:-inset-x-3 after:-inset-y-2");
+    expect(source).toContain("group-data-[size=default]/switch:size-4");
+    expect(source).toContain("group-data-[size=sm]/switch:size-3");
+    expect(source).toContain("data-checked:translate-x-[calc(100%-2px)]");
     expect(source).not.toContain("data-[size=default]:h-[1.15rem]");
     expect(source).not.toContain("data-[size=sm]:h-3.5");
   });
@@ -432,15 +435,19 @@ describe("ui system contract", () => {
     expect(surfaceSource).toContain("focus-visible:ring-0");
     expect(surfaceSource).toContain("focus-within:bg-background");
     expect(surfaceSource).toContain("focus-within:ring-0");
-    expect(surfaceSource).toContain("ring-border/30");
+    expect(surfaceSource).toContain("ring-foreground/10");
     expect(surfaceSource).toContain("bg-secondary/45");
     expect(surfaceSource).not.toContain("focus-visible:shadow-toolbar");
     expect(surfaceSource).not.toContain("focus-within:shadow-toolbar");
-    expect(inputSource).toContain("border-input bg-background");
-    expect(selectSource).toContain("border-input bg-background");
-    expect(textareaSource).toContain("border-input bg-background");
+    // base-nova：面板与浮层走 ring 语言，控件底色改为透明（原 bg-background）。
+    expect(surfaceSource).toContain("bg-card ring-1 ring-foreground/10");
+    expect(surfaceSource).toContain("bg-popover ring-1 ring-foreground/10 shadow-md");
+    expect(surfaceSource).not.toContain("shadow-panel");
+    expect(inputSource).toContain("border-input bg-transparent");
+    expect(selectSource).toContain("border-input bg-transparent");
+    expect(textareaSource).toContain("border-input bg-transparent");
     expect(buttonSource).toContain("outline:");
-    expect(buttonSource).toContain("border border-input bg-card");
+    expect(buttonSource).toContain("border-border bg-background");
     expect(memoryEditorSource).toContain("group-focus-within/memory-target:bg-muted/60");
     expect(memoryEditorSource).toContain('data-slot="memory-editor-section"');
     expect(memoryEditorSource).toContain("PANEL_SURFACE_CLASS");

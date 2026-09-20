@@ -100,7 +100,7 @@ function Sidebar({
   return (
     <nav
       className={cn(
-        "flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 text-sidebar-foreground shadow-panel transition-[width,padding] duration-300 max-[700px]:w-[48px] max-[700px]:px-1 max-[700px]:py-2",
+        "flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-3 text-sidebar-foreground transition-[width,padding] duration-300 max-[700px]:w-[48px] max-[700px]:px-1 max-[700px]:py-2",
         collapseSidebarByDefault
           ? "w-[60px] items-center px-2"
           : "w-[168px] items-stretch px-3 max-[1000px]:w-[60px] max-[1000px]:items-center max-[1000px]:px-2",
@@ -115,7 +115,7 @@ function Sidebar({
               variant="ghost"
               size="icon"
               className={cn(
-                "mb-5 rounded-lg bg-sidebar-primary text-base font-bold text-sidebar-primary-foreground shadow-panel transition-[background-color,box-shadow,transform] duration-150 hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground active:scale-95 max-[700px]:size-8 max-[700px]:text-sm",
+                "mb-5 rounded-lg bg-sidebar-primary text-base font-bold text-sidebar-primary-foreground transition-[background-color,transform] duration-150 hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground active:scale-95 max-[700px]:size-8 max-[700px]:text-sm",
                 collapseSidebarByDefault ? "size-10" : "h-10 w-full max-[1000px]:size-10",
                 activeTab === "claudeOverview" && "ring-2 ring-ring/50",
               )}
