@@ -220,8 +220,6 @@ pub struct UsageStateInner {
 
 /// 最近 5 分钟缓存命中率告警窗口（毫秒）
 pub const CACHE_HIT_RATE_WINDOW_MS: i64 = 5 * 60 * 1000;
-/// 缓存命中率告警阈值百分比（低于 90% 时提醒）
-pub const CACHE_HIT_RATE_THRESHOLD_PERCENT: f64 = 90.0;
 /// 触发告警所需的最小输入 Token 数（防止冷启动或零星调用时误触发）
 pub const MIN_CACHE_ALERT_INPUT_TOKENS: u64 = 10_000;
 /// 命中率持续偏低时的重复提醒冷却时间（10 分钟）
@@ -236,7 +234,7 @@ pub struct CacheHitRateAlertState {
 
 #[derive(Debug, PartialEq)]
 pub enum CacheAlertDecision {
-    Notify { hit_rate: f64 },
+    Notify { hit_rate: f64, threshold: f64 },
     NoAction,
 }
 
@@ -247,6 +245,7 @@ impl CacheHitRateAlertState {
         now_ms: i64,
         total_input_tokens: u64,
         cache_read_tokens: u64,
+        threshold_percent: f64,
         system_notifications_enabled: bool,
     ) -> CacheAlertDecision {
         if total_input_tokens < MIN_CACHE_ALERT_INPUT_TOKENS {
@@ -254,14 +253,17 @@ impl CacheHitRateAlertState {
         }
 
         let hit_rate = (cache_read_tokens as f64 / total_input_tokens as f64) * 100.0;
-        if hit_rate < CACHE_HIT_RATE_THRESHOLD_PERCENT {
+        if hit_rate < threshold_percent {
             let should_notify = !self.was_below_threshold
                 || (now_ms.saturating_sub(self.last_alert_time_ms) >= CACHE_ALERT_COOLDOWN_MS);
             self.was_below_threshold = true;
             if should_notify {
                 self.last_alert_time_ms = now_ms;
                 if system_notifications_enabled {
-                    return CacheAlertDecision::Notify { hit_rate };
+                    return CacheAlertDecision::Notify {
+                        hit_rate,
+                        threshold: threshold_percent,
+                    };
                 }
             }
         } else {
@@ -272,10 +274,16 @@ impl CacheHitRateAlertState {
     }
 
     /// 启动时初始化基线，避免冷启动时因既有低命中率数据立刻弹窗
-    pub fn init_baseline(&mut self, now_ms: i64, total_input_tokens: u64, cache_read_tokens: u64) {
+    pub fn init_baseline(
+        &mut self,
+        now_ms: i64,
+        total_input_tokens: u64,
+        cache_read_tokens: u64,
+        threshold_percent: f64,
+    ) {
         if total_input_tokens >= MIN_CACHE_ALERT_INPUT_TOKENS {
             let hit_rate = (cache_read_tokens as f64 / total_input_tokens as f64) * 100.0;
-            if hit_rate < CACHE_HIT_RATE_THRESHOLD_PERCENT {
+            if hit_rate < threshold_percent {
                 self.was_below_threshold = true;
                 self.last_alert_time_ms = now_ms;
                 return;
@@ -2848,6 +2856,7 @@ async fn check_and_notify_cache_hit_rate(app: &AppHandle, state: &UsageState) {
         }
     };
 
+    let threshold_percent = prefs.cache_hit_rate_threshold as f64;
     let decision = {
         let mut alert_state = match state.cache_alert.lock() {
             Ok(guard) => guard,
@@ -2857,23 +2866,31 @@ async fn check_and_notify_cache_hit_rate(app: &AppHandle, state: &UsageState) {
             now_ms,
             total_input,
             cache_read,
+            threshold_percent,
             prefs.system_notifications_enabled,
         )
     };
 
-    if let CacheAlertDecision::Notify { hit_rate } = decision {
+    if let CacheAlertDecision::Notify {
+        hit_rate,
+        threshold,
+    } = decision
+    {
         let is_zh = prefs.ui_language.starts_with("zh");
         let (title, body) = if is_zh {
             (
                 "Claude 缓存命中率偏低".to_string(),
-                format!("最近 5 分钟缓存命中率为 {:.1}%（低于 90% 阈值）", hit_rate),
+                format!(
+                    "最近 5 分钟缓存命中率为 {:.1}%（低于 {:.0}% 阈值）",
+                    hit_rate, threshold
+                ),
             )
         } else {
             (
                 "Low Claude Cache Hit Rate".to_string(),
                 format!(
-                    "Cache hit rate in the last 5 minutes is {:.1}% (below the 90% threshold).",
-                    hit_rate
+                    "Cache hit rate in the last 5 minutes is {:.1}% (below the {:.0}% threshold).",
+                    hit_rate, threshold
                 ),
             )
         };
@@ -2888,7 +2905,7 @@ async fn check_and_notify_cache_hit_rate(app: &AppHandle, state: &UsageState) {
             log::warn!("event=usage.cache_hit_rate_notify status=err error={e}");
         } else {
             log::info!(
-                "event=usage.cache_hit_rate_notify status=ok hit_rate={hit_rate:.1} input_tokens={total_input}"
+                "event=usage.cache_hit_rate_notify status=ok hit_rate={hit_rate:.1} threshold={threshold:.0} input_tokens={total_input}"
             );
         }
     }
@@ -2896,6 +2913,8 @@ async fn check_and_notify_cache_hit_rate(app: &AppHandle, state: &UsageState) {
 
 /// 启动扫描后初始化缓存命中率基线，防止冷启动即触发历史告警
 async fn init_cache_alert_baseline(state: &UsageState, pool: &SqlitePool) {
+    let prefs = crate::config::load_registry_or_default().app;
+    let threshold_percent = prefs.cache_hit_rate_threshold as f64;
     let now_ms = utils::current_timestamp_ms();
     let since_ms = now_ms.saturating_sub(CACHE_HIT_RATE_WINDOW_MS);
     if let Ok((total_input, cache_read)) = query_recent_cache_tokens_db(pool, since_ms).await {
@@ -2903,7 +2922,7 @@ async fn init_cache_alert_baseline(state: &UsageState, pool: &SqlitePool) {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
         };
-        alert_state.init_baseline(now_ms, total_input, cache_read);
+        alert_state.init_baseline(now_ms, total_input, cache_read, threshold_percent);
     }
 }
 
@@ -4643,17 +4662,41 @@ mod tests {
     #[test]
     fn cache_hit_rate_alert_state_triggers_when_below_threshold() {
         let mut state = CacheHitRateAlertState::default();
-        let decision = state.evaluate(1_000_000, 100_000, 80_000, true);
-        assert_eq!(decision, CacheAlertDecision::Notify { hit_rate: 80.0 });
+        let decision = state.evaluate(1_000_000, 100_000, 80_000, 90.0, true);
+        assert_eq!(
+            decision,
+            CacheAlertDecision::Notify {
+                hit_rate: 80.0,
+                threshold: 90.0
+            }
+        );
         assert!(state.was_below_threshold);
         assert_eq!(state.last_alert_time_ms, 1_000_000);
+    }
+
+    #[test]
+    fn cache_hit_rate_alert_state_supports_custom_threshold() {
+        let mut state = CacheHitRateAlertState::default();
+        // 阈值设为 70%：命中率 75% 高于阈值不告警
+        let d1 = state.evaluate(1_000_000, 100_000, 75_000, 70.0, true);
+        assert_eq!(d1, CacheAlertDecision::NoAction);
+
+        // 命中率 65% 低于 70% 阈值告警
+        let d2 = state.evaluate(1_001_000, 100_000, 65_000, 70.0, true);
+        assert_eq!(
+            d2,
+            CacheAlertDecision::Notify {
+                hit_rate: 65.0,
+                threshold: 70.0
+            }
+        );
     }
 
     #[test]
     fn cache_hit_rate_alert_state_skips_when_tokens_below_threshold() {
         let mut state = CacheHitRateAlertState::default();
         // 9_999 tokens (< MIN_CACHE_ALERT_INPUT_TOKENS of 10,000)
-        let decision = state.evaluate(1_000_000, 9_999, 1_000, true);
+        let decision = state.evaluate(1_000_000, 9_999, 1_000, 90.0, true);
         assert_eq!(decision, CacheAlertDecision::NoAction);
         assert!(!state.was_below_threshold);
         assert_eq!(state.last_alert_time_ms, 0);
@@ -4663,7 +4706,7 @@ mod tests {
     fn cache_hit_rate_alert_state_skips_when_hit_rate_is_high() {
         let mut state = CacheHitRateAlertState::default();
         // 95% hit rate (>= 90%)
-        let decision = state.evaluate(1_000_000, 100_000, 95_000, true);
+        let decision = state.evaluate(1_000_000, 100_000, 95_000, 90.0, true);
         assert_eq!(decision, CacheAlertDecision::NoAction);
         assert!(!state.was_below_threshold);
     }
@@ -4672,43 +4715,67 @@ mod tests {
     fn cache_hit_rate_alert_state_respects_cooldown() {
         let mut state = CacheHitRateAlertState::default();
         let t0 = 1_000_000;
-        let decision1 = state.evaluate(t0, 100_000, 70_000, true);
-        assert_eq!(decision1, CacheAlertDecision::Notify { hit_rate: 70.0 });
+        let decision1 = state.evaluate(t0, 100_000, 70_000, 90.0, true);
+        assert_eq!(
+            decision1,
+            CacheAlertDecision::Notify {
+                hit_rate: 70.0,
+                threshold: 90.0
+            }
+        );
 
         // 5 分钟后（仍在 10 分钟冷却期内）依然偏低，不应重复提醒
         let t1 = t0 + 5 * 60 * 1000;
-        let decision2 = state.evaluate(t1, 100_000, 70_000, true);
+        let decision2 = state.evaluate(t1, 100_000, 70_000, 90.0, true);
         assert_eq!(decision2, CacheAlertDecision::NoAction);
 
         // 10 分钟后（冷却期已满）依然偏低，应再次提醒
         let t2 = t0 + 10 * 60 * 1000;
-        let decision3 = state.evaluate(t2, 100_000, 75_000, true);
-        assert_eq!(decision3, CacheAlertDecision::Notify { hit_rate: 75.0 });
+        let decision3 = state.evaluate(t2, 100_000, 75_000, 90.0, true);
+        assert_eq!(
+            decision3,
+            CacheAlertDecision::Notify {
+                hit_rate: 75.0,
+                threshold: 90.0
+            }
+        );
     }
 
     #[test]
     fn cache_hit_rate_alert_state_recovers_and_retriggers() {
         let mut state = CacheHitRateAlertState::default();
         let t0 = 1_000_000;
-        let d1 = state.evaluate(t0, 100_000, 60_000, true);
-        assert_eq!(d1, CacheAlertDecision::Notify { hit_rate: 60.0 });
+        let d1 = state.evaluate(t0, 100_000, 60_000, 90.0, true);
+        assert_eq!(
+            d1,
+            CacheAlertDecision::Notify {
+                hit_rate: 60.0,
+                threshold: 90.0
+            }
+        );
 
         // 命中率回升到 92% (>= 90%)
         let t1 = t0 + 60 * 1000;
-        let d2 = state.evaluate(t1, 100_000, 92_000, true);
+        let d2 = state.evaluate(t1, 100_000, 92_000, 90.0, true);
         assert_eq!(d2, CacheAlertDecision::NoAction);
         assert!(!state.was_below_threshold);
 
         // 命中率再次跌落，即使距离 t0 不到 10 分钟，也应当立刻提醒新的一轮低命中率事件
         let t2 = t0 + 120 * 1000;
-        let d3 = state.evaluate(t2, 100_000, 65_000, true);
-        assert_eq!(d3, CacheAlertDecision::Notify { hit_rate: 65.0 });
+        let d3 = state.evaluate(t2, 100_000, 65_000, 90.0, true);
+        assert_eq!(
+            d3,
+            CacheAlertDecision::Notify {
+                hit_rate: 65.0,
+                threshold: 90.0
+            }
+        );
     }
 
     #[test]
     fn cache_hit_rate_alert_state_suppresses_when_notifications_disabled() {
         let mut state = CacheHitRateAlertState::default();
-        let decision = state.evaluate(1_000_000, 100_000, 70_000, false);
+        let decision = state.evaluate(1_000_000, 100_000, 70_000, 90.0, false);
         assert_eq!(decision, CacheAlertDecision::NoAction);
         // 但内部状态依然更新，记录 baseline
         assert!(state.was_below_threshold);
@@ -4719,12 +4786,12 @@ mod tests {
     fn cache_hit_rate_alert_state_init_baseline() {
         let mut state = CacheHitRateAlertState::default();
         // 启动时已存在偏低数据
-        state.init_baseline(1_000_000, 100_000, 60_000);
+        state.init_baseline(1_000_000, 100_000, 60_000, 90.0);
         assert!(state.was_below_threshold);
         assert_eq!(state.last_alert_time_ms, 1_000_000);
 
         // 启动后第一次检查（冷却期内）不立刻弹窗
-        let decision = state.evaluate(1_000_000 + 10_000, 100_000, 60_000, true);
+        let decision = state.evaluate(1_000_000 + 10_000, 100_000, 60_000, 90.0, true);
         assert_eq!(decision, CacheAlertDecision::NoAction);
     }
 

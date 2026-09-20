@@ -62,6 +62,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetOpacity: 92,
     waitingSoundEnabled: false,
     waitingSound: "glass",
+    cacheHitRateThreshold: 90,
   },
   builtinProviders: [],
   profiles: [],
@@ -199,6 +200,7 @@ describe("SettingsDrawer", () => {
         floatingWidgetOpacity: 92,
         waitingSoundEnabled: false,
         waitingSound: "glass",
+        cacheHitRateThreshold: 90,
       },
     });
   });
@@ -229,6 +231,7 @@ describe("SettingsDrawer", () => {
         floatingWidgetOpacity: 92,
         waitingSoundEnabled: false,
         waitingSound: "glass",
+        cacheHitRateThreshold: 90,
       },
     });
   });
@@ -258,6 +261,7 @@ describe("SettingsDrawer", () => {
         floatingWidgetOpacity: 92,
         waitingSoundEnabled: false,
         waitingSound: "glass",
+        cacheHitRateThreshold: 90,
       },
     });
   });
@@ -287,6 +291,7 @@ describe("SettingsDrawer", () => {
         floatingWidgetOpacity: 92,
         waitingSoundEnabled: false,
         waitingSound: "glass",
+        cacheHitRateThreshold: 90,
       },
     });
   });
@@ -318,6 +323,7 @@ describe("SettingsDrawer", () => {
         floatingWidgetOpacity: 92,
         waitingSoundEnabled: false,
         waitingSound: "glass",
+        cacheHitRateThreshold: 90,
       },
     });
   });
@@ -347,6 +353,7 @@ describe("SettingsDrawer", () => {
         floatingWidgetOpacity: 92,
         waitingSoundEnabled: false,
         waitingSound: "glass",
+        cacheHitRateThreshold: 90,
       },
     });
   });
@@ -377,6 +384,7 @@ describe("SettingsDrawer", () => {
         floatingWidgetOpacity: 92,
         waitingSoundEnabled: false,
         waitingSound: "glass",
+        cacheHitRateThreshold: 90,
       },
     });
   });
@@ -411,6 +419,7 @@ describe("SettingsDrawer", () => {
           floatingWidgetOpacity: 92,
           waitingSoundEnabled: false,
           waitingSound: "glass",
+          cacheHitRateThreshold: 90,
         },
       });
     });
@@ -465,8 +474,93 @@ describe("SettingsDrawer", () => {
     expect(screen.getByText("Claude 会话进入待处理状态。")).toBeInTheDocument();
     expect(screen.getByText("点击会话跳转但终端定位失败。")).toBeInTheDocument();
     expect(
-      screen.getByText("最近 5 分钟缓存命中率低于 90%（且有实际 Token 消耗）。"),
+      screen.getByText("最近 5 分钟缓存命中率低于设定阈值（默认 90%）且有实际 Token 消耗。"),
     ).toBeInTheDocument();
+  });
+
+  it("restores the saved cache threshold when a pointer change fails to save", async () => {
+    const originalInvoke = invokeMock.getMockImplementation();
+    if (!originalInvoke) throw new Error("Missing invoke mock");
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "set_app_preferences") throw new Error("disk write failed");
+      return originalInvoke(command, args);
+    });
+    renderSettingsDrawer({
+      ...WORKSPACE_FIXTURE.app,
+      systemNotificationsEnabled: true,
+      cacheHitRateThreshold: 90,
+    });
+    const thumb = await screen.findByRole("slider", { name: "缓存命中率告警阈值" });
+    const root = thumb.closest('[data-slot="slider"]');
+    if (!root) throw new Error("Missing slider root");
+    const bounds = vi.spyOn(root, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 10,
+      width: 100,
+      height: 10,
+      toJSON() {},
+    });
+    const capture = vi.spyOn(root, "hasPointerCapture").mockReturnValue(true);
+    try {
+      // 指针按下后先渲染草稿，再松开提交，覆盖键盘测试未经过的路径。
+      fireEvent(root, new MouseEvent("pointerdown", { bubbles: true, clientX: 50, clientY: 5 }));
+      expect(thumb).toHaveAttribute("aria-valuenow", "55");
+      expect(invokeMock).not.toHaveBeenCalledWith("set_app_preferences", expect.anything());
+      fireEvent(root, new MouseEvent("pointerup", { bubbles: true, clientX: 50, clientY: 5 }));
+      await waitFor(() => {
+        expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+          data: expect.objectContaining({ cacheHitRateThreshold: 55 }),
+        });
+        expect(thumb).toHaveAttribute("aria-valuenow", "90");
+      });
+    } finally {
+      bounds.mockRestore();
+      capture.mockRestore();
+    }
+  });
+
+  it("hides cache hit rate threshold slider when system notifications are disabled", async () => {
+    renderSettingsDrawer({
+      ...WORKSPACE_FIXTURE.app,
+      systemNotificationsEnabled: false,
+    });
+
+    expect(await screen.findByText("系统通知")).toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "缓存命中率告警阈值" })).not.toBeInTheDocument();
+  });
+
+  it("shows cache hit rate threshold slider and persists changes when notifications are enabled", async () => {
+    renderSettingsDrawer({
+      ...WORKSPACE_FIXTURE.app,
+      systemNotificationsEnabled: true,
+      cacheHitRateThreshold: 90,
+    });
+
+    const slider = await screen.findByRole("slider", { name: "缓存命中率告警阈值" });
+    expect(slider).toBeInTheDocument();
+    expect(slider).toHaveAttribute("aria-valuenow", "90");
+    expect(screen.getByText("90%")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "最近 5 分钟缓存命中率低于该阈值且有实际 Token 消耗时发出系统通知（默认 90%）。",
+      ),
+    ).toBeInTheDocument();
+
+    // 触发键盘微调，例如按 ArrowDown 键将阈值从 90 降至 89
+    fireEvent.keyDown(slider, { key: "ArrowDown" });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("set_app_preferences", {
+        data: expect.objectContaining({
+          systemNotificationsEnabled: true,
+          cacheHitRateThreshold: 89,
+        }),
+      });
+    });
   });
 
   it("hides macOS-only terminal choices on Linux", async () => {

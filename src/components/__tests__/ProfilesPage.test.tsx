@@ -105,6 +105,7 @@ const WORKSPACE_FIXTURE: ConfigWorkspace = {
     floatingWidgetOpacity: 92,
     waitingSoundEnabled: false,
     waitingSound: "glass",
+    cacheHitRateThreshold: 90,
   },
   builtinProviders: [
     {

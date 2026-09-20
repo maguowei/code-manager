@@ -1683,6 +1683,7 @@ mod tests {
             waiting_sound: crate::config::WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
             keep_display_awake: false,
+            cache_hit_rate_threshold: 90,
         }
     }
 

@@ -321,7 +321,7 @@ When Claude Code sessions need to run for a long time, you can stop the Mac from
 
 ### System Notifications and Pricing
 
-- System notifications: used when a Claude session enters the pending state, when clicking a session to jump but terminal location fails, and when the cache hit rate in the last 5 minutes falls below 90%. When enabled, system notification permission is requested first; if permission is denied, the setting stays off.
+- System notifications: used when a Claude session enters the pending state, when clicking a session to jump but terminal location fails, and when the cache hit rate in the last 5 minutes falls below the configured threshold (default 90%, adjustable from 10% to 99%). When enabled, system notification permission is requested first; if permission is denied, the setting stays off.
 - Third-party model pricing: controls whether Kimi, MiMo, GLM, MiniMax, and DeepSeek are estimated using models.dev prices; when off, the cost of these models is counted as 0.
 
 ### System Integration

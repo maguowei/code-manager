@@ -1330,7 +1330,10 @@ const translations = {
     "settings.systemNotificationsTriggerPendingSession": "Claude 会话进入待处理状态。",
     "settings.systemNotificationsTriggerFocusFailure": "点击会话跳转但终端定位失败。",
     "settings.systemNotificationsTriggerCacheHitRate":
-      "最近 5 分钟缓存命中率低于 90%（且有实际 Token 消耗）。",
+      "最近 5 分钟缓存命中率低于设定阈值（默认 90%）且有实际 Token 消耗。",
+    "settings.cacheHitRateNotificationThreshold": "缓存命中率告警阈值",
+    "settings.cacheHitRateNotificationThresholdHint":
+      "最近 5 分钟缓存命中率低于该阈值且有实际 Token 消耗时发出系统通知（默认 90%）。",
     "settings.waitingSound": "等待提示音效",
     "settings.waitingSoundDesc": "会话等待输入时播放系统提示音（仅 macOS）",
     "settings.waitingSoundChoice": "音效",
@@ -3101,7 +3104,10 @@ const translations = {
     "settings.systemNotificationsTriggerFocusFailure":
       "A session jump is clicked, but terminal focus fails.",
     "settings.systemNotificationsTriggerCacheHitRate":
-      "Cache hit rate in the last 5 minutes falls below 90% (with token activity).",
+      "Cache hit rate in the last 5 minutes falls below the configured threshold (default 90%) with token activity.",
+    "settings.cacheHitRateNotificationThreshold": "Cache hit rate alert threshold",
+    "settings.cacheHitRateNotificationThresholdHint":
+      "Send a system notification when the cache hit rate in the last 5 minutes falls below this threshold with token activity (default 90%).",
     "settings.waitingSound": "Waiting sound",
     "settings.waitingSoundDesc":
       "Play a system sound when a session is waiting for input (macOS only)",

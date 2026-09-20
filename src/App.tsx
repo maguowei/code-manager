@@ -57,6 +57,7 @@ const EMPTY_WORKSPACE: ConfigWorkspace = {
     // 与 Rust AppPreferences::default 对齐；缺省时保存可能误清用户防休眠偏好
     sleepPrevention: "off",
     keepDisplayAwake: false,
+    cacheHitRateThreshold: 90,
   },
   builtinProviders: [],
   profiles: [],

@@ -172,6 +172,11 @@ const floatingWidgetMetricOptions: { value: WidgetMetric; labelKey: TranslationK
 const WIDGET_OPACITY_MIN = 30;
 const WIDGET_OPACITY_MAX = 100;
 
+// 缓存命中率告警阈值档位（百分比），与后端 MIN_CACHE_HIT_RATE_THRESHOLD..=MAX_CACHE_HIT_RATE_THRESHOLD 一致
+const CACHE_HIT_RATE_THRESHOLD_MIN = 10;
+const CACHE_HIT_RATE_THRESHOLD_MAX = 99;
+const DEFAULT_CACHE_HIT_RATE_THRESHOLD = 90;
+
 const themeOptions: {
   value: Theme;
   labelKey: "settings.themeLight" | "settings.themeDark" | "settings.themeSystem";
@@ -737,6 +742,8 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
   const { showToast } = useToast();
   // 本地可编辑草稿：承担乐观更新与保存失败回滚；权威值变化时由下方 effect 覆盖
   const [preferences, setPreferences] = useState<AppPreferences>(appPreferences);
+  // 滑块预览不覆盖偏好快照，提交失败时仍可恢复调整前的值。
+  const [cacheHitRateThresholdDraft, setCacheHitRateThresholdDraft] = useState<number | null>(null);
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isSystemInfoOpen, setIsSystemInfoOpen] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
@@ -747,6 +754,7 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
   // 权威值随 App 的工作区刷新流入（托盘等外部入口改动 → 后端广播 → App 重拉 → prop 更新），覆盖本地草稿
   useEffect(() => {
     setPreferences(appPreferences);
+    setCacheHitRateThresholdDraft(null);
   }, [appPreferences]);
 
   // 自启动真实状态由系统持久化（LaunchAgent / 注册表 / .desktop），打开抽屉时主动同步
@@ -811,6 +819,10 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
   const trayPulseWaiting = preferences.trayPulseWaiting;
   const focusSessionShortcut = preferences.focusSessionShortcut;
   const systemNotificationsEnabled = preferences.systemNotificationsEnabled;
+  const cacheHitRateThreshold =
+    cacheHitRateThresholdDraft ??
+    preferences.cacheHitRateThreshold ??
+    DEFAULT_CACHE_HIT_RATE_THRESHOLD;
   const ledControl = preferences.ledControl ?? DEFAULT_LED_CONTROL;
   const floatingWidgetEnabled = preferences.floatingWidgetEnabled;
   const floatingWidgetMetrics = preferences.floatingWidgetMetrics;
@@ -1446,6 +1458,41 @@ function SettingsDrawer({ onClose, preferences: appPreferences }: SettingsDrawer
                     aria-label={t("settings.systemNotifications")}
                   />
                 </Field>
+
+                {systemNotificationsEnabled && (
+                  <Field>
+                    <div className="flex items-center justify-between gap-2">
+                      <FieldTitle className="text-muted-foreground text-xs">
+                        {t("settings.cacheHitRateNotificationThreshold")}
+                      </FieldTitle>
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        {cacheHitRateThreshold}%
+                      </span>
+                    </div>
+                    <Slider
+                      value={[cacheHitRateThreshold]}
+                      min={CACHE_HIT_RATE_THRESHOLD_MIN}
+                      max={CACHE_HIT_RATE_THRESHOLD_MAX}
+                      step={1}
+                      aria-label={t("settings.cacheHitRateNotificationThreshold")}
+                      onValueChange={(value) => {
+                        const next = value[0] ?? cacheHitRateThreshold;
+                        setCacheHitRateThresholdDraft(next);
+                      }}
+                      onValueCommit={async (value) => {
+                        const next = value[0] ?? cacheHitRateThreshold;
+                        await persistPreferences(
+                          { ...nextPreferences, cacheHitRateThreshold: next },
+                          nextPreferences,
+                        );
+                        setCacheHitRateThresholdDraft(null);
+                      }}
+                    />
+                    <FieldDescription>
+                      {t("settings.cacheHitRateNotificationThresholdHint")}
+                    </FieldDescription>
+                  </Field>
+                )}
               </FieldGroup>
             </SettingsSectionCard>
 
