@@ -50,6 +50,7 @@ function stubElementMeasurements() {
   });
   // jsdom 写 scrollTop 不会派发 scroll 事件，而真实浏览器会——virtualizer 只在 scroll 回调里
   // 同步内部偏移（observeElementOffset）。补齐该行为，让滚动路径在测试里走完整链路。
+  // 延后到当前生命周期结束再派发，避免 effect 内重置 scrollTop 同步触发 flushSync。
   // 注意 scrollTop 定义在 Element.prototype 上，不在 HTMLElement.prototype。
   if (originalScrollTop?.get && originalScrollTop.set) {
     const { get, set } = originalScrollTop;
@@ -60,7 +61,13 @@ function stubElementMeasurements() {
       },
       set(this: Element, value: number) {
         set.call(this, value);
-        this.dispatchEvent(new Event("scroll"));
+        queueMicrotask(() => {
+          if (this.isConnected) {
+            act(() => {
+              this.dispatchEvent(new Event("scroll"));
+            });
+          }
+        });
       },
     });
   }
@@ -124,6 +131,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
   Object.defineProperty(globalThis, "fetch", {
     value: originalFetch,
@@ -907,6 +915,7 @@ describe("BrowseMarketplaceTab", () => {
   });
 
   it("筛选条件变化后滚动位置回到列表顶部", async () => {
+    const consoleError = vi.spyOn(console, "error");
     const plugins = Array.from({ length: 300 }, (_, i) => ({
       name: `plugin-${String(i).padStart(3, "0")}`,
     }));
@@ -940,6 +949,11 @@ describe("BrowseMarketplaceTab", () => {
       expect(renderedRowIndexes(container)[0]).toBe(0);
     });
     expect(container.querySelector("[data-slot='browse-row']")).toHaveTextContent("plugin-100");
+    expect(
+      consoleError.mock.calls.filter((args) =>
+        args.some((arg) => String(arg).includes("flushSync was called from inside a lifecycle")),
+      ),
+    ).toEqual([]);
   });
 
   it("滚动容器与表头保持列表滚动样式契约", async () => {
