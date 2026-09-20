@@ -51,7 +51,7 @@ function Slider({
         <SliderPrimitive.Track
           data-slot="slider-track"
           className={cn(
-            "relative grow overflow-hidden rounded-full bg-muted data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5",
+            "relative grow overflow-hidden rounded-full bg-muted data-[orientation=horizontal]:h-1 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1",
           )}
         >
           <SliderPrimitive.Indicator
@@ -66,7 +66,7 @@ function Slider({
             data-slot="slider-thumb"
             key={thumbId}
             aria-label={ariaLabel}
-            className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden data-disabled:pointer-events-none data-disabled:opacity-50"
+            className="relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden data-disabled:pointer-events-none data-disabled:opacity-50"
           />
         ))}
       </SliderPrimitive.Control>
