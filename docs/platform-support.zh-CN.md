@@ -6,7 +6,7 @@
 >
 > 硬约束、模块拓扑和验证清单的权威来源是仓库根目录的 `CLAUDE.md` 与 `.claude/rules/*.md`；本文档只记录与平台相关的事实切片。当代码或配置发生变更时，按本文末尾的「维护指引」同步本文档。
 
-Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等可用；差异集中在**系统集成层**（终端聚焦、可点击通知、状态行预设脚本）和**发布层**（签名、公证、自动更新）。除此之外的差异要么是平台原生 API 决定的（路径、文件权限、原子写入），要么是 Tauri 插件内部的封装。
+Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等可用；差异集中在**系统集成层**（终端聚焦、可点击通知、防止休眠、状态行预设脚本）和**发布层**（签名、公证）。除此之外的差异要么是平台原生 API 决定的（路径、文件权限、原子写入），要么是 Tauri 插件内部的封装。
 
 ## 目录
 
@@ -33,6 +33,7 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 | Dock / 任务栏激活策略切换 | ✅（Dock `Accessory`↔`Regular`） | N/A | N/A | `src-tauri/src/tray.rs` |
 | 自启动 | ✅（AppleScript 启动器） | ✅ | ✅ | `tauri-plugin-autostart`，`src-tauri/src/lib.rs` |
 | 日志写入与查看 | ✅ | ✅ | ✅ | `src-tauri/src/logging.rs` |
+| 应用内自动更新（正式版） | ✅ | ✅ | ✅ | `tauri-plugin-updater`、`src-tauri/tauri.conf.json` 的 `plugins.updater` |
 
 ### 系统集成
 
@@ -41,7 +42,10 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 | 状态行预设安装 | ✅ 写入 `~/.claude/statusline.sh` 并赋可执行权限（Bash） | ✅ 同 macOS | ✅ 写入 `~/.claude/statusline.ps1` 并设置 PowerShell 调用命令（无需可执行位） | `src-tauri/src/config.rs::ensure_status_line_preset_supported`（`#[cfg(any(unix, windows))]`） |
 | 终端会话聚焦（点击托盘会话或全局快捷键回到原 tab） | ✅（Terminal.app / iTerm / Ghostty；含全局会话聚焦快捷键） | ❌ stub `Unsupported`（无快捷键） | ❌ stub `Unsupported`（无快捷键） | `src-tauri/src/terminal_focus.rs` |
 | LED 灯效联动（托盘会话状态镜像到 ANTICATER USB 设备） | ✅（`led_probe_status` / `led_test_mode`） | ❌ 空跑无害（探测返回 None） | ❌ 空跑无害（探测返回 None） | `src-tauri/src/led.rs`（HID 写报告） |
-| 可点击系统通知（点击跳回会话） | ✅（`mac-notification-sys`） | ⚠️ 退回纯文本 `tauri-plugin-notification` | ⚠️ 退回纯文本 `tauri-plugin-notification` | `src-tauri/src/tray.rs` |
+| herdr 会话聚焦（Claude Code 跑在 herdr pane 中） | ✅（两跳：herdr socket + 宿主终端） | ❌ | ❌ | `src-tauri/src/herdr.rs`、`terminal_focus.rs` |
+| 可点击系统通知（点击跳回会话） | ✅（`UNUserNotificationCenter`，经 `objc2-user-notifications`） | ⚠️ 退回纯文本 `tauri-plugin-notification` | ⚠️ 退回纯文本 `tauri-plugin-notification` | `src-tauri/src/macos_notifications.rs` |
+| 会话运行时防止空闲休眠 | ✅（IOKit 电源断言，可选保持屏幕常亮） | ❌ 空跑 | ❌ 空跑 | `src-tauri/src/sleep.rs` |
+| 等待输入提示音效 | ✅（`afplay` 系统音效） | ❌ 空跑 | ❌ 空跑 | `src-tauri/src/sound.rs` |
 | 默认编辑器打开（VS Code / Zed） | ✅ `open -a` | ✅ 依赖 CLI 在 `PATH` | ✅ `tauri-plugin-opener` | `src-tauri/src/native_open.rs` |
 | 默认终端打开 | ✅（Terminal / iTerm / Ghostty） | ✅（`$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` / Ghostty CLI） | ✅（Windows Terminal / PowerShell / cmd） | `src-tauri/src/native_open.rs` |
 | 子进程隐藏控制台窗口 | N/A | N/A | ✅ `CREATE_NO_WINDOW` | `src-tauri/src/native_open.rs` |
@@ -59,11 +63,11 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 | 能力 | macOS | Linux | Windows | 来源 |
 | --- | --- | --- | --- | --- |
 | 应用数据目录 | `~/.config/code-manager/`（**故意**复用，详见后文） | `$XDG_CONFIG_HOME/code-manager/` 或 `~/.config/code-manager/` | `%APPDATA%\code-manager\` | `src-tauri/src/utils.rs::platform_app_data_dir_from_home` |
-| SQLite (`usage.db`) | `~/Library/Application Support/com.gotobeta.app.code-manager/` | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/` | `%APPDATA%\com.gotobeta.app.code-manager\` | 后端 `sqlx` 使用 Tauri `app_config_dir()` |
-| 日志目录 | `~/Library/Logs/com.gotobeta.app.code-manager/` | `$XDG_DATA_HOME/.../logs/` 或 `~/.local/share/.../logs/` | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` | `tauri-plugin-log` 默认 `app_log_dir()` |
 | 敏感文件权限位（0o600） | ✅ Unix mode | ✅ Unix mode | N/A（NTFS ACL，未设置） | `src-tauri/src/utils.rs` |
 | 原子写入策略 | `fs::rename()`（POSIX 原子） | `fs::rename()`（POSIX 原子） | 备份-重命名-恢复三步法 | `src-tauri/src/utils.rs` |
 | 软链接 API | `std::os::unix::fs::symlink` | `std::os::unix::fs::symlink` | `symlink_file` + `symlink_dir`，失败时降级硬链接（`project.rs`） | `src-tauri/src/skills.rs`、`memory.rs`、`project.rs` |
+
+应用数据、用量 SQLite 缓存（`usage.db`，经 Tauri `app_config_dir()`）与日志（经 `tauri-plugin-log` 的 `app_log_dir()`）的各平台完整路径见用户手册的[本地数据与隐私](./user-manual.zh-CN.md#本地数据与隐私)。
 
 ## 按平台速读
 
@@ -71,7 +75,7 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 
 - **支持度最高**。所有功能均可用，包括终端会话聚焦、可点击通知和 Dock 激活策略切换。
 - 应用数据目录刻意放在 `~/.config/code-manager/` 而非系统标准的 `~/Library/Application Support/`，便于跨平台备份与脚本访问（详见下节）。
-- 终端会话聚焦走 `pid → tty → AppleScript`，支持 Terminal.app / iTerm2 / Ghostty；Ghostty 按 `tty` 属性精确匹配（上游 #11592 引入，随 PR #11922 合入 main，尚未发布），旧版降级为按 `cwd` 唯一匹配。
+- 终端会话聚焦走 `pid → tty → AppleScript`，支持 Terminal.app / iTerm2 / Ghostty；新版 Ghostty 按 `tty` 属性精确匹配（1.3.x 及更早版本没有该属性），未命中时降级为按 `cwd` 唯一匹配。
 - 首次打开如果被 Gatekeeper 拦截，可移除隔离属性：
   ```bash
   xattr -rd com.apple.quarantine /Applications/code-manager.app
@@ -112,7 +116,7 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 
 ### 可点击通知为何仅 macOS
 
-`tauri-plugin-notification` 在三平台都能发通知，但**不支持点击回调跳到自定义路由**。Code Manager 仅在 macOS 上额外引入 `mac-notification-sys`（声明于 `src-tauri/Cargo.toml` 的 `[target.'cfg(target_os = "macos")'.dependencies]`），用它发可点击通知并把会话信息绑定到点击回调。Linux 上的 `notify-rust` action 按钮和 Windows 上的 WinRT Toast 都可作为后续替代方案，目前未实现。
+`tauri-plugin-notification` 在三平台都能发通知，但**不支持点击回调跳到自定义路由**。Code Manager 仅在 macOS 上额外使用原生 `UNUserNotificationCenter`（`src-tauri/src/macos_notifications.rs`，经 `objc2-user-notifications`，声明于 `src-tauri/Cargo.toml` 的 `[target.'cfg(target_os = "macos")'.dependencies]`），用它发可点击通知并把会话信息绑定到点击回调。Linux 上的 `notify-rust` action 按钮和 Windows 上的 WinRT Toast 都可作为后续替代方案，目前未实现。
 
 ### LED 灯效为何仅 macOS
 
@@ -147,10 +151,11 @@ Windows 默认情况下创建符号链接需要管理员权限或开启"开发�
 
 | Workflow | macOS | Linux | Windows |
 | --- | --- | --- | --- |
-| `.github/workflows/ci.yml` | `macos-26` | `ubuntu-24.04`（含系统依赖安装） | `windows-latest` |
-| `.github/workflows/release.yml` | `macos-26` + `--target universal-apple-darwin`（arm64 + x86_64） | `ubuntu-24.04` | `windows-latest` |
+| `.github/workflows/ci.yml` | `macos-26` | `ubuntu-24.04`（含系统依赖安装） | `windows-2025` |
+| `.github/workflows/release.yml` | `macos-26` + `--target universal-apple-darwin`（arm64 + x86_64） | `ubuntu-24.04` | `windows-2025` |
+| `.github/workflows/nightly.yml` | `macos-26` + `universal-apple-darwin`，仅 `app,dmg` | `ubuntu-24.04`，仅 `deb,appimage` | `windows-2025`，仅 `nsis` |
 
-构建链统一走 `tauri-apps/tauri-action`，三平台 runner 齐全，CI 检查与 Release 产物路径对等。
+正式版走 `tauri-apps/tauri-action`；每夜构建直接调用 `tauri build`，以便发布前断言产物并做冒烟测试（见 ADR 0006）。三平台 runner 齐全，CI 检查与 Release 产物路径对等。
 
 ### 打包配置缺失项
 
@@ -160,7 +165,8 @@ Windows 默认情况下创建符号链接需要管理员权限或开启"开发�
 - **无 Windows 代码签名**：没有 `bundle.windows.certificateThumbprint` / `digestAlgorithm`。下载者会看到 SmartScreen 警告。
 - **无 NSIS / MSI 自定义**：Windows 安装器走 Tauri 默认模板。
 - **无 deb / rpm / AppImage 自定义**：Linux 包元数据走 Tauri 默认。
-- **无 `updater` 段**：自动更新链未启用，三平台用户都需要手动下载新版本。
+
+自动更新配置在 `bundle` 之外：`plugins.updater` 指向正式版 `latest.json`，`release.yml` 合并 `src-tauri/tauri.release.conf.json`（`createUpdaterArtifacts: true`）并用 minisign（`TAURI_SIGNING_PRIVATE_KEY`）签名更新包。每夜构建禁用更新。
 
 ### 图标资源
 
@@ -169,7 +175,7 @@ Windows 默认情况下创建符号链接需要管理员权限或开启"开发�
 - `icon.icns`（macOS）
 - `icon.ico`（Windows）
 - `32x32.png` / `128x128.png` / `128x128@2x.png`（通用）
-- 另含 20 个 iOS 图标与 7 个 Windows Store Square Logo（当前 `bundle.targets` 不消费，属于冗余资源）
+- 另含 `ios/`、`android/` 图标集、`Square*Logo.png` / `StoreLogo.png`（Windows Store）与 `64x64.png` / `icon.png`（未被 `bundle.icon` 引用，属于冗余资源）
 
 ### `Makefile`
 
@@ -193,16 +199,17 @@ Windows 默认情况下创建符号链接需要管理员权限或开启"开发�
 | 文件 / 区域 | 同步本文档的位置 |
 | --- | --- |
 | `src-tauri/src/terminal_focus.rs`（新增平台支持或修改聚焦语义） | 「系统集成」表格的「终端会话聚焦」、「按平台速读」、「关键差异详解」对应小节 |
-| `src-tauri/src/tray.rs`（通知策略改动） | 「系统集成」表格的「可点击系统通知」、「关键差异详解」 |
+| `src-tauri/src/macos_notifications.rs`（通知策略改动） | 「系统集成」表格的「可点击系统通知」、「关键差异详解」 |
 | `src-tauri/src/led.rs`（新增平台支持或修改灯效映射） | 「系统集成」表格的「LED 灯效联动」、「关键差异详解」的「LED 灯效为何仅 macOS」 |
+| `src-tauri/src/sleep.rs`、`sound.rs`、`herdr.rs`（新增平台支持或修改行为） | 「系统集成」表格对应行 |
 | `src-tauri/src/widget.rs`（新增平台条件编译或修改浮窗行为） | 「应用核心」表格的「桌面用量浮窗」行 |
 | `src-tauri/src/config.rs::ensure_status_line_preset_supported` | 「系统集成」表格的「状态行预设安装」、Windows 速读、「关键差异详解」 |
 | `src-tauri/src/utils.rs::platform_app_data_dir_from_home` | 「文件系统行为」表格的「应用数据目录」、「按设计保留的差异」 |
 | `src-tauri/src/native_open.rs`（新增终端 / 编辑器或修改 Windows 子进程参数） | 「系统集成」表格的「默认编辑器」「默认终端」「子进程隐藏控制台窗口」 |
 | `src-tauri/Cargo.toml` 的 `[target.'cfg(...)']` 依赖块 | 视依赖用途同步对应小节 |
 | `src/components/SettingsDrawer.tsx::getTerminalOptionsForPlatform` | 「UI 层的平台过滤」表格 |
-| `src-tauri/tauri.conf.json` 新增 `bundle.macOS` / `bundle.windows` / `bundle.linux` / `updater` 段 | 「构建与发布层面的差异」整节 |
-| `.github/workflows/ci.yml`、`.github/workflows/release.yml`（runner 或矩阵变更） | 「CI / Release runner」表格 |
+| `src-tauri/tauri.conf.json` 新增 `bundle.macOS` / `bundle.windows` / `bundle.linux` 段或修改 `plugins.updater` | 「构建与发布层面的差异」整节 |
+| `.github/workflows/ci.yml`、`release.yml`、`nightly.yml`（runner 或矩阵变更） | 「CI / Release runner」表格 |
 
 新增任何平台条件编译块（`#[cfg(target_os = ...)]`、`#[cfg(unix)]`、`#[cfg(windows)]`）时，应一并补到对应表格行的「来源」列，便于后续审计。
 
@@ -216,5 +223,5 @@ git diff --check
 
 人工审阅两点：
 
-- 矩阵每一行支持度与代码现状一致（spot-check `src-tauri/src/terminal_focus.rs`、`src-tauri/src/config.rs:1561-1571`、`src-tauri/Cargo.toml:46-47`、`src/components/SettingsDrawer.tsx:124-137`）。
+- 矩阵每一行支持度与代码现状一致（抽查 `src-tauri/src/terminal_focus.rs`、`config.rs::ensure_status_line_preset_supported`、`src-tauri/Cargo.toml` 的 `[target.'cfg(...)']` 依赖块、`SettingsDrawer.tsx::getTerminalOptionsForPlatform`）。
 - 风格与 `docs/user-manual.zh-CN.md` 一致（中文、表格驱动、文件路径用反引号）。

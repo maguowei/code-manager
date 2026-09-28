@@ -1,5 +1,8 @@
 # herdr 会话聚焦走"两跳"：socket 定位 pane + 宿主终端激活
 
+- 状态：已采纳
+- 日期：2026-08-04
+
 ## Context
 
 会话托盘"聚焦终端"依赖 `pid -> tty -> AppleScript`：把会话进程的 tty 拿去宿主终端里按 tab 匹配。herdr（agent 多路复用器，跑在宿主终端内部，类 tmux）打破了这个前提——Claude Code 进程跑在 herdr 自己创建的 pty 上，宿主终端 tab 列表里根本没有这个 tty，聚焦必然失配（TabNotFound）。
@@ -23,3 +26,7 @@
 - 普通 Ghostty 会话与 herdr client 共享 cwd 时，普通路径必须先排除 herdr title；若剩余普通 terminal 仍多于一个，继续降级失败，避免无法精确识别时误激活其它会话。
 - pid 身份校验：会话文件 `procStart`（UTC）必须存在、可解析且与 `ps etime` 推算的进程启动时间一致；缺失、非法或不一致时拒绝整个聚焦请求，不再把 cwd / herdr 的 pid 兜底用于可能已回收的 pid。菜单项与可点击通知携带创建时的 `procStart` 快照，点击时不按 pid 重读会话文件。
 - 后续其它多路复用器（如 tmux）支持会以"检测 → 内部聚焦 API → 宿主激活"三段式结构为参照，但各自机制不同，不应直接套用 herdr 实现。
+
+## Update (2026-09-28)：Ghostty `tty` 属性的发布状态
+
+- 上文「尚未发布」是决策时的状态。实现不按 Ghostty 版本号分支，而是在 AppleScript 内用 `try` 探测 `tty` 属性、失败即降级，因此该属性是否已进入正式版不影响本决策；1.3.x 及更早版本没有该属性。

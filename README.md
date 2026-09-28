@@ -5,7 +5,7 @@
 [![CI](https://github.com/maguowei/code-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/maguowei/code-manager/actions/workflows/release.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/release.yml)
 
-![Code Manager profile editor](docs/assets/readme-hero.png)
+![Code Manager profile editor](docs/assets/readme-hero.webp)
 
 Code Manager is a local desktop management app for Claude Code users. It brings profiles, providers, the `~/.claude` directory, memories, Skills, history, stats, token usage, project status, the system tray, and diagnostic logs together in a single Tauri 2 app, making your local configuration more visible, previewable, and verifiable.
 
@@ -25,7 +25,7 @@ Code Manager does not replace Claude Code; it provides a management layer for lo
 
 ## Core Capabilities
 
-![Code Manager feature map](docs/assets/readme-feature-map.png)
+![Code Manager feature map](docs/assets/readme-feature-map.webp)
 
 | Capability | Description |
 | --- | --- |
@@ -100,7 +100,7 @@ The application data directory contains `config-registry.json`, `memories.json`,
 
 Stack overview: Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust. For full agent execution rules, verification notes, and fine-grained path navigation, see [CLAUDE.md](./CLAUDE.md).
 
-![Code Manager architecture](docs/assets/readme-architecture.png)
+![Code Manager architecture](docs/assets/readme-architecture.webp)
 
 ### Prerequisites
 

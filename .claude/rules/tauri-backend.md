@@ -38,6 +38,7 @@ paths:
 | `auto_memory.rs` | 项目自动记忆查看：读取 `~/.claude/projects/<编码>/memory/`（`MEMORY.md` 索引 + 主题 markdown），供 Projects 页 `ProjectAutoMemoryExplorer` 展示 |
 | `migration.rs` | 一次性数据目录迁移（`ai-manager`→`code-manager`）：只搬不可重建的 `~/.config` 应用数据；`usage.db` 与日志刻意不迁移，由首启重建。`lib.rs` setup 调用一次 |
 | `sound.rs` | 会话等待输入提示音效：macOS 经 `afplay` 播放 `/System/Library/Sounds/` 系统音效，白名单枚举杜绝路径注入；非 macOS no-op |
+| `sleep.rs` | 防止空闲休眠：Claude Code 会话运行时经 IOKit 电源断言阻止 macOS 空闲休眠（可选保持屏幕常亮），由托盘复算会话状态时驱动；不提权、非 macOS no-op（ADR 0001） |
 
 ## 先读文件
 

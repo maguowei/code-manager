@@ -1,5 +1,8 @@
 # opencode-go 认证字段切换：前端按供应商 slug 硬编码，不建模进 provider 数据层
 
+- 状态：已采纳
+- 日期：2026-08-16
+
 ## Context
 
 opencode-go 是 Anthropic 兼容网关（端点 `https://opencode.ai/zen/go`），用 `x-api-key` 认证，对应 Claude Code 的 `ANTHROPIC_API_KEY`；而默认认证区展示的是 `ANTHROPIC_AUTH_TOKEN`（Bearer）。

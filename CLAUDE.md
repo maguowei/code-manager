@@ -17,7 +17,7 @@
 ## 会话工作流
 
 1. 判断改动范围，读取命中的规则文件，再打开相关代码。
-2. 非简单任务先列计划；每完成一步更新状态，方向偏离时停下重新规划。
+2. 方向偏离时停下重新规划，不在错误方向上继续推进。
 3. 改动前检查 `git status --short`；工作区可能是脏的，不要回退你没创建的改动。
 4. 保持最小影响面，沿用现有模式；先找根因，不用临时绕过方案。
 5. 完成前运行与改动范围匹配的验证命令，并检查 diff；没有新鲜验证证据，不要声称完成。
@@ -110,7 +110,7 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 
 | 改动范围 | 命令 |
 | --- | --- |
-| 文档 / rules | `git diff --check`；修改 `CLAUDE.md` 时加跑 `wc -l CLAUDE.md` |
+| 文档 / rules | `git diff --check`；改 README 或 `docs/` 时加跑 `make docs-check`；修改 `CLAUDE.md` 时加跑 `wc -l CLAUDE.md` |
 | 前端局部 | `pnpm exec vitest run <test-file...>` |
 | 前端完整 | `make lint-frontend`、`make build-frontend`、`make test-frontend` |
 | Rust | `make fmt-rust-check`、`make check`、`make lint-rust`、`make test-rust` |

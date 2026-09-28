@@ -5,7 +5,7 @@
 [![CI](https://github.com/maguowei/code-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/maguowei/code-manager/actions/workflows/release.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/release.yml)
 
-![Code Manager 配置编辑界面](docs/assets/readme-hero.zh-CN.png)
+![Code Manager 配置编辑界面](docs/assets/readme-hero.zh-CN.webp)
 
 Code Manager 是面向 Claude Code 用户的本地桌面管理应用。它把配置、供应商、`~/.claude` 目录、记忆、Skills、历史、统计、Token 用量、项目状态、系统托盘和诊断日志集中到一个 Tauri 2 应用里，让本地配置更可见、可预览、可验证。
 
@@ -25,7 +25,7 @@ Code Manager 不替代 Claude Code，而是提供一个本机配置、会话数�
 
 ## 核心能力
 
-![Code Manager 功能图](docs/assets/readme-feature-map.zh-CN.png)
+![Code Manager 功能图](docs/assets/readme-feature-map.zh-CN.webp)
 
 | 能力 | 说明 |
 | --- | --- |
@@ -100,7 +100,7 @@ Code Manager 主要读写本机文件。配置合并、目录扫描、用量聚�
 
 技术栈概览：Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust。完整 Agent 执行规则、验证说明和细粒度路径导航见 [CLAUDE.md](./CLAUDE.md)。
 
-![Code Manager 架构图](docs/assets/readme-architecture.zh-CN.png)
+![Code Manager 架构图](docs/assets/readme-architecture.zh-CN.webp)
 
 ### 前置要求
 
@@ -154,7 +154,6 @@ make test-frontend    # 运行前端测试
 
 - [docs/user-manual.zh-CN.md](./docs/user-manual.zh-CN.md)：完整用户说明书
 - [docs/platform-support.zh-CN.md](./docs/platform-support.zh-CN.md)：平台支持差异
-- [docs/claude-code/plugin-update.md](./docs/claude-code/plugin-update.md)：Claude Code 插件更新方式
 - [CLAUDE.md](./CLAUDE.md)：面向 AI Agent 的仓库执行手册
 - [LICENSE](./LICENSE)：许可证
 

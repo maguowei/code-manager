@@ -106,6 +106,10 @@ jobs:
         if: matrix.platform == 'ubuntu-24.04'
         run: make bindings-check
 
+      - name: 文档一致性检查
+        if: matrix.platform == 'ubuntu-24.04'
+        run: make docs-check
+
       - name: 前端测试
         if: matrix.platform != 'ubuntu-24.04'
         run: make test-frontend
