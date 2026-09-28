@@ -82,6 +82,8 @@ for (const file of files) {
   for (const [, code] of text.matchAll(/`([^`\n]+)`/g)) {
     if (!REPO_PATH_PREFIXES.some((prefix) => code.startsWith(prefix))) continue;
     if (/[*<>{}\s]/.test(code)) continue;
+    // 构建产物目录在干净 checkout（如 CI）中不存在，不做存在性校验
+    if (code.startsWith("src-tauri/target/")) continue;
     // 去掉 `::symbol` 与 `:行号` 后缀
     const path = code.replace(/::.*$/, "").replace(/:\d+(-\d+)?$/, "");
     if (!existsSync(join(ROOT, path))) errors.push(`${file}: 引用的路径不存在 ${code}`);
