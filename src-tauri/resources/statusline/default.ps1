@@ -1,7 +1,7 @@
 # Claude Code 默认状态行脚本（Windows / PowerShell 版）
 # 功能完整对齐 resources/statusline/default.sh：两行布局、目录/项目名、git 分支与脏标记、
-# diff 行数、模型/effort/thinking、上下文百分比、token、费用、rate limits、session id、
-# worktree、agent、版本、output style、ANSI 颜色与 OSC 8 超链接。
+# diff 行数、模型/effort/no-thinking、上下文百分比、token、prompt cache 状态、费用、
+# rate limits、session id、worktree、agent、版本、output style、窄终端紧凑模式、ANSI 颜色与 OSC 8 超链接。
 # PowerShell 与 ConvertFrom-Json 为系统自带，无需 jq；git 由 Git for Windows 提供。
 
 # 状态行追求健壮而非严格：单个字段异常不应导致整行无输出
@@ -55,12 +55,9 @@ function Osc8($url, $text) {
     return $ESC + ']8;;' + $url + $ESC + '\' + $text + $ESC + ']8;;' + $ESC + '\'
 }
 
-# unix epoch 秒 → 相对时间字符串（如 2h30m、5d、45m）
-function Format-RelativeTime($target) {
-    try { $t = [int64][math]::Floor([double]$target) } catch { return '' }
-    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    $diff = $t - $now
-    if ($diff -le 0) { return 'now' }
+# 秒数 → 时长字符串（如 2h30m、5d、45m，不足 1 分钟为 <1m）
+function Format-Span($diff) {
+    if ($diff -lt 60) { return '<1m' }
     $d = [math]::Floor($diff / 86400)
     $h = [math]::Floor(($diff % 86400) / 3600)
     $m = [math]::Floor(($diff % 3600) / 60)
@@ -71,6 +68,28 @@ function Format-RelativeTime($target) {
     } else {
         return ('{0}m' -f $m)
     }
+}
+
+# unix epoch 秒 → 距今剩余时间（已过期为 now）
+function Format-RelativeTime($target) {
+    try { $t = [int64][math]::Floor([double]$target) } catch { return '' }
+    $diff = $t - [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    if ($diff -le 0) { return 'now' }
+    return Format-Span $diff
+}
+
+# token 数 → k 单位（不足 1000 原样输出）
+function Format-TokensK($n) {
+    $v = [int64](AsNum $n)
+    if ($v -lt 1000) { return "$v" }
+    return ('{0}k' -f [int64][math]::Floor(($v + 500) / 1000))
+}
+
+# 缓存命中率 → 带 ANSI 颜色字符串（越高越省：≥90 绿、70-89 黄、<70 红，与用量配色相反）
+function Format-HitPct($pct) {
+    if ($pct -ge 90) { return $C_32 + $pct + '%' + $C_RESET }
+    elseif ($pct -ge 70) { return $C_33 + $pct + '%' + $C_RESET }
+    else { return $C_31 + $pct + '%' + $C_RESET }
 }
 
 # rate limit 百分比 → 带 ANSI 颜色字符串（<70 绿,70-89 黄,≥90 红）
@@ -142,6 +161,20 @@ $rl7dReset = Get-Field $data @('rate_limits', 'seven_day', 'resets_at')
 $repoHost = Get-Field $data @('workspace', 'repo', 'host')
 $repoOwner = Get-Field $data @('workspace', 'repo', 'owner')
 $repoName = Get-Field $data @('workspace', 'repo', 'name')
+
+# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存剩余时间 / 重缓存量）
+# 缺失、非数字或 0 视为宽度未知，保持完整输出
+$termCols = ToInt $env:COLUMNS
+$compact = ($termCols -gt 0 -and $termCols -lt 120)
+
+# prompt_cache（Claude Code ≥ v2.1.251，主对话首次响应后出现）
+$promptCache = Get-Field $data @('prompt_cache')
+$pcObserved = Get-Field $promptCache @('caching_observed')
+$pcWarm = Get-Field $promptCache @('warm')
+$pcTtl = Get-Field $promptCache @('ttl')
+$pcExpiresAt = Get-Field $promptCache @('expires_at')
+$pcHitRatio = Get-Field $promptCache @('hit_ratio')
+$pcRecacheCold = Get-Field $promptCache @('recache_tokens_if_cold')
 
 # ── git 分支、脏状态及变更行数（带缓存，避免频繁执行 git diff）──
 $gitInfo = ''
@@ -229,17 +262,49 @@ if ($cwd -and $gitAvailable) {
     }
 }
 
-# ── 当前上下文缓存命中占比（cache_read / total_input_tokens，越高越省）──
+# ── prompt cache 状态（Claude Code ≥ v2.1.251 提供 prompt_cache，主对话首次响应后出现；缺少时不显示）──
+#   有效：cache 91% warm (42m/1h)（剩余/TTL；warm 绿，剩余不足 TTL 的 20% 变黄）
+#   失效：cache 91% cold (0/5m, ~45k recache)（cold 红；~45k 为下次请求需重新缓存的 token）
+#   未上报：cache off（prompt caching 关闭，或供应商/网关不上报缓存 token）
+#   紧凑模式只保留状态与 TTL：cache 91% warm 1h
 $cacheInfo = ''
-$totalInput = Get-Field $data @('context_window', 'total_input_tokens')
-$ti = AsNum $totalInput
-if ($ti -gt 0) {
-    $cacheRead = Get-Field $data @('context_window', 'current_usage', 'cache_read_input_tokens')
-    $cachePct = [int][math]::Round((AsNum $cacheRead) * 100 / $ti)
-    # 命中率越高越好：≥90 绿、70-89 黄、<70 红（与上下文用量配色相反）
-    if ($cachePct -ge 90) { $cacheInfo = 'cache ' + $C_32 + $cachePct + '%' + $C_RESET }
-    elseif ($cachePct -ge 70) { $cacheInfo = 'cache ' + $C_33 + $cachePct + '%' + $C_RESET }
-    else { $cacheInfo = 'cache ' + $C_31 + $cachePct + '%' + $C_RESET }
+if ($null -ne $promptCache -and $pcObserved -eq $false) {
+    $cacheInfo = 'cache ' + $C_90 + 'off' + $C_RESET
+} elseif ($null -ne $promptCache) {
+    $cacheInfo = 'cache'
+    if ($null -ne $pcHitRatio) {
+        $cacheInfo += ' ' + (Format-HitPct ([int][math]::Round((AsNum $pcHitRatio) * 100)))
+    }
+    $cacheRemain = $null
+    if ($pcWarm -eq $true -and $null -ne $pcExpiresAt) {
+        $cacheRemain = [int64][math]::Floor((AsNum $pcExpiresAt)) - [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    }
+    # 括号内细节：剩余/TTL（同 ctx 的 用量/总量 写法），cold 剩余记 0 并附重缓存量
+    $cacheDetails = @()
+    $ttlSuffix = if ($pcTtl) { '/' + $pcTtl } else { '' }
+    if ($pcWarm -eq $true -and ($null -eq $cacheRemain -or $cacheRemain -gt 0)) {
+        $cacheState = 'warm'
+        $stateColor = $C_32
+        if ($null -ne $cacheRemain) {
+            $cacheTtlS = 0
+            if ($pcTtl -eq '5m') { $cacheTtlS = 300 } elseif ($pcTtl -eq '1h') { $cacheTtlS = 3600 }
+            if ($cacheRemain * 5 -lt $cacheTtlS) { $stateColor = $C_33 }
+            $cacheDetails += ((Format-Span $cacheRemain) + $ttlSuffix)
+        } elseif ($pcTtl) {
+            $cacheDetails += "$pcTtl"
+        }
+    } else {
+        $cacheState = 'cold'
+        $stateColor = $C_31
+        if ($pcTtl) { $cacheDetails += ('0' + $ttlSuffix) }
+        if ($null -ne $pcRecacheCold) { $cacheDetails += ('~' + (Format-TokensK $pcRecacheCold) + ' recache') }
+    }
+    $cacheInfo += ' ' + $stateColor + $cacheState + $C_RESET
+    if ($compact) {
+        if ($pcTtl) { $cacheInfo += ' ' + $C_90 + $pcTtl + $C_RESET }
+    } elseif ($cacheDetails.Count -gt 0) {
+        $cacheInfo += ' ' + $C_90 + '(' + ($cacheDetails -join ', ') + ')' + $C_RESET
+    }
 }
 
 # ── 上下文窗口使用百分比及用量 ──
@@ -255,7 +320,8 @@ if ($null -ne $usedPct -and "$usedPct" -ne '') {
     if ($ctxCurrent -gt 0) { $ctxCurrentFmt = Format-K $ctxCurrent }
     if ($ctxTotal -and (AsNum $ctxTotal) -ne 0) { $ctxTotalFmt = Format-K $ctxTotal }
     $ctxUsageSuffix = ''
-    if ($ctxCurrentFmt -and $ctxTotalFmt) { $ctxUsageSuffix = ' (' + $ctxCurrentFmt + '/' + $ctxTotalFmt + ')' }
+    # 紧凑模式省略用量附加信息（如 90k/200k）
+    if (-not $compact -and $ctxCurrentFmt -and $ctxTotalFmt) { $ctxUsageSuffix = ' (' + $ctxCurrentFmt + '/' + $ctxTotalFmt + ')' }
     if ($usedInt -ge 90) {
         $contextInfo = 'ctx ' + $C_31 + $usedInt + '%' + $C_RESET + $C_90 + $ctxUsageSuffix + $C_RESET
     } elseif ($usedInt -ge 70) {
@@ -313,10 +379,10 @@ if ($projectName) {
 $line1 += ' ' + (Osc8 $fileUrl $dirText)
 if ($gitInfo) { $line1 += ' ' + $gitInfo }
 if ($gitDiffInfo) { $line1 += ' ' + $gitDiffInfo }
-# 模型名 + 可选 effort.level + 可选 thinking 指示器
+# 模型名 + 可选 effort.level + 可选 no-thinking 指示器（扩展思考默认开启，仅 thinking.enabled=false 时提示；字段缺失不显示）
 $modelSegment = $C_34 + $model + $C_RESET
 if ($effortLevel) { $modelSegment += ' ' + $C_90 + '[' + $effortLevel + ']' + $C_RESET }
-if ($thinkingEnabled) { $modelSegment += ' ' + $C_90 + '[thinking]' + $C_RESET }
+if ($thinkingEnabled -eq $false) { $modelSegment += ' ' + $C_90 + '[no-thinking]' + $C_RESET }
 $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $modelSegment
 if ($contextInfo) { $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $contextInfo }
 if ($cacheInfo) { $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $cacheInfo }

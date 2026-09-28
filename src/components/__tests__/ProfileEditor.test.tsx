@@ -3416,6 +3416,7 @@ describe("ProfileEditor", () => {
     expect(within(statusLineSection).getByLabelText("状态行命令")).toHaveValue(
       "~/.claude/statusline.sh",
     );
+    expect(within(statusLineSection).getByLabelText("状态行刷新间隔")).toHaveValue("60");
     expect(showToastMock).toHaveBeenCalledWith("默认状态行脚本已安装；配置更改需保存后生效");
 
     await act(async () => {
@@ -3428,6 +3429,7 @@ describe("ProfileEditor", () => {
           statusLine: {
             type: "command",
             command: "~/.claude/statusline.sh",
+            refreshInterval: 60,
           },
         }),
       }),
@@ -3555,6 +3557,7 @@ describe("ProfileEditor", () => {
           statusLine: {
             type: "command",
             command: "~/.claude/statusline.sh",
+            refreshInterval: 60,
           },
         }),
       }),

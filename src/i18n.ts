@@ -419,13 +419,14 @@ const translations = {
     "profiles.editor.effort.smarter": "更智能",
     "profiles.editor.effort.tableLevel": "级别",
     "profiles.editor.effort.tableWhen": "何时使用",
-    "profiles.editor.effort.desc.low": "保留用于短期、范围有限、延迟敏感且不需要高智能的任务",
-    "profiles.editor.effort.desc.medium": "减少成本敏感工作的令牌使用，可以权衡一些智能",
+    "profiles.editor.effort.desc.low": "保留用于短的、范围有限的、延迟敏感的、不是智能敏感的任务",
+    "profiles.editor.effort.desc.medium":
+      "减少成本敏感工作的令牌使用，可以权衡一些智能。Opus 5.5 上的默认值",
     "profiles.editor.effort.desc.high":
-      "平衡令牌使用和智能。Opus 4.8、Opus 4.6 和 Sonnet 4.6 上的默认值",
-    "profiles.editor.effort.desc.xhigh": "更深入的推理，令牌支出更高。Opus 4.7 上的默认值",
+      "平衡令牌使用和智能。除 Opus 5.5 和 Opus 4.7 外，每个模型上的默认值",
+    "profiles.editor.effort.desc.xhigh": "更高令牌支出的更深推理。Opus 4.7 上的默认值",
     "profiles.editor.effort.desc.max":
-      "可以改进困难任务的性能，但可能显示收益递减，容易过度思考。在广泛采用前进行测试",
+      "可以改进要求任务的性能，但可能显示收益递减，容易过度思考。在广泛采用前测试",
     "profiles.editor.sections.common": "常用选项",
     "profiles.editor.sections.environment": "环境变量",
     "profiles.editor.sections.permissions": "权限",
@@ -2145,15 +2146,15 @@ const translations = {
     "profiles.editor.effort.tableLevel": "Level",
     "profiles.editor.effort.tableWhen": "When to use",
     "profiles.editor.effort.desc.low":
-      "Reserve for short, narrow, latency-sensitive tasks that don't need high intelligence",
+      "Reserve for short, scoped, latency-sensitive tasks that are not intelligence-sensitive",
     "profiles.editor.effort.desc.medium":
-      "Reduce token usage for cost-sensitive work, trading off some intelligence",
+      "Reduces token usage for cost-sensitive work that can trade off some intelligence. The default on Opus 5.5",
     "profiles.editor.effort.desc.high":
-      "Balances token usage and intelligence. Default on Opus 4.8, Opus 4.6, and Sonnet 4.6",
+      "Balances token usage and intelligence. The default on every model except Opus 5.5 and Opus 4.7",
     "profiles.editor.effort.desc.xhigh":
-      "Deeper reasoning with higher token spend. Default on Opus 4.7",
+      "Deeper reasoning at higher token spend. The default on Opus 4.7",
     "profiles.editor.effort.desc.max":
-      "Can improve performance on hard tasks but may show diminishing returns and overthink. Test before adopting widely",
+      "Can improve performance on demanding tasks but may show diminishing returns and is prone to overthinking. Test before adopting broadly",
     "profiles.editor.sections.common": "Common Options",
     "profiles.editor.sections.environment": "Environment Variables",
     "profiles.editor.sections.permissions": "Permissions",

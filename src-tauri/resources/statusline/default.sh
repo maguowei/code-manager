@@ -4,6 +4,10 @@
 # 下方所有字段经单次 jq @sh + eval 赋值，shellcheck 看不到赋值，禁用 SC2154 误报
 # shellcheck disable=SC1003,SC2154
 
+# 在启动任何子进程前保存 Claude Code 注入的终端宽度：bash 5 默认开启 checkwinsize，
+# 子进程退出后可能按所在 tty 尺寸改写 COLUMNS
+term_cols=${COLUMNS:-}
+
 # 缺少 jq 时输出明确提示，避免后续解析静默失败
 if ! command -v jq >/dev/null 2>&1; then
     printf 'statusline requires jq'
@@ -14,13 +18,14 @@ fi
 input=$(cat)
 
 # 一次性提取所有 JSON 标量字段（@sh 保证 shell 安全，eval 导入；缺失字段回退空串）
-# cache_pct / ctx_current 的占比与判空也在此 jq 内算好，避免额外进程
+# ctx_current 的判空也在此 jq 内算好，避免额外进程
+# prompt_cache 的布尔字段显式 tostring（false 走 // 会被当作缺失）
 eval "$(echo "$input" | jq -r '
   @sh "cwd=\(.workspace.current_dir // "")",
   @sh "project_dir=\(.workspace.project_dir // "")",
   @sh "model=\(.model.display_name // "")",
   @sh "effort_level=\(.effort.level // "")",
-  @sh "thinking_enabled=\(.thinking.enabled // false | tostring)",
+  @sh "thinking_enabled=\(.thinking.enabled | if . == null then "" else tostring end)",
   @sh "git_worktree=\(.workspace.git_worktree // "")",
   @sh "agent_name=\(.agent.name // "")",
   @sh "session_name=\(.session_name // "")",
@@ -34,7 +39,13 @@ eval "$(echo "$input" | jq -r '
   @sh "used_pct=\(.context_window.used_percentage // "")",
   @sh "ctx_total=\(.context_window.context_window_size // "")",
   @sh "ctx_current=\((.context_window.total_input_tokens // 0) | if . == 0 then "" else . end)",
-  @sh "cache_pct=\((.context_window.total_input_tokens // 0) as $t | if $t > 0 then ((.context_window.current_usage.cache_read_input_tokens // 0) * 100 / $t | round) else "" end)",
+  @sh "pc_present=\(if .prompt_cache == null then "" else "1" end)",
+  @sh "pc_observed=\(.prompt_cache.caching_observed | if . == null then "" else tostring end)",
+  @sh "pc_warm=\(.prompt_cache.warm | if . == null then "" else tostring end)",
+  @sh "pc_ttl=\(.prompt_cache.ttl // "")",
+  @sh "pc_expires_at=\(.prompt_cache.expires_at | if . == null then "" else floor end)",
+  @sh "pc_hit_pct=\(.prompt_cache.hit_ratio | if . == null then "" else (. * 100 | round) end)",
+  @sh "pc_recache_cold=\(.prompt_cache.recache_tokens_if_cold // "")",
   @sh "total_duration_ms=\(.cost.total_duration_ms // "")",
   @sh "total_api_duration_ms=\(.cost.total_api_duration_ms // "")",
   @sh "total_cost=\(.cost.total_cost_usd // "")",
@@ -55,13 +66,18 @@ if [ -n "$project_dir" ] && [ "$project_dir" != "$cwd" ]; then
     project_name=$(basename "$project_dir")
 fi
 
-# ── 工具函数：unix epoch 秒 → 相对时间字符串（如 2h30m、5d、45m）──
-fmt_relative_time() {
-    local target=$1
-    local now
-    now=$(date +%s)
-    local diff=$(( target - now ))
-    [ "$diff" -le 0 ] && { printf 'now'; return; }
+# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存剩余时间 / 重缓存量）
+compact=0
+case "$term_cols" in
+    # 缺失、非数字或 0 视为宽度未知，保持完整输出
+    ''|*[!0-9]*|0) ;;
+    *) [ "$term_cols" -lt 120 ] && compact=1 ;;
+esac
+
+# ── 工具函数：秒数 → 时长字符串（如 2h30m、5d、45m，不足 1 分钟为 <1m）──
+fmt_span() {
+    local diff=$1
+    [ "$diff" -lt 60 ] && { printf '<1m'; return; }
     local d=$(( diff / 86400 ))
     local h=$(( (diff % 86400) / 3600 ))
     local m=$(( (diff % 3600) / 60 ))
@@ -71,6 +87,35 @@ fmt_relative_time() {
         [ "$m" -gt 0 ] && printf '%dh%dm' "$h" "$m" || printf '%dh' "$h"
     else
         printf '%dm' "$m"
+    fi
+}
+
+# ── 工具函数：unix epoch 秒 → 距今剩余时间（已过期为 now）──
+fmt_relative_time() {
+    local diff=$(( $1 - $(date +%s) ))
+    [ "$diff" -le 0 ] && { printf 'now'; return; }
+    fmt_span "$diff"
+}
+
+# ── 工具函数：token 数 → k 单位（不足 1000 原样输出）──
+fmt_tokens_k() {
+    local n=$1
+    if [ "$n" -lt 1000 ]; then
+        printf '%d' "$n"
+    else
+        printf '%dk' "$(( (n + 500) / 1000 ))"
+    fi
+}
+
+# ── 工具函数：缓存命中率 → 带 ANSI 颜色字符串（越高越省：≥90 绿、70-89 黄、<70 红，与用量配色相反）──
+fmt_hit_pct() {
+    local pct=$1
+    if [ "$pct" -ge 90 ]; then
+        printf '\033[32m%d%%\033[0m' "$pct"
+    elif [ "$pct" -ge 70 ]; then
+        printf '\033[33m%d%%\033[0m' "$pct"
+    else
+        printf '\033[31m%d%%\033[0m' "$pct"
     fi
 }
 
@@ -95,7 +140,12 @@ git_diff_info=""
 if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
     # 获取 git 根目录，以其路径作为缓存 key（md5 取前 8 位）
     git_root=$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")
-    cache_key=$(printf '%s' "$git_root" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "$git_root" | md5 2>/dev/null | cut -c1-8)
+    # 先探测可用的 md5 命令再计算（管道退出码取决于 cut，|| 回退写法在缺 md5sum 时不会触发）
+    if command -v md5sum >/dev/null 2>&1; then
+        cache_key=$(printf '%s' "$git_root" | md5sum | cut -c1-8)
+    else
+        cache_key=$(printf '%s' "$git_root" | md5 | cut -c1-8)
+    fi
     cache_dir="${TMPDIR:-/tmp}"
     cache_file="${cache_dir%/}/statusline-git-cache-${cache_key}"
     cache_max_age=5  # 缓存有效期（秒）
@@ -165,16 +215,46 @@ EOF
     fi
 fi
 
-# 当前上下文缓存命中占比（cache_pct 已在顶部 jq 内算好：cache_read / total_input_tokens，越高越省）
+# prompt cache 状态（Claude Code ≥ v2.1.251 提供 prompt_cache，主对话首次响应后出现；缺少时不显示）：
+#   有效：cache 91% warm (42m/1h)（剩余/TTL；warm 绿，剩余不足 TTL 的 20% 变黄）
+#   失效：cache 91% cold (0/5m, ~45k recache)（cold 红；~45k 为下次请求需重新缓存的 token）
+#   未上报：cache off（prompt caching 关闭，或供应商/网关不上报缓存 token）
+#   紧凑模式只保留状态与 TTL：cache 91% warm 1h
 cache_info=""
-if [ -n "$cache_pct" ]; then
-    # 命中率越高越好：≥90 绿、70-89 黄、<70 红（与上下文用量配色相反）
-    if [ "$cache_pct" -ge 90 ]; then
-        cache_info=$(printf 'cache \033[32m%d%%\033[0m' "$cache_pct")
-    elif [ "$cache_pct" -ge 70 ]; then
-        cache_info=$(printf 'cache \033[33m%d%%\033[0m' "$cache_pct")
+if [ "$pc_observed" = "false" ]; then
+    cache_info=$(printf 'cache \033[90moff\033[0m')
+elif [ -n "$pc_present" ]; then
+    cache_info="cache"
+    [ -n "$pc_hit_pct" ] && cache_info+=" $(fmt_hit_pct "$pc_hit_pct")"
+    cache_remain=""
+    [ "$pc_warm" = "true" ] && [ -n "$pc_expires_at" ] && cache_remain=$(( pc_expires_at - $(date +%s) ))
+    # 括号内细节：剩余/TTL（同 ctx 的 用量/总量 写法），cold 剩余记 0 并附重缓存量
+    cache_detail=""
+    if [ "$pc_warm" = "true" ] && { [ -z "$cache_remain" ] || [ "$cache_remain" -gt 0 ]; }; then
+        cache_state="warm"
+        state_color=32
+        if [ -n "$cache_remain" ]; then
+            case "$pc_ttl" in
+                5m) cache_ttl_s=300 ;;
+                1h) cache_ttl_s=3600 ;;
+                *) cache_ttl_s=0 ;;
+            esac
+            [ $(( cache_remain * 5 )) -lt "$cache_ttl_s" ] && state_color=33
+            cache_detail="$(fmt_span "$cache_remain")${pc_ttl:+/$pc_ttl}"
+        else
+            cache_detail="$pc_ttl"
+        fi
     else
-        cache_info=$(printf 'cache \033[31m%d%%\033[0m' "$cache_pct")
+        cache_state="cold"
+        state_color=31
+        [ -n "$pc_ttl" ] && cache_detail="0/$pc_ttl"
+        [ -n "$pc_recache_cold" ] && cache_detail="${cache_detail:+$cache_detail, }~$(fmt_tokens_k "$pc_recache_cold") recache"
+    fi
+    cache_info+=$(printf ' \033[%sm%s\033[0m' "$state_color" "$cache_state")
+    if [ "$compact" = "1" ]; then
+        [ -n "$pc_ttl" ] && cache_info+=$(printf ' \033[90m%s\033[0m' "$pc_ttl")
+    elif [ -n "$cache_detail" ]; then
+        cache_info+=$(printf ' \033[90m(%s)\033[0m' "$cache_detail")
     fi
 fi
 
@@ -188,9 +268,9 @@ if [ -n "$used_pct" ]; then
     ctx_total_fmt=""
     [ -n "$ctx_current" ] && ctx_current_fmt="$(( (ctx_current + 500) / 1000 ))k"
     [ -n "$ctx_total" ] && ctx_total_fmt="$(( (ctx_total + 500) / 1000 ))k"
-    # 构建窗口用量附加信息（如 90k/200k）
+    # 构建窗口用量附加信息（如 90k/200k；紧凑模式省略）
     ctx_usage_suffix=""
-    if [ -n "$ctx_current_fmt" ] && [ -n "$ctx_total_fmt" ]; then
+    if [ "$compact" = "0" ] && [ -n "$ctx_current_fmt" ] && [ -n "$ctx_total_fmt" ]; then
         ctx_usage_suffix=" (${ctx_current_fmt}/${ctx_total_fmt})"
     fi
     if [ "$used_int" -ge 90 ]; then
@@ -267,19 +347,19 @@ line1+=$(printf ' \033]8;;%s\033\\%s\033]8;;\033\\' "$file_url" "$dir_text")
 [ -n "$git_info" ] && line1+=" $git_info"
 # git 当前工作区变更行数（新增/删除）
 [ -n "$git_diff_info" ] && line1+=" $git_diff_info"
-# 分隔符 + 模型名称 + 可选 effort.level + 可选 thinking 指示器
+# 分隔符 + 模型名称 + 可选 effort.level + 可选 no-thinking 指示器
 model_segment=$(printf '\033[34m%s\033[0m' "$model")
 if [ -n "$effort_level" ]; then
     model_segment+=$(printf ' \033[90m[%s]\033[0m' "$effort_level")
 fi
-# thinking.enabled=true 时追加 [thinking] 暗色指示器
-if [ "$thinking_enabled" = "true" ]; then
-    model_segment+=$(printf ' \033[90m[thinking]\033[0m')
+# thinking.enabled=false 时追加 [no-thinking] 暗色指示器（扩展思考默认开启，仅关闭时提示；字段缺失不显示）
+if [ "$thinking_enabled" = "false" ]; then
+    model_segment+=$(printf ' \033[90m[no-thinking]\033[0m')
 fi
 line1+=$(printf ' \033[90m|\033[0m %s' "$model_segment")
 # 上下文使用百分比（含用量/总量）
 [ -n "$context_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$context_info")
-# 当前上下文缓存命中占比（cache N%）
+# prompt cache 状态（命中率 + warm/cold + TTL 与剩余时间 / 重缓存量）
 [ -n "$cache_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$cache_info")
 # 会话总成本
 [ -n "$cost_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$cost_info")

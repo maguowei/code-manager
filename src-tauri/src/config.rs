@@ -4153,6 +4153,28 @@ mod tests {
         assert!(!DEFAULT_STATUS_LINE_SCRIPT.contains("cache_file=\"/tmp/"));
     }
 
+    #[test]
+    fn default_status_line_scripts_both_render_prompt_cache() {
+        // 两份脚本需功能对齐：都展示 prompt_cache 状态，并按 COLUMNS 自适应窄终端
+        let scripts = [
+            include_str!("../resources/statusline/default.sh"),
+            include_str!("../resources/statusline/default.ps1"),
+        ];
+        for script in scripts {
+            for field in [
+                "prompt_cache",
+                "caching_observed",
+                "hit_ratio",
+                "expires_at",
+                "recache_tokens_if_cold",
+                "ttl",
+                "COLUMNS",
+            ] {
+                assert!(script.contains(field), "status line script missing {field}");
+            }
+        }
+    }
+
     #[cfg(windows)]
     #[test]
     fn default_status_line_script_uses_powershell_json_and_utf8() {

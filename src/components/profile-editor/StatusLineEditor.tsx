@@ -23,6 +23,8 @@ interface StatusLineEditorProps {
 }
 
 const DEFAULT_STATUS_LINE_PRESET_ID = "default";
+// 默认脚本含 prompt cache 剩余有效期、rate limit 重置等倒计时，空闲时也需定时刷新（秒）
+const DEFAULT_STATUS_LINE_PRESET_REFRESH_INTERVAL = 60;
 const STATUS_LINE_PRESET_UNSUPPORTED_PLATFORM_ERROR = "status_line_preset_unsupported_platform";
 
 function getInstallPresetErrorKey(error: unknown): TranslationKey {
@@ -68,13 +70,14 @@ function StatusLineEditor({ value, onChange, onError, showTitle = true }: Status
     const nextDraft: StatusLineFormValue = {
       command: commandPath,
       padding: "",
-      refreshInterval: "",
+      refreshInterval: String(DEFAULT_STATUS_LINE_PRESET_REFRESH_INTERVAL),
     };
     setDraft(nextDraft);
     onError("");
     onChange({
       type: "command",
       command: commandPath,
+      refreshInterval: DEFAULT_STATUS_LINE_PRESET_REFRESH_INTERVAL,
     });
   }
 
