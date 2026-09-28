@@ -1,6 +1,6 @@
 # Claude Code 默认状态行脚本（Windows / PowerShell 版）
 # 功能完整对齐 resources/statusline/default.sh：两行布局、目录/项目名、git 分支与脏标记、
-# diff 行数、模型/effort/thinking、上下文百分比、token、prompt cache 状态、费用、
+# diff 行数、模型/effort/no-thinking、上下文百分比、token、prompt cache 状态、费用、
 # rate limits、session id、worktree、agent、版本、output style、窄终端紧凑模式、ANSI 颜色与 OSC 8 超链接。
 # PowerShell 与 ConvertFrom-Json 为系统自带，无需 jq；git 由 Git for Windows 提供。
 
@@ -162,7 +162,7 @@ $repoHost = Get-Field $data @('workspace', 'repo', 'host')
 $repoOwner = Get-Field $data @('workspace', 'repo', 'owner')
 $repoName = Get-Field $data @('workspace', 'repo', 'name')
 
-# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存倒计时 / 重缓存量）
+# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存剩余时间 / 重缓存量）
 # 缺失、非数字或 0 视为宽度未知，保持完整输出
 $termCols = ToInt $env:COLUMNS
 $compact = ($termCols -gt 0 -and $termCols -lt 120)
@@ -263,9 +263,10 @@ if ($cwd -and $gitAvailable) {
 }
 
 # ── prompt cache 状态（Claude Code ≥ v2.1.251 提供 prompt_cache，主对话首次响应后出现；缺少时不显示）──
-#   有效：cache 91% 42m left（剩余不足 TTL 的 20% 变黄）
-#   失效：cache 91% cold ~45k（~45k 为下次请求需重新缓存的 token）
+#   有效：cache 91% warm (1h ttl, 42m left)（warm 绿；剩余不足 TTL 的 20% 变黄）
+#   失效：cache 91% cold (5m ttl, ~45k recache)（cold 红；~45k 为下次请求需重新缓存的 token）
 #   未上报：cache off（prompt caching 关闭，或供应商/网关不上报缓存 token）
+#   紧凑模式只保留状态与 TTL：cache 91% warm 1h
 $cacheInfo = ''
 if ($null -ne $promptCache -and $pcObserved -eq $false) {
     $cacheInfo = 'cache ' + $C_90 + 'off' + $C_RESET
@@ -278,18 +279,28 @@ if ($null -ne $promptCache -and $pcObserved -eq $false) {
     if ($pcWarm -eq $true -and $null -ne $pcExpiresAt) {
         $cacheRemain = [int64][math]::Floor((AsNum $pcExpiresAt)) - [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     }
+    # 括号内细节：TTL 在前，warm 附剩余时间，cold 附重缓存量
+    $cacheDetails = @()
+    if ($pcTtl) { $cacheDetails += ("$pcTtl" + ' ttl') }
     if ($pcWarm -eq $true -and ($null -eq $cacheRemain -or $cacheRemain -gt 0)) {
-        if (-not $compact -and $null -ne $cacheRemain) {
+        $cacheState = 'warm'
+        $stateColor = $C_32
+        if ($null -ne $cacheRemain) {
             $cacheTtlS = 0
             if ($pcTtl -eq '5m') { $cacheTtlS = 300 } elseif ($pcTtl -eq '1h') { $cacheTtlS = 3600 }
-            $remainColor = if ($cacheRemain * 5 -lt $cacheTtlS) { $C_33 } else { $C_90 }
-            $cacheInfo += ' ' + $remainColor + (Format-Span $cacheRemain) + ' left' + $C_RESET
+            if ($cacheRemain * 5 -lt $cacheTtlS) { $stateColor = $C_33 }
+            $cacheDetails += ((Format-Span $cacheRemain) + ' left')
         }
     } else {
-        $cacheInfo += ' ' + $C_90 + 'cold' + $C_RESET
-        if (-not $compact -and $null -ne $pcRecacheCold) {
-            $cacheInfo += ' ' + $C_33 + '~' + (Format-TokensK $pcRecacheCold) + $C_RESET
-        }
+        $cacheState = 'cold'
+        $stateColor = $C_31
+        if ($null -ne $pcRecacheCold) { $cacheDetails += ('~' + (Format-TokensK $pcRecacheCold) + ' recache') }
+    }
+    $cacheInfo += ' ' + $stateColor + $cacheState + $C_RESET
+    if ($compact) {
+        if ($pcTtl) { $cacheInfo += ' ' + $C_90 + $pcTtl + $C_RESET }
+    } elseif ($cacheDetails.Count -gt 0) {
+        $cacheInfo += ' ' + $C_90 + '(' + ($cacheDetails -join ', ') + ')' + $C_RESET
     }
 }
 
@@ -365,10 +376,10 @@ if ($projectName) {
 $line1 += ' ' + (Osc8 $fileUrl $dirText)
 if ($gitInfo) { $line1 += ' ' + $gitInfo }
 if ($gitDiffInfo) { $line1 += ' ' + $gitDiffInfo }
-# 模型名 + 可选 effort.level + 可选 thinking 指示器
+# 模型名 + 可选 effort.level + 可选 no-thinking 指示器（扩展思考默认开启，仅 thinking.enabled=false 时提示；字段缺失不显示）
 $modelSegment = $C_34 + $model + $C_RESET
 if ($effortLevel) { $modelSegment += ' ' + $C_90 + '[' + $effortLevel + ']' + $C_RESET }
-if ($thinkingEnabled) { $modelSegment += ' ' + $C_90 + '[thinking]' + $C_RESET }
+if ($thinkingEnabled -eq $false) { $modelSegment += ' ' + $C_90 + '[no-thinking]' + $C_RESET }
 $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $modelSegment
 if ($contextInfo) { $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $contextInfo }
 if ($cacheInfo) { $line1 += ' ' + $C_90 + '|' + $C_RESET + ' ' + $cacheInfo }

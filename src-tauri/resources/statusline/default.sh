@@ -25,7 +25,7 @@ eval "$(echo "$input" | jq -r '
   @sh "project_dir=\(.workspace.project_dir // "")",
   @sh "model=\(.model.display_name // "")",
   @sh "effort_level=\(.effort.level // "")",
-  @sh "thinking_enabled=\(.thinking.enabled // false | tostring)",
+  @sh "thinking_enabled=\(.thinking.enabled | if . == null then "" else tostring end)",
   @sh "git_worktree=\(.workspace.git_worktree // "")",
   @sh "agent_name=\(.agent.name // "")",
   @sh "session_name=\(.session_name // "")",
@@ -66,7 +66,7 @@ if [ -n "$project_dir" ] && [ "$project_dir" != "$cwd" ]; then
     project_name=$(basename "$project_dir")
 fi
 
-# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存倒计时 / 重缓存量）
+# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存剩余时间 / 重缓存量）
 compact=0
 case "$term_cols" in
     # 缺失、非数字或 0 视为宽度未知，保持完整输出
@@ -211,9 +211,10 @@ EOF
 fi
 
 # prompt cache 状态（Claude Code ≥ v2.1.251 提供 prompt_cache，主对话首次响应后出现；缺少时不显示）：
-#   有效：cache 91% 42m left（剩余不足 TTL 的 20% 变黄）
-#   失效：cache 91% cold ~45k（~45k 为下次请求需重新缓存的 token）
+#   有效：cache 91% warm (1h ttl, 42m left)（warm 绿；剩余不足 TTL 的 20% 变黄）
+#   失效：cache 91% cold (5m ttl, ~45k recache)（cold 红；~45k 为下次请求需重新缓存的 token）
 #   未上报：cache off（prompt caching 关闭，或供应商/网关不上报缓存 token）
+#   紧凑模式只保留状态与 TTL：cache 91% warm 1h
 cache_info=""
 if [ "$pc_observed" = "false" ]; then
     cache_info=$(printf 'cache \033[90moff\033[0m')
@@ -222,22 +223,31 @@ elif [ -n "$pc_present" ]; then
     [ -n "$pc_hit_pct" ] && cache_info+=" $(fmt_hit_pct "$pc_hit_pct")"
     cache_remain=""
     [ "$pc_warm" = "true" ] && [ -n "$pc_expires_at" ] && cache_remain=$(( pc_expires_at - $(date +%s) ))
+    # 括号内细节：TTL 在前，warm 附剩余时间，cold 附重缓存量
+    cache_detail=""
+    [ -n "$pc_ttl" ] && cache_detail="$pc_ttl ttl"
     if [ "$pc_warm" = "true" ] && { [ -z "$cache_remain" ] || [ "$cache_remain" -gt 0 ]; }; then
-        if [ "$compact" = "0" ] && [ -n "$cache_remain" ]; then
+        cache_state="warm"
+        state_color=32
+        if [ -n "$cache_remain" ]; then
             case "$pc_ttl" in
                 5m) cache_ttl_s=300 ;;
                 1h) cache_ttl_s=3600 ;;
                 *) cache_ttl_s=0 ;;
             esac
-            remain_color=90
-            [ $(( cache_remain * 5 )) -lt "$cache_ttl_s" ] && remain_color=33
-            cache_info+=$(printf ' \033[%sm%s left\033[0m' "$remain_color" "$(fmt_span "$cache_remain")")
+            [ $(( cache_remain * 5 )) -lt "$cache_ttl_s" ] && state_color=33
+            cache_detail="${cache_detail:+$cache_detail, }$(fmt_span "$cache_remain") left"
         fi
     else
-        cache_info+=$(printf ' \033[90mcold\033[0m')
-        if [ "$compact" = "0" ] && [ -n "$pc_recache_cold" ]; then
-            cache_info+=$(printf ' \033[33m~%s\033[0m' "$(fmt_tokens_k "$pc_recache_cold")")
-        fi
+        cache_state="cold"
+        state_color=31
+        [ -n "$pc_recache_cold" ] && cache_detail="${cache_detail:+$cache_detail, }~$(fmt_tokens_k "$pc_recache_cold") recache"
+    fi
+    cache_info+=$(printf ' \033[%sm%s\033[0m' "$state_color" "$cache_state")
+    if [ "$compact" = "1" ]; then
+        [ -n "$pc_ttl" ] && cache_info+=$(printf ' \033[90m%s\033[0m' "$pc_ttl")
+    elif [ -n "$cache_detail" ]; then
+        cache_info+=$(printf ' \033[90m(%s)\033[0m' "$cache_detail")
     fi
 fi
 
@@ -330,19 +340,19 @@ line1+=$(printf ' \033]8;;%s\033\\%s\033]8;;\033\\' "$file_url" "$dir_text")
 [ -n "$git_info" ] && line1+=" $git_info"
 # git 当前工作区变更行数（新增/删除）
 [ -n "$git_diff_info" ] && line1+=" $git_diff_info"
-# 分隔符 + 模型名称 + 可选 effort.level + 可选 thinking 指示器
+# 分隔符 + 模型名称 + 可选 effort.level + 可选 no-thinking 指示器
 model_segment=$(printf '\033[34m%s\033[0m' "$model")
 if [ -n "$effort_level" ]; then
     model_segment+=$(printf ' \033[90m[%s]\033[0m' "$effort_level")
 fi
-# thinking.enabled=true 时追加 [thinking] 暗色指示器
-if [ "$thinking_enabled" = "true" ]; then
-    model_segment+=$(printf ' \033[90m[thinking]\033[0m')
+# thinking.enabled=false 时追加 [no-thinking] 暗色指示器（扩展思考默认开启，仅关闭时提示；字段缺失不显示）
+if [ "$thinking_enabled" = "false" ]; then
+    model_segment+=$(printf ' \033[90m[no-thinking]\033[0m')
 fi
 line1+=$(printf ' \033[90m|\033[0m %s' "$model_segment")
 # 上下文使用百分比（含用量/总量）
 [ -n "$context_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$context_info")
-# prompt cache 状态（命中率 + 剩余有效期 / 失效重缓存量）
+# prompt cache 状态（命中率 + warm/cold + TTL 与剩余时间 / 重缓存量）
 [ -n "$cache_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$cache_info")
 # 会话总成本
 [ -n "$cost_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$cost_info")
