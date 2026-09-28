@@ -19,7 +19,7 @@ input=$(cat)
 
 # 一次性提取所有 JSON 标量字段（@sh 保证 shell 安全，eval 导入；缺失字段回退空串）
 # ctx_current 的判空也在此 jq 内算好，避免额外进程
-# prompt_cache 的布尔字段显式 tostring（false 走 // 会被当作缺失）；未命中原因在 jq 内缩写为 tools+2 / sys+120 / ttl5m / server
+# prompt_cache 的布尔字段显式 tostring（false 走 // 会被当作缺失）
 eval "$(echo "$input" | jq -r '
   @sh "cwd=\(.workspace.current_dir // "")",
   @sh "project_dir=\(.workspace.project_dir // "")",
@@ -46,18 +46,6 @@ eval "$(echo "$input" | jq -r '
   @sh "pc_expires_at=\(.prompt_cache.expires_at | if . == null then "" else floor end)",
   @sh "pc_hit_pct=\(.prompt_cache.hit_ratio | if . == null then "" else (. * 100 | round) end)",
   @sh "pc_recache_cold=\(.prompt_cache.recache_tokens_if_cold // "")",
-  @sh "pc_requests=\(.prompt_cache.requests // "")",
-  @sh "pc_misses=\(.prompt_cache.misses // "")",
-  @sh "pc_last_miss_at=\(.prompt_cache.last_miss_at | if . == null then "" else floor end)",
-  @sh "pc_miss_cause=\(.prompt_cache.last_miss_cause as $c | if $c == null then "" else [($c.causes // [])[] |
-    if . == "tools_changed" then "tools"
-      + (if ($c.tools_added // 0) > 0 then "+" + ($c.tools_added | tostring) else "" end)
-      + (if ($c.tools_removed // 0) > 0 then "-" + ($c.tools_removed | tostring) else "" end)
-    elif . == "system_prompt_changed" then "sys"
-      + ($c.system_char_delta | if . == null then "" elif . >= 0 then "+" + tostring else tostring end)
-    elif startswith("ttl_expired_") then "ttl" + ltrimstr("ttl_expired_")
-    elif . == "likely_server_side" then "server"
-    else . end] | join(",") end)",
   @sh "total_duration_ms=\(.cost.total_duration_ms // "")",
   @sh "total_api_duration_ms=\(.cost.total_api_duration_ms // "")",
   @sh "total_cost=\(.cost.total_cost_usd // "")",
@@ -78,7 +66,7 @@ if [ -n "$project_dir" ] && [ "$project_dir" != "$cwd" ]; then
     project_name=$(basename "$project_dir")
 fi
 
-# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存倒计时、未命中原因）
+# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存倒计时 / 重缓存量）
 compact=0
 case "$term_cols" in
     # 缺失、非数字或 0 视为宽度未知，保持完整输出
@@ -359,7 +347,7 @@ line1+=$(printf ' \033[90m|\033[0m %s' "$model_segment")
 # 会话总成本
 [ -n "$cost_info" ] && line1+=$(printf ' \033[90m|\033[0m %s' "$cost_info")
 
-# ── 第二行：rate_limits + 会话锚点 & 产出 + 资源 & 元信息（rate_limits + 缓存未命中 + id + session_name + 代码行变更 + duration + worktree + agent + version + style）──
+# ── 第二行：rate_limits + 会话锚点 & 产出 + 资源 & 元信息（rate_limits + id + session_name + 代码行变更 + duration + worktree + agent + version + style）──
 # 用数组收集各段，只有非空段加入，首段不加分隔符前缀
 line2_parts=()
 
@@ -385,23 +373,7 @@ if [ -n "$rl_7d_pct" ]; then
     fi
 fi
 
-# 3. miss N/M：主对话缓存未命中次数/请求数（仅 misses>0 显示；非紧凑模式附最后一次原因与距今时间）
-if [ -n "$pc_misses" ] && [ "$pc_misses" -gt 0 ]; then
-    miss_text="miss $pc_misses"
-    [ -n "$pc_requests" ] && miss_text+="/$pc_requests"
-    miss_seg=$(printf '\033[33m%s\033[0m' "$miss_text")
-    if [ "$compact" = "0" ]; then
-        [ -n "$pc_miss_cause" ] && miss_seg+=$(printf ' \033[90m%s\033[0m' "$pc_miss_cause")
-        if [ -n "$pc_last_miss_at" ]; then
-            miss_ago=$(( $(date +%s) - pc_last_miss_at ))
-            [ "$miss_ago" -lt 0 ] && miss_ago=0
-            miss_seg+=$(printf ' \033[90m%s ago\033[0m' "$(fmt_span "$miss_ago")")
-        fi
-    fi
-    line2_parts+=("$miss_seg")
-fi
-
-# 4. #xxxxxxxx：session_id 前 8 位作为会话锚点（暗灰；若有 transcript_path 则带 OSC 8 链向其父目录）
+# 3. #xxxxxxxx：session_id 前 8 位作为会话锚点（暗灰；若有 transcript_path 则带 OSC 8 链向其父目录）
 if [ -n "$session_id" ]; then
     short_id="${session_id:0:8}"
     if [ -n "$transcript_path" ]; then
@@ -413,34 +385,34 @@ if [ -n "$session_id" ]; then
     fi
 fi
 
-# 5. @session_name：/rename 设置后显示，紧跟 session_id（暗色）
+# 4. @session_name：/rename 设置后显示，紧跟 session_id（暗色）
 if [ -n "$session_name" ]; then
     line2_parts+=("$(printf '\033[90m@%s\033[0m' "$session_name")")
 fi
 
-# 6. +N/-N：本次会话累计代码行变更（两者均为 0 则不显示）
+# 5. +N/-N：本次会话累计代码行变更（两者均为 0 则不显示）
 [ -n "$lines_info" ] && line2_parts+=("$lines_info")
 
-# 7. api/wall：会话 API 等待时间 / 总挂钟时间
+# 6. api/wall：会话 API 等待时间 / 总挂钟时间
 [ -n "$duration_info" ] && line2_parts+=("$duration_info")
 
-# 8. wt:NAME：当前所在 git worktree 名称（暗青色）
+# 7. wt:NAME：当前所在 git worktree 名称（暗青色）
 if [ -n "$git_worktree" ]; then
     line2_parts+=("$(printf '\033[2;36mwt:%s\033[0m' "$git_worktree")")
 fi
 
-# 9. agent:NAME：--agent 模式下的 agent 名称（暗色）
+# 8. agent:NAME：--agent 模式下的 agent 名称（暗色）
 if [ -n "$agent_name" ]; then
     line2_parts+=("$(printf '\033[90magent:%s\033[0m' "$agent_name")")
 fi
 
-# 10. vX.Y.Z：版本号（已在顶部提取；暗灰；带 OSC 8 链到 CHANGELOG）
+# 9. vX.Y.Z：版本号（已在顶部提取；暗灰；带 OSC 8 链到 CHANGELOG）
 if [ -n "$version" ]; then
     version_link=$(printf '\033]8;;https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md\033\\v%s\033]8;;\033\\' "$version")
     line2_parts+=("$(printf '\033[90m%s\033[0m' "$version_link")")
 fi
 
-# 11. [STYLE]：output_style.name（已在顶部提取；暗灰；仅当非 "default" 时显示）
+# 10. [STYLE]：output_style.name（已在顶部提取；暗灰；仅当非 "default" 时显示）
 if [ -n "$output_style" ] && [ "$output_style" != "default" ]; then
     line2_parts+=("$(printf '\033[90m[%s]\033[0m' "$output_style")")
 fi

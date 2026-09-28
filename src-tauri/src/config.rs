@@ -4155,7 +4155,7 @@ mod tests {
 
     #[test]
     fn default_status_line_scripts_both_render_prompt_cache() {
-        // 两份脚本需功能对齐：都展示 prompt_cache 状态与未命中诊断，并按 COLUMNS 自适应窄终端
+        // 两份脚本需功能对齐：都展示 prompt_cache 状态，并按 COLUMNS 自适应窄终端
         let scripts = [
             include_str!("../resources/statusline/default.sh"),
             include_str!("../resources/statusline/default.ps1"),
@@ -4167,7 +4167,7 @@ mod tests {
                 "hit_ratio",
                 "expires_at",
                 "recache_tokens_if_cold",
-                "last_miss_cause",
+                "ttl",
                 "COLUMNS",
             ] {
                 assert!(script.contains(field), "status line script missing {field}");

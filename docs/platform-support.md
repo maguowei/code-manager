@@ -108,7 +108,7 @@ Full per-platform paths for application data, the usage SQLite cache (`usage.db`
 1. Non-Windows: writes the Bash script `~/.claude/statusline.sh` (`src-tauri/resources/statusline/default.sh`, relies on jq) and `chmod 0o755`; `command` is `~/.claude/statusline.sh`.
 2. Windows: writes the PowerShell script `~/.claude/statusline.ps1` (`src-tauri/resources/statusline/default.ps1`, uses the built-in `ConvertFrom-Json`, no jq) without setting the executable bit; `command` is `powershell -NoProfile -ExecutionPolicy Bypass -File ...` with an absolute forward-slash path, sidestepping the problems of `~` not expanding in the `-File` argument and backslashes being treated as escape characters.
 
-The two scripts keep their functionality aligned (two-line layout, git, context/token/cost, prompt cache status and miss diagnostics, rate limits, narrow-terminal compact mode, ANSI colors, and OSC 8 hyperlinks). When modifying one, sync the other.
+The two scripts keep their functionality aligned (two-line layout, git, context/token/cost, prompt cache status, rate limits, narrow-terminal compact mode, ANSI colors, and OSC 8 hyperlinks). When modifying one, sync the other.
 
 ### Why Terminal Session Focus Is macOS-Only
 

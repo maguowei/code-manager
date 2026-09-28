@@ -108,7 +108,7 @@ Code Manager 的核心配置管理与界面在 macOS / Linux / Windows 上对等
 1. 非 Windows：写入 Bash 脚本 `~/.claude/statusline.sh`（`src-tauri/resources/statusline/default.sh`，依赖 jq），并 `chmod 0o755`；`command` 为 `~/.claude/statusline.sh`。
 2. Windows：写入 PowerShell 脚本 `~/.claude/statusline.ps1`（`src-tauri/resources/statusline/default.ps1`，用内置 `ConvertFrom-Json`，免 jq），不设可执行位；`command` 为绝对正斜杠路径的 `powershell -NoProfile -ExecutionPolicy Bypass -File ...`，规避 `~` 在 `-File` 参数中不展开以及反斜杠被当作转义字符的问题。
 
-两份脚本功能保持对齐（两行布局、git、上下文/token/费用、prompt cache 状态与未命中诊断、rate limits、窄终端紧凑模式、ANSI 颜色与 OSC 8 超链接）。修改其中一份时需同步另一份。
+两份脚本功能保持对齐（两行布局、git、上下文/token/费用、prompt cache 状态、rate limits、窄终端紧凑模式、ANSI 颜色与 OSC 8 超链接）。修改其中一份时需同步另一份。
 
 ### 终端会话聚焦为何仅 macOS
 

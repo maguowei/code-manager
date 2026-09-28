@@ -1,6 +1,6 @@
 # Claude Code 默认状态行脚本（Windows / PowerShell 版）
 # 功能完整对齐 resources/statusline/default.sh：两行布局、目录/项目名、git 分支与脏标记、
-# diff 行数、模型/effort/thinking、上下文百分比、token、prompt cache 状态与未命中诊断、费用、
+# diff 行数、模型/effort/thinking、上下文百分比、token、prompt cache 状态、费用、
 # rate limits、session id、worktree、agent、版本、output style、窄终端紧凑模式、ANSI 颜色与 OSC 8 超链接。
 # PowerShell 与 ConvertFrom-Json 为系统自带，无需 jq；git 由 Git for Windows 提供。
 
@@ -92,38 +92,6 @@ function Format-HitPct($pct) {
     else { return $C_31 + $pct + '%' + $C_RESET }
 }
 
-# prompt_cache.last_miss_cause → 缩写（tools+2-1 / sys+120 / ttl5m / server，未知原因原样输出）
-function Format-MissCause($cause) {
-    if ($null -eq $cause) { return '' }
-    $names = @()
-    foreach ($name in @($cause.causes)) {
-        if ($null -eq $name -or "$name" -eq '') { continue }
-        $n = "$name"
-        if ($n -eq 'tools_changed') {
-            $s = 'tools'
-            $added = [int64](AsNum $cause.tools_added)
-            $removed = [int64](AsNum $cause.tools_removed)
-            if ($added -gt 0) { $s += '+' + $added }
-            if ($removed -gt 0) { $s += '-' + $removed }
-            $names += $s
-        } elseif ($n -eq 'system_prompt_changed') {
-            $s = 'sys'
-            if ($null -ne $cause.system_char_delta) {
-                $delta = [int64](AsNum $cause.system_char_delta)
-                if ($delta -ge 0) { $s += '+' + $delta } else { $s += "$delta" }
-            }
-            $names += $s
-        } elseif ($n.StartsWith('ttl_expired_')) {
-            $names += ('ttl' + $n.Substring('ttl_expired_'.Length))
-        } elseif ($n -eq 'likely_server_side') {
-            $names += 'server'
-        } else {
-            $names += $n
-        }
-    }
-    return ($names -join ',')
-}
-
 # rate limit 百分比 → 带 ANSI 颜色字符串（<70 绿,70-89 黄,≥90 红）
 function Format-RatePct($pctRaw) {
     $pctInt = [int][math]::Round([double]$pctRaw)
@@ -194,7 +162,7 @@ $repoHost = Get-Field $data @('workspace', 'repo', 'host')
 $repoOwner = Get-Field $data @('workspace', 'repo', 'owner')
 $repoName = Get-Field $data @('workspace', 'repo', 'name')
 
-# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存倒计时、未命中原因）
+# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存倒计时 / 重缓存量）
 # 缺失、非数字或 0 视为宽度未知，保持完整输出
 $termCols = ToInt $env:COLUMNS
 $compact = ($termCols -gt 0 -and $termCols -lt 120)
@@ -207,10 +175,6 @@ $pcTtl = Get-Field $promptCache @('ttl')
 $pcExpiresAt = Get-Field $promptCache @('expires_at')
 $pcHitRatio = Get-Field $promptCache @('hit_ratio')
 $pcRecacheCold = Get-Field $promptCache @('recache_tokens_if_cold')
-$pcRequests = Get-Field $promptCache @('requests')
-$pcMisses = Get-Field $promptCache @('misses')
-$pcLastMissAt = Get-Field $promptCache @('last_miss_at')
-$pcMissCause = Format-MissCause (Get-Field $promptCache @('last_miss_cause'))
 
 # ── git 分支、脏状态及变更行数（带缓存，避免频繁执行 git diff）──
 $gitInfo = ''
@@ -435,23 +399,7 @@ if ($null -ne $rl7dPct -and "$rl7dPct" -ne '') {
     }
 }
 
-# 3. miss N/M：主对话缓存未命中次数/请求数（仅 misses>0 显示；非紧凑模式附最后一次原因与距今时间）
-if ((AsNum $pcMisses) -gt 0) {
-    $missText = 'miss ' + [int64](AsNum $pcMisses)
-    if ($null -ne $pcRequests) { $missText += '/' + [int64](AsNum $pcRequests) }
-    $missSeg = $C_33 + $missText + $C_RESET
-    if (-not $compact) {
-        if ($pcMissCause) { $missSeg += ' ' + $C_90 + $pcMissCause + $C_RESET }
-        if ($null -ne $pcLastMissAt) {
-            $missAgo = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [int64][math]::Floor((AsNum $pcLastMissAt))
-            if ($missAgo -lt 0) { $missAgo = 0 }
-            $missSeg += ' ' + $C_90 + (Format-Span $missAgo) + ' ago' + $C_RESET
-        }
-    }
-    $line2Parts += $missSeg
-}
-
-# 4. #xxxxxxxx：session_id 前 8 位（有 transcript_path 则带 OSC 8 链向其父目录）
+# 3. #xxxxxxxx：session_id 前 8 位（有 transcript_path 则带 OSC 8 链向其父目录）
 $sessionId = Get-Field $data @('session_id')
 $transcriptPath = Get-Field $data @('transcript_path')
 if ($sessionId) {
@@ -467,29 +415,29 @@ if ($sessionId) {
     }
 }
 
-# 5. @session_name
+# 4. @session_name
 if ($sessionName) { $line2Parts += ($C_90 + '@' + $sessionName + $C_RESET) }
 
-# 6. +N/-N：本次会话累计代码行变更
+# 5. +N/-N：本次会话累计代码行变更
 if ($linesInfo) { $line2Parts += $linesInfo }
 
-# 7. api/wall：会话耗时
+# 6. api/wall：会话耗时
 if ($durationInfo) { $line2Parts += $durationInfo }
 
-# 8. wt:NAME：当前 git worktree 名称
+# 7. wt:NAME：当前 git worktree 名称
 if ($gitWorktree) { $line2Parts += ($C_2_36 + 'wt:' + $gitWorktree + $C_RESET) }
 
-# 9. agent:NAME：--agent 模式下的 agent 名称
+# 8. agent:NAME：--agent 模式下的 agent 名称
 if ($agentName) { $line2Parts += ($C_90 + 'agent:' + $agentName + $C_RESET) }
 
-# 10. vX.Y.Z：版本号（带 OSC 8 链到 CHANGELOG）
+# 9. vX.Y.Z：版本号（带 OSC 8 链到 CHANGELOG）
 $version = Get-Field $data @('version')
 if ($version) {
     $versionLink = Osc8 'https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md' ('v' + $version)
     $line2Parts += ($C_90 + $versionLink + $C_RESET)
 }
 
-# 11. [STYLE]：output_style.name（仅当非 default 时显示）
+# 10. [STYLE]：output_style.name（仅当非 default 时显示）
 $outputStyle = Get-Field $data @('output_style', 'name')
 if ($outputStyle -and $outputStyle -ne 'default') {
     $line2Parts += ($C_90 + '[' + $outputStyle + ']' + $C_RESET)
