@@ -110,7 +110,7 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 
 | 改动范围 | 命令 |
 | --- | --- |
-| 文档 / rules | `git diff --check`；修改 `CLAUDE.md` 时加跑 `wc -l CLAUDE.md` |
+| 文档 / rules | `git diff --check`；改 README 或 `docs/` 时加跑 `make docs-check`；修改 `CLAUDE.md` 时加跑 `wc -l CLAUDE.md` |
 | 前端局部 | `pnpm exec vitest run <test-file...>` |
 | 前端完整 | `make lint-frontend`、`make build-frontend`、`make test-frontend` |
 | Rust | `make fmt-rust-check`、`make check`、`make lint-rust`、`make test-rust` |

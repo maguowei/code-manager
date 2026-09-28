@@ -4,6 +4,7 @@ paths:
   - "AGENTS.md"
   - "README.md"
   - "README.zh-CN.md"
+  - "docs/**/*.md"
   - ".claude/rules/**/*.md"
 ---
 
@@ -18,6 +19,7 @@ paths:
 - `README.md` 可以保留一行技术栈概览和短仓库速览，方便人类快速判断项目类型和入口；详细技术栈、路径职责和 Agent 导航归 `CLAUDE.md` / path-scoped rules。
 - `docs/user-manual.md` 承载完整用户手册；`docs/platform-support.md` 承载平台矩阵；不要把这些长内容搬回根文档。
 - `.claude/rules/*.md` 承载 path-scoped 细规则，只在修改命中路径时读取。
+- `docs/adr/NNNN-*.md` 记录架构决策：标题下列「状态」「日期」，正文依次为 Context / Decision / Consequences；决策后续变化追加 `## Update (日期)` 小节，不改写原决策。
 
 ### 双语文档约定
 
@@ -26,6 +28,7 @@ paths:
 - 跨文档链接同语言闭环：英文版只链英文版，中文版只链中文版；不要跨语言互链。
 - 改动任一语言版本时成对维护另一语言；新增此类人类文档时同时建立中英两份。
 - `CLAUDE.md` / `AGENTS.md` 等 Agent 文档不做双语，保持单一中文事实源。
+- 中文文档（含 ADR）使用全角标点（，：；？！（）），行内代码、链接目标与 URL 内保持原样。
 
 ## 拆分规则
 
@@ -43,4 +46,4 @@ paths:
 - 修改 `CLAUDE.md` 后运行 `wc -l CLAUDE.md`，确认仍低于 200 行。
 - 修改 rules 后运行 `git grep -n "paths:" .claude/rules`，抽查 glob 是否仍指向真实文件。
 - 新增本地指令文件时确认 `CLAUDE.local.md` 未被提交。
-- 修改根文档或 rules 后运行 `git diff --check`，并检查是否出现旧版本号、旧文件名、乱码或断链。
+- 修改根文档或 rules 后运行 `git diff --check`，并检查是否出现旧版本号、旧文件名、乱码或断链；改 README 或 `docs/` 时运行 `make docs-check` 检查链接、锚点、中英文标题结构与引用路径。

@@ -1,4 +1,4 @@
-.PHONY: init dev build build-frontend build-universal preview check verify bindings bindings-check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history sync-cheatsheet clean coverage coverage-rust coverage-rust-lcov coverage-frontend ensure-llvm-cov
+.PHONY: init dev build build-frontend build-universal preview check verify bindings bindings-check test test-rust test-frontend lint lint-rust lint-frontend fmt fmt-check fmt-rust fmt-rust-check fmt-frontend fmt-frontend-check gitleaks gitleaks-history sync-cheatsheet docs-check clean coverage coverage-rust coverage-rust-lcov coverage-frontend ensure-llvm-cov
 
 RUST_COVERAGE_THRESHOLDS := --fail-under-regions 80 --fail-under-functions 70 --fail-under-lines 80
 
@@ -41,7 +41,7 @@ check:
 	cd src-tauri && cargo check
 
 # 本地 CI-like 验证入口
-verify: fmt-rust-check bindings-check lint build-frontend test
+verify: fmt-rust-check bindings-check docs-check lint build-frontend test
 
 # 重新生成 Tauri IPC TypeScript bindings
 bindings:
@@ -106,6 +106,10 @@ gitleaks-history:
 # 重新抓取并生成 Claude Code 速查表本地 markdown（源站更新后手动重跑）
 sync-cheatsheet:
 	node scripts/sync-cheatsheet.mjs
+
+# 文档一致性检查：相对链接与锚点、中英文标题结构、行内代码引用的仓库路径
+docs-check:
+	node scripts/check-docs.mjs
 
 # 清理构建产物
 clean:

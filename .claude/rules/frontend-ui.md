@@ -43,6 +43,7 @@ paths:
 - 圆角使用 `rounded-md` / `rounded-lg`，间距使用 Tailwind `gap-*` / `p-*` / `m-*`，不要回退到旧 `--space-*` / `--radius-*` 令牌。
 - 图标库统一使用 `lucide-react`，按 Tailwind size 类控制尺寸。
 - 复杂编辑器优先复用 `useObjectJsonEditor`、`useDocumentJsonEditor`、`useStructuredSettingsSectionState` 等现有 hook。
+- 新增页面、侧边栏入口或设置项时，同步更新 `docs/user-manual.md` 与 `docs/user-manual.zh-CN.md` 的对应章节；涉及平台差异时同步 `docs/platform-support*.md`。
 - 配置、Memory、Skill 这类抽屉编辑器必须暴露 `EditorExitGuard`；关闭、切换条目或跳转页面前如有 dirty draft，统一走 `UnsavedChangesAlertDialog`。
 
 ## 组件优先级

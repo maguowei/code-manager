@@ -1,5 +1,8 @@
 # 网关会话标识头建模进 provider 数据层，模型测试按会话生成值
 
+- 状态：已采纳
+- 日期：2026-09-19
+
 ## Context
 
 OpenCode Go 网关（`https://opencode.ai/zen/go`）要求客户端对每个会话声明稳定的会话 ID 头 `x-opencode-session`，用于网关路由与 prompt caching；缺失时按 HTTP 400 拒绝。官方文档同时说明：Claude Code / Codex / ZCode 的原生会话头会被识别，因此**真实 Claude Code 会话不受影响**，受影响的只有 Code Manager 自己发出的请求——也就是模型测试（`config.rs::execute_model_test_request`，全仓唯一向供应商端点发请求的路径）。

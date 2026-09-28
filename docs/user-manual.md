@@ -21,6 +21,7 @@ Code Manager is a local desktop management tool for Claude Code users. It brings
 - [Usage Statistics](#usage-statistics)
 - [Token Usage Statistics](#token-usage-statistics)
 - [Desktop Usage Widget](#desktop-usage-widget)
+- [Cheat Sheet](#cheat-sheet)
 - [System Tray and Session Focus](#system-tray-and-session-focus)
 - [Settings and Diagnostics](#settings-and-diagnostics)
 - [Local Data and Privacy](#local-data-and-privacy)
@@ -84,6 +85,7 @@ Recommended order for the first setup:
 | History | View historical inputs and session details in `~/.claude/history.jsonl` |
 | Stats | View the local statistics snapshot in `~/.claude.json` |
 | Usage | View the token and cost aggregation in `~/.claude/projects/` |
+| Cheat Sheet | Entry at the bottom of the sidebar; quick reference for Claude Code shortcuts, slash commands, settings, and environment variables |
 | Settings | Adjust language, theme, tray, default terminal, default editor, and diagnostic entries |
 
 On most pages, the add or edit action opens a drawer on the right that supports control mode, JSON mode, or preview. When the configuration, memory, or Skill editor has unsaved changes, closing or switching prompts you to save, discard, or continue editing.
@@ -266,6 +268,10 @@ The desktop usage widget is a small, always-on-top, semi-transparent, borderless
 - **Quick jump**: clicking the body of the widget jumps to the Usage page in the main interface.
 - **Appearance and toggle**: the opacity is adjustable, and the enable toggle along with the metrics and opacity settings are all in the settings drawer (see the "Desktop Usage Widget" settings subsection below).
 
+## Cheat Sheet
+
+The Cheat Sheet entry at the bottom of the sidebar opens a Claude Code quick-reference page that follows the interface language (Chinese / English). It covers keyboard shortcuts, MCP servers, slash commands, memory and files, workflows and tips, configuration and environment variables, skills and agents, CLI flags, and permission modes. The table of contents on the right jumps to each section.
+
 ## System Tray and Session Focus
 
 Code Manager stays in the system tray (menu bar), with a menu divided into two parts:
@@ -275,11 +281,11 @@ Code Manager stays in the system tray (menu bar), with a menu divided into two p
 
 **Session focus**: on supported platforms, clicking a session entry or using the session focus shortcut returns you to the corresponding terminal tab. This capability is **macOS only**; it focuses Terminal.app and iTerm2 via `pid → tty → AppleScript`, and Ghostty first matches its `tty` property before using a unique working-directory fallback on older versions or when tty matching misses. Linux and Windows do not support automatic focus, and clicking a session will not switch the terminal. See [Platform Support Differences](./platform-support.md) for details.
 
-**LED light effect integration (macOS only)**: once enabled, the red/green status of the session tray is mirrored to the light effects of an external ANTICATER USB device, which is handy for getting a hardware light cue about session status when you are not watching the menu bar. The configuration entry is in the device integration area of Settings.
+**LED light effect integration (macOS only)**: once enabled, the red/green status of the session tray is mirrored to the light effects of an external ANTICATER USB device, which is handy for getting a hardware light cue about session status when you are not watching the menu bar. The configuration entry is the LED light effect card in Settings.
 
 ## Settings and Diagnostics
 
-The Settings entry is in the lower-left corner. Settings are grouped into Interface, Menu Bar and Session Status, Device Integration, System Notifications and Pricing, and System Integration; the following order matches the settings drawer.
+The Settings entry is in the lower-left corner. The settings drawer is a single column of cards; the groups below follow the order of the cards in the drawer. Cards or options marked "macOS only" are not shown on Linux and Windows.
 
 ### Interface
 
@@ -292,7 +298,8 @@ The Settings entry is in the lower-left corner. Settings are grouped into Interf
 - Show current configuration in the menu bar: shows the name of the currently active configuration next to the tray icon; the character limit can be set to off, up to N characters, or fully expanded.
 - Show current session in the menu bar: shows the current Claude session and its status in a separate menu bar area.
 - Session count style: number (`🔴 1 🟢 1`), superscript (`🔴¹ 🟢¹`), or compact (`🔴¹🟢¹`).
-- Pending session breathing indicator: when there is a session awaiting input, the menu bar status shows a breathing-style pulse cue.
+- Pending session breathing indicator (macOS only): when there is a session awaiting input, the menu bar status shows a breathing-style pulse cue.
+- Session focus shortcut (macOS only): registers a global shortcut for "focus the session that most needs attention". Click to record and press the key combination (which must include at least one modifier key ⌘/⌃/⌥/⇧); you can restore the default at any time.
 
 ### Desktop Usage Widget
 
@@ -300,12 +307,11 @@ The Settings entry is in the lower-left corner. Settings are grouped into Interf
 - Displayed metrics: multi-select the metrics to show in the widget (cost, total tokens, cache hit rate, message count, session count, top model), keeping at least one.
 - Opacity: a slider adjusts the overall opacity of the widget, ranging from 30% to 100%, defaulting to 92%.
 
-### Device Integration (macOS only)
+### LED Light Effects (macOS only)
 
 - LED light effect integration: mirrors the tray session status to the light effects of an ANTICATER USB device. When you open Settings, the device is detected automatically, showing connected / no device detected / detecting status. The three states—awaiting your input, working / thinking, and done / idle—can each be assigned a light effect mode (off / clockwise / counterclockwise / alternating / jumping / blinking), and the test button next to each mode lights it up immediately for verification. The configuration can still be saved when no device is connected, and it takes effect once a device is attached.
-- Session focus shortcut: registers a global shortcut for "focus the session that most needs attention". Click to record and press the key combination (which must include at least one modifier key ⌘/⌃/⌥/⇧); you can restore the default at any time.
 
-> The entire Device Integration group is shown only on macOS; other platforms do not provide the LED or the global session focus shortcut.
+> The LED light effect card is shown only on macOS.
 
 ### Prevent Sleep (macOS only)
 
@@ -319,9 +325,10 @@ When Claude Code sessions need to run for a long time, you can stop the Mac from
 - **Live status**: when the mode is not Off, Settings shows a status dot such as “Keeping awake” or “Idle, may sleep”; the tray menu can also switch modes.
 - **Limits**: macOS only; hardware policies such as closing the lid may still sleep the machine; quitting the app releases the power assertion.
 
-### System Notifications and Pricing
+### System Notifications, Sounds, and Pricing
 
 - System notifications: used when a Claude session enters the pending state, when clicking a session to jump but terminal location fails, and when the cache hit rate in the last 5 minutes falls below the configured threshold (default 90%, adjustable from 10% to 99%). When enabled, system notification permission is requested first; if permission is denied, the setting stays off.
+- Waiting sound: plays a system sound when a session starts waiting for input; choose and preview Glass, Submarine, Hero, Ping, Sosumi, or Tink. The option is shown on every platform but only plays on macOS.
 - Third-party model pricing: controls whether Kimi, MiMo, GLM, MiniMax, and DeepSeek are estimated using models.dev prices; when off, the cost of these models is counted as 0.
 
 ### System Integration
@@ -333,7 +340,7 @@ The available items come from a built-in support list and system detection; they
 
 ### Log Viewer
 
-Click View Logs to open the log window, which supports filtering by level (all / error / warn / info / debug / trace), searching, refreshing, opening the log directory, and clearing logs. The log shows at most the 500 most recent matching results and indicates when results are truncated.
+Click View Logs to open the log window, which supports filtering by level (all / error / warn / info / debug / trace), searching, refreshing, opening the log directory, and clearing logs. By default it shows the 500 most recent matching results, switchable to 1000 / 2000 / 5000, and indicates when results are truncated.
 
 ### System Information
 
@@ -457,6 +464,10 @@ The Stats page reads the local statistics snapshot from `~/.claude.json`; the Us
 
 The model is not in the price table, so the tokens are still counted but the cost is counted as 0. Kimi, MiMo, GLM, MiniMax, and DeepSeek are also counted as 0 when third-party model pricing is off. You can try refreshing prices, or enable third-party model pricing on the Settings page.
 
+### How do I update Claude Code plugins?
+
+Code Manager only manages `enabledPlugins` and `extraKnownMarketplaces` in your settings; it does not install or upgrade plugins. To update plugins, run `claude plugin update <plugin>@<marketplace>` for a single plugin, or `/plugin marketplace update <marketplace>` inside Claude Code to refresh the catalog and upgrade the installed plugins from that marketplace. You can also set `extraKnownMarketplaces.<name>.autoUpdate` to `true` in the configuration's JSON mode so Claude Code updates them on startup. See the official docs: [Discover and install plugins](https://code.claude.com/docs/en/discover-plugins).
+
 ### Why can't I edit a symlinked Skill?
 
 The source directory of a symlinked Skill is not within Code Manager's direct management scope. The application only allows toggling, importing, and opening the directory; the content must be maintained in the source directory.
@@ -467,4 +478,4 @@ This operation first generates a dry-run deletion plan and only executes it afte
 
 ### Why don't I see the LED light effect integration or the session focus shortcut?
 
-Both are provided on **macOS only** and are not shown in the Settings on Linux and Windows. The LED light effect also requires connecting an ANTICATER USB device: when the device integration area of Settings shows "No device detected", the light effect will not light up, so confirm that the device is connected, turn on the switch in that area, and choose a non-"off" light effect mode for the corresponding status.
+Both are provided on **macOS only** and are not shown in the Settings on Linux and Windows. The LED light effect also requires connecting an ANTICATER USB device: when the LED light effect card in Settings shows "No device detected", the light effect will not light up, so confirm that the device is connected, turn on the switch in that card, and choose a non-"off" light effect mode for the corresponding status.

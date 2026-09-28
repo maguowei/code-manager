@@ -6,7 +6,7 @@
 >
 > The authoritative sources for hard constraints, module topology, and verification checklists are the repository-root `CLAUDE.md` and `.claude/rules/*.md`; this document only records platform-related slices of fact. When code or configuration changes, sync this document according to the "Maintenance Guide" at the end.
 
-Code Manager's core configuration management and UI are available on par across macOS / Linux / Windows; the differences concentrate in the **system integration layer** (terminal focus, clickable notifications, status line preset scripts) and the **release layer** (signing, notarization, auto-update). Beyond that, the differences are either dictated by platform-native APIs (paths, file permissions, atomic writes) or wrapped internally by Tauri plugins.
+Code Manager's core configuration management and UI are available on par across macOS / Linux / Windows; the differences concentrate in the **system integration layer** (terminal focus, clickable notifications, prevent sleep, status line preset scripts) and the **release layer** (signing, notarization). Beyond that, the differences are either dictated by platform-native APIs (paths, file permissions, atomic writes) or wrapped internally by Tauri plugins.
 
 ## Table of Contents
 
@@ -33,6 +33,7 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 | Dock / taskbar activation policy switching | ✅ (Dock `Accessory`↔`Regular`) | N/A | N/A | `src-tauri/src/tray.rs` |
 | Autostart | ✅ (AppleScript launcher) | ✅ | ✅ | `tauri-plugin-autostart`, `src-tauri/src/lib.rs` |
 | Log writing and viewing | ✅ | ✅ | ✅ | `src-tauri/src/logging.rs` |
+| In-app auto-update (stable releases) | ✅ | ✅ | ✅ | `tauri-plugin-updater`, `src-tauri/tauri.conf.json` `plugins.updater` |
 
 ### System Integration
 
@@ -41,7 +42,10 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 | Status line preset installation | ✅ Writes `~/.claude/statusline.sh` and grants executable permission (Bash) | ✅ Same as macOS | ✅ Writes `~/.claude/statusline.ps1` and sets the PowerShell invocation command (no executable bit needed) | `src-tauri/src/config.rs::ensure_status_line_preset_supported` (`#[cfg(any(unix, windows))]`) |
 | Terminal session focus (clicking a tray session or using a global shortcut returns to the original tab) | ✅ (Terminal.app / iTerm / Ghostty; includes global session focus shortcut) | ❌ stub `Unsupported` (no shortcut) | ❌ stub `Unsupported` (no shortcut) | `src-tauri/src/terminal_focus.rs` |
 | LED lighting integration (mirrors tray session state to ANTICATER USB device) | ✅ (`led_probe_status` / `led_test_mode`) | ❌ No-op, harmless (probe returns None) | ❌ No-op, harmless (probe returns None) | `src-tauri/src/led.rs` (HID write report) |
-| Clickable system notifications (click to jump back to session) | ✅ (`mac-notification-sys`) | ⚠️ Falls back to plain-text `tauri-plugin-notification` | ⚠️ Falls back to plain-text `tauri-plugin-notification` | `src-tauri/src/tray.rs` |
+| herdr session focus (Claude Code running inside a herdr pane) | ✅ (two-hop: herdr socket + host terminal) | ❌ | ❌ | `src-tauri/src/herdr.rs`, `terminal_focus.rs` |
+| Clickable system notifications (click to jump back to session) | ✅ (`UNUserNotificationCenter` via `objc2-user-notifications`) | ⚠️ Falls back to plain-text `tauri-plugin-notification` | ⚠️ Falls back to plain-text `tauri-plugin-notification` | `src-tauri/src/macos_notifications.rs` |
+| Prevent idle sleep while sessions run | ✅ (IOKit power assertion, optional keep-display-awake) | ❌ No-op | ❌ No-op | `src-tauri/src/sleep.rs` |
+| Waiting-for-input sound | ✅ (`afplay` system sounds) | ❌ No-op | ❌ No-op | `src-tauri/src/sound.rs` |
 | Open in default editor (VS Code / Zed) | ✅ `open -a` | ✅ Relies on CLI in `PATH` | ✅ `tauri-plugin-opener` | `src-tauri/src/native_open.rs` |
 | Open in default terminal | ✅ (Terminal / iTerm / Ghostty) | ✅ (`$TERMINAL` / `xdg-terminal-exec` / `x-terminal-emulator` / Ghostty CLI) | ✅ (Windows Terminal / PowerShell / cmd) | `src-tauri/src/native_open.rs` |
 | Hide console window for child processes | N/A | N/A | ✅ `CREATE_NO_WINDOW` | `src-tauri/src/native_open.rs` |
@@ -59,11 +63,11 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 | Capability | macOS | Linux | Windows | Source |
 | --- | --- | --- | --- | --- |
 | Application data directory | `~/.config/code-manager/` (**intentional** reuse, see below) | `$XDG_CONFIG_HOME/code-manager/` or `~/.config/code-manager/` | `%APPDATA%\code-manager\` | `src-tauri/src/utils.rs::platform_app_data_dir_from_home` |
-| SQLite (`usage.db`) | `~/Library/Application Support/com.gotobeta.app.code-manager/` | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/` | `%APPDATA%\com.gotobeta.app.code-manager\` | Backend `sqlx` uses Tauri `app_config_dir()` |
-| Log directory | `~/Library/Logs/com.gotobeta.app.code-manager/` | `$XDG_DATA_HOME/.../logs/` or `~/.local/share/.../logs/` | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` | `tauri-plugin-log` default `app_log_dir()` |
 | Sensitive file permission bits (0o600) | ✅ Unix mode | ✅ Unix mode | N/A (NTFS ACL, not set) | `src-tauri/src/utils.rs` |
 | Atomic write strategy | `fs::rename()` (POSIX atomic) | `fs::rename()` (POSIX atomic) | Backup-rename-restore three-step approach | `src-tauri/src/utils.rs` |
 | Symlink API | `std::os::unix::fs::symlink` | `std::os::unix::fs::symlink` | `symlink_file` + `symlink_dir`, falls back to hard link on failure (`project.rs`) | `src-tauri/src/skills.rs`, `memory.rs`, `project.rs` |
+
+Full per-platform paths for application data, the usage SQLite cache (`usage.db`, via Tauri `app_config_dir()`), and logs (via `tauri-plugin-log` `app_log_dir()`) are listed in [Local Data and Privacy](./user-manual.md#local-data-and-privacy) of the user manual.
 
 ## Quick Read by Platform
 
@@ -71,7 +75,7 @@ Legend: ✅ full support; ⚠️ degraded / limited; ❌ unavailable; N/A the pl
 
 - **Highest level of support.** All features are available, including terminal session focus, clickable notifications, and Dock activation policy switching.
 - The application data directory is intentionally placed at `~/.config/code-manager/` rather than the system-standard `~/Library/Application Support/`, to ease cross-platform backup and script access (see the section below).
-- Terminal session focus follows `pid → tty → AppleScript`, supporting Terminal.app / iTerm2 / Ghostty; Ghostty matches the tab by its `tty` property (upstream #11592, merged to main via PR #11922 but not yet in a stable release), falling back to unique-`cwd` matching on older versions.
+- Terminal session focus follows `pid → tty → AppleScript`, supporting Terminal.app / iTerm2 / Ghostty; Ghostty matches the tab by its `tty` property on newer versions (1.3.x and earlier lack it), falling back to unique-`cwd` matching.
 - If Gatekeeper blocks the first open, you can remove the quarantine attribute:
   ```bash
   xattr -rd com.apple.quarantine /Applications/code-manager.app
@@ -112,7 +116,7 @@ The header comment in `src-tauri/src/terminal_focus.rs` already states the desig
 
 ### Why Clickable Notifications Are macOS-Only
 
-`tauri-plugin-notification` can post notifications on all three platforms, but **does not support a click callback that jumps to a custom route**. Code Manager additionally introduces `mac-notification-sys` on macOS only (declared in `src-tauri/Cargo.toml` under `[target.'cfg(target_os = "macos")'.dependencies]`), using it to post clickable notifications and bind session information to the click callback. The `notify-rust` action buttons on Linux and the WinRT Toast on Windows can both serve as future alternatives, but are not yet implemented.
+`tauri-plugin-notification` can post notifications on all three platforms, but **does not support a click callback that jumps to a custom route**. Code Manager additionally uses the native `UNUserNotificationCenter` on macOS only (`src-tauri/src/macos_notifications.rs`, via `objc2-user-notifications` declared in `src-tauri/Cargo.toml` under `[target.'cfg(target_os = "macos")'.dependencies]`), using it to post clickable notifications and bind session information to the click callback. The `notify-rust` action buttons on Linux and the WinRT Toast on Windows can both serve as future alternatives, but are not yet implemented.
 
 ### Why LED Lighting Is macOS-Only
 
@@ -147,10 +151,11 @@ By default, creating symbolic links on Windows requires administrator privileges
 
 | Workflow | macOS | Linux | Windows |
 | --- | --- | --- | --- |
-| `.github/workflows/ci.yml` | `macos-26` | `ubuntu-24.04` (includes system dependency installation) | `windows-latest` |
-| `.github/workflows/release.yml` | `macos-26` + `--target universal-apple-darwin` (arm64 + x86_64) | `ubuntu-24.04` | `windows-latest` |
+| `.github/workflows/ci.yml` | `macos-26` | `ubuntu-24.04` (includes system dependency installation) | `windows-2025` |
+| `.github/workflows/release.yml` | `macos-26` + `--target universal-apple-darwin` (arm64 + x86_64) | `ubuntu-24.04` | `windows-2025` |
+| `.github/workflows/nightly.yml` | `macos-26` + `universal-apple-darwin`, `app,dmg` only | `ubuntu-24.04`, `deb,appimage` only | `windows-2025`, `nsis` only |
 
-The build chain uniformly goes through `tauri-apps/tauri-action`; all three platform runners are present, and CI checks and release artifact paths are on par.
+Stable releases go through `tauri-apps/tauri-action`; the nightly workflow calls `tauri build` directly so it can verify and smoke-test artifacts before publishing (see ADR 0006). All three platform runners are present, and CI checks and release artifact paths are on par.
 
 ### Missing Packaging Configuration
 
@@ -160,7 +165,8 @@ The build chain uniformly goes through `tauri-apps/tauri-action`; all three plat
 - **No Windows code signing**: no `bundle.windows.certificateThumbprint` / `digestAlgorithm`. Downloaders will see a SmartScreen warning.
 - **No NSIS / MSI customization**: the Windows installer uses the Tauri default template.
 - **No deb / rpm / AppImage customization**: Linux package metadata uses the Tauri default.
-- **No `updater` section**: the auto-update chain is not enabled, and users on all three platforms must manually download new versions.
+
+Auto-update is configured outside `bundle`: `plugins.updater` points at the stable `latest.json`, and `release.yml` merges `src-tauri/tauri.release.conf.json` (`createUpdaterArtifacts: true`) and signs update packages with minisign (`TAURI_SIGNING_PRIVATE_KEY`). Nightly builds disable updates.
 
 ### Icon Resources
 
@@ -169,7 +175,7 @@ The build chain uniformly goes through `tauri-apps/tauri-action`; all three plat
 - `icon.icns` (macOS)
 - `icon.ico` (Windows)
 - `32x32.png` / `128x128.png` / `128x128@2x.png` (universal)
-- Plus 20 iOS icons and 7 Windows Store Square Logos (not consumed by the current `bundle.targets`, redundant resources)
+- Plus `ios/` and `android/` icon sets, `Square*Logo.png` / `StoreLogo.png` (Windows Store), and `64x64.png` / `icon.png` (not referenced by `bundle.icon`, redundant resources)
 
 ### `Makefile`
 
@@ -193,16 +199,17 @@ When modifying the following code or configuration, **you must sync this documen
 | File / Area | Where to sync in this document |
 | --- | --- |
 | `src-tauri/src/terminal_focus.rs` (adding platform support or changing focus semantics) | The "Terminal session focus" row in the "System Integration" table, "Quick Read by Platform", and the corresponding "Key Differences Explained" subsection |
-| `src-tauri/src/tray.rs` (notification strategy changes) | The "Clickable system notifications" row in the "System Integration" table, and "Key Differences Explained" |
+| `src-tauri/src/macos_notifications.rs` (notification strategy changes) | The "Clickable system notifications" row in the "System Integration" table, and "Key Differences Explained" |
 | `src-tauri/src/led.rs` (adding platform support or changing lighting mapping) | The "LED lighting integration" row in the "System Integration" table, and "Why LED Lighting Is macOS-Only" in "Key Differences Explained" |
+| `src-tauri/src/sleep.rs`, `sound.rs`, `herdr.rs` (adding platform support or changing behavior) | The matching rows in the "System Integration" table |
 | `src-tauri/src/widget.rs` (adding platform conditional compilation or changing widget behavior) | The "Desktop usage widget" row in the "Application Core" table |
 | `src-tauri/src/config.rs::ensure_status_line_preset_supported` | The "Status line preset installation" row in the "System Integration" table, the Windows quick read, and "Key Differences Explained" |
 | `src-tauri/src/utils.rs::platform_app_data_dir_from_home` | The "Application data directory" row in the "File System Behavior" table, and "Differences Kept by Design" |
 | `src-tauri/src/native_open.rs` (adding terminals / editors or changing Windows child-process arguments) | The "Open in default editor", "Open in default terminal", and "Hide console window for child processes" rows in the "System Integration" table |
 | The `[target.'cfg(...)']` dependency blocks in `src-tauri/Cargo.toml` | Sync the corresponding subsection depending on the dependency's purpose |
 | `src/components/SettingsDrawer.tsx::getTerminalOptionsForPlatform` | The "UI-Layer Platform Filtering" table |
-| Adding `bundle.macOS` / `bundle.windows` / `bundle.linux` / `updater` sections to `src-tauri/tauri.conf.json` | The entire "Build and Release Differences" section |
-| `.github/workflows/ci.yml`, `.github/workflows/release.yml` (runner or matrix changes) | The "CI / Release Runner" table |
+| Adding `bundle.macOS` / `bundle.windows` / `bundle.linux` sections or changing `plugins.updater` in `src-tauri/tauri.conf.json` | The entire "Build and Release Differences" section |
+| `.github/workflows/ci.yml`, `release.yml`, `nightly.yml` (runner or matrix changes) | The "CI / Release Runner" table |
 
 When adding any platform conditional compilation block (`#[cfg(target_os = ...)]`, `#[cfg(unix)]`, `#[cfg(windows)]`), also add it to the "Source" column of the corresponding table row, to ease later auditing.
 
@@ -216,5 +223,5 @@ git diff --check
 
 Manually review two points:
 
-- Each row's support level in the matrix matches the current code state (spot-check `src-tauri/src/terminal_focus.rs`, `src-tauri/src/config.rs:1561-1571`, `src-tauri/Cargo.toml:46-47`, `src/components/SettingsDrawer.tsx:124-137`).
+- Each row's support level in the matrix matches the current code state (spot-check `src-tauri/src/terminal_focus.rs`, `config.rs::ensure_status_line_preset_supported`, the `[target.'cfg(...)']` blocks in `src-tauri/Cargo.toml`, and `SettingsDrawer.tsx::getTerminalOptionsForPlatform`).
 - The style is consistent with `docs/user-manual.md` (English, table-driven, file paths in backticks).
