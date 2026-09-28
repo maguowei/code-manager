@@ -130,8 +130,8 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
       en: "Opus Default Model",
     },
     placeholder: {
-      zh: "例如：claude-opus-4-8",
-      en: "e.g. claude-opus-4-8",
+      zh: "例如：claude-opus-5-5",
+      en: "e.g. claude-opus-5-5",
     },
   },
   {

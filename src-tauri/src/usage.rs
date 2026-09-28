@@ -3217,6 +3217,26 @@ mod tests {
                 .input,
             2.0
         );
+
+        // opus 族同时存在 5.5(4/20) 与 5 / 4.x(5/25) 两档价时，旧版本日期快照不能落到 5.5 的低价
+        for id in ["claude-opus-4-8-20260401", "claude-opus-5-20260601"] {
+            let price = match_model_price(id, &builtin).unwrap();
+            assert_eq!(
+                (price.input, price.output),
+                (5.0, 25.0),
+                "{id} 落到了 opus-5-5 的价"
+            );
+        }
+        let opus_5_5 = match_model_price("claude-opus-5-5", &builtin).unwrap();
+        assert_eq!(
+            (
+                opus_5_5.input,
+                opus_5_5.output,
+                opus_5_5.cache_read,
+                opus_5_5.cache_write
+            ),
+            (4.0, 20.0, 0.2, 5.0)
+        );
     }
 
     #[test]
