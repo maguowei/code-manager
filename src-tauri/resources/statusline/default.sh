@@ -211,8 +211,8 @@ EOF
 fi
 
 # prompt cache 状态（Claude Code ≥ v2.1.251 提供 prompt_cache，主对话首次响应后出现；缺少时不显示）：
-#   有效：cache 91% warm (1h ttl, 42m left)（warm 绿；剩余不足 TTL 的 20% 变黄）
-#   失效：cache 91% cold (5m ttl, ~45k recache)（cold 红；~45k 为下次请求需重新缓存的 token）
+#   有效：cache 91% warm (42m/1h)（剩余/TTL；warm 绿，剩余不足 TTL 的 20% 变黄）
+#   失效：cache 91% cold (0/5m, ~45k recache)（cold 红；~45k 为下次请求需重新缓存的 token）
 #   未上报：cache off（prompt caching 关闭，或供应商/网关不上报缓存 token）
 #   紧凑模式只保留状态与 TTL：cache 91% warm 1h
 cache_info=""
@@ -223,9 +223,8 @@ elif [ -n "$pc_present" ]; then
     [ -n "$pc_hit_pct" ] && cache_info+=" $(fmt_hit_pct "$pc_hit_pct")"
     cache_remain=""
     [ "$pc_warm" = "true" ] && [ -n "$pc_expires_at" ] && cache_remain=$(( pc_expires_at - $(date +%s) ))
-    # 括号内细节：TTL 在前，warm 附剩余时间，cold 附重缓存量
+    # 括号内细节：剩余/TTL（同 ctx 的 用量/总量 写法），cold 剩余记 0 并附重缓存量
     cache_detail=""
-    [ -n "$pc_ttl" ] && cache_detail="$pc_ttl ttl"
     if [ "$pc_warm" = "true" ] && { [ -z "$cache_remain" ] || [ "$cache_remain" -gt 0 ]; }; then
         cache_state="warm"
         state_color=32
@@ -236,11 +235,14 @@ elif [ -n "$pc_present" ]; then
                 *) cache_ttl_s=0 ;;
             esac
             [ $(( cache_remain * 5 )) -lt "$cache_ttl_s" ] && state_color=33
-            cache_detail="${cache_detail:+$cache_detail, }$(fmt_span "$cache_remain") left"
+            cache_detail="$(fmt_span "$cache_remain")${pc_ttl:+/$pc_ttl}"
+        else
+            cache_detail="$pc_ttl"
         fi
     else
         cache_state="cold"
         state_color=31
+        [ -n "$pc_ttl" ] && cache_detail="0/$pc_ttl"
         [ -n "$pc_recache_cold" ] && cache_detail="${cache_detail:+$cache_detail, }~$(fmt_tokens_k "$pc_recache_cold") recache"
     fi
     cache_info+=$(printf ' \033[%sm%s\033[0m' "$state_color" "$cache_state")

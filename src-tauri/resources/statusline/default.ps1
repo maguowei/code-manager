@@ -263,8 +263,8 @@ if ($cwd -and $gitAvailable) {
 }
 
 # ── prompt cache 状态（Claude Code ≥ v2.1.251 提供 prompt_cache，主对话首次响应后出现；缺少时不显示）──
-#   有效：cache 91% warm (1h ttl, 42m left)（warm 绿；剩余不足 TTL 的 20% 变黄）
-#   失效：cache 91% cold (5m ttl, ~45k recache)（cold 红；~45k 为下次请求需重新缓存的 token）
+#   有效：cache 91% warm (42m/1h)（剩余/TTL；warm 绿，剩余不足 TTL 的 20% 变黄）
+#   失效：cache 91% cold (0/5m, ~45k recache)（cold 红；~45k 为下次请求需重新缓存的 token）
 #   未上报：cache off（prompt caching 关闭，或供应商/网关不上报缓存 token）
 #   紧凑模式只保留状态与 TTL：cache 91% warm 1h
 $cacheInfo = ''
@@ -279,9 +279,9 @@ if ($null -ne $promptCache -and $pcObserved -eq $false) {
     if ($pcWarm -eq $true -and $null -ne $pcExpiresAt) {
         $cacheRemain = [int64][math]::Floor((AsNum $pcExpiresAt)) - [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     }
-    # 括号内细节：TTL 在前，warm 附剩余时间，cold 附重缓存量
+    # 括号内细节：剩余/TTL（同 ctx 的 用量/总量 写法），cold 剩余记 0 并附重缓存量
     $cacheDetails = @()
-    if ($pcTtl) { $cacheDetails += ("$pcTtl" + ' ttl') }
+    $ttlSuffix = if ($pcTtl) { '/' + $pcTtl } else { '' }
     if ($pcWarm -eq $true -and ($null -eq $cacheRemain -or $cacheRemain -gt 0)) {
         $cacheState = 'warm'
         $stateColor = $C_32
@@ -289,11 +289,14 @@ if ($null -ne $promptCache -and $pcObserved -eq $false) {
             $cacheTtlS = 0
             if ($pcTtl -eq '5m') { $cacheTtlS = 300 } elseif ($pcTtl -eq '1h') { $cacheTtlS = 3600 }
             if ($cacheRemain * 5 -lt $cacheTtlS) { $stateColor = $C_33 }
-            $cacheDetails += ((Format-Span $cacheRemain) + ' left')
+            $cacheDetails += ((Format-Span $cacheRemain) + $ttlSuffix)
+        } elseif ($pcTtl) {
+            $cacheDetails += "$pcTtl"
         }
     } else {
         $cacheState = 'cold'
         $stateColor = $C_31
+        if ($pcTtl) { $cacheDetails += ('0' + $ttlSuffix) }
         if ($null -ne $pcRecacheCold) { $cacheDetails += ('~' + (Format-TokensK $pcRecacheCold) + ' recache') }
     }
     $cacheInfo += ' ' + $stateColor + $cacheState + $C_RESET
