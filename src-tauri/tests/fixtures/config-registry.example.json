@@ -30,7 +30,8 @@
     "waitingSoundEnabled": false,
     "waitingSound": "glass",
     "sleepPrevention": "off",
-    "keepDisplayAwake": false
+    "keepDisplayAwake": false,
+    "cacheHitRateThreshold": 90
   },
   "profiles": [
     {

@@ -85,6 +85,8 @@ export interface AppPreferences {
   sleepPrevention?: SleepPreventionMode;
   /** 屏幕常亮：与模式正交，开启后连显示器一起不熄；默认关（只挡系统空闲休眠）。仅 macOS 生效。 */
   keepDisplayAwake?: boolean;
+  /** 触发系统通知的最近 5 分钟缓存命中率百分比阈值（默认 90，范围 10-99）。 */
+  cacheHitRateThreshold?: number;
 }
 
 /** 防止休眠三态：off 关闭 / whileActive 仅活动会话运行时 / always 始终。 */

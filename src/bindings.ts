@@ -178,6 +178,8 @@ export type AppPreferences = {
 	sleepPrevention?: SleepPreventionMode,
 	/**  保持唤醒时是否连显示器一起不熄（默认 false=仅系统；true 时改用 PreventUserIdleDisplaySleep）。仅 macOS 生效。 */
 	keepDisplayAwake?: boolean,
+	/**  触发系统通知的最近 5 分钟缓存命中率百分比阈值（默认 90，范围 10-99）。 */
+	cacheHitRateThreshold?: number,
 };
 
 export type AppPreferencesInput = {
@@ -201,6 +203,7 @@ export type AppPreferencesInput = {
 	waitingSound?: WaitingSound,
 	sleepPrevention?: SleepPreventionMode,
 	keepDisplayAwake?: boolean,
+	cacheHitRateThreshold?: number,
 };
 
 export type BindingState = BindingState_Serialize | BindingState_Deserialize;

@@ -132,6 +132,9 @@ pub struct AppPreferences {
     /// 保持唤醒时是否连显示器一起不熄（默认 false=仅系统；true 时改用 PreventUserIdleDisplaySleep）。仅 macOS 生效。
     #[serde(default)]
     pub keep_display_awake: bool,
+    /// 触发系统通知的最近 5 分钟缓存命中率百分比阈值（默认 90，范围 10-99）。
+    #[serde(default = "default_cache_hit_rate_threshold")]
+    pub cache_hit_rate_threshold: u8,
 }
 
 impl Default for AppPreferences {
@@ -157,6 +160,7 @@ impl Default for AppPreferences {
             waiting_sound: WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
             keep_display_awake: false,
+            cache_hit_rate_threshold: default_cache_hit_rate_threshold(),
         }
     }
 }
@@ -412,6 +416,8 @@ pub struct AppPreferencesInput {
     pub sleep_prevention: crate::sleep::SleepPreventionMode,
     #[serde(default)]
     pub keep_display_awake: bool,
+    #[serde(default = "default_cache_hit_rate_threshold")]
+    pub cache_hit_rate_threshold: u8,
 }
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
@@ -497,6 +503,15 @@ fn default_floating_widget_metrics() -> Vec<String> {
 /// 浮窗默认不透明度百分比。
 fn default_floating_widget_opacity() -> u8 {
     92
+}
+
+pub const DEFAULT_CACHE_HIT_RATE_THRESHOLD: u8 = 90;
+pub const MIN_CACHE_HIT_RATE_THRESHOLD: u8 = 10;
+pub const MAX_CACHE_HIT_RATE_THRESHOLD: u8 = 99;
+
+/// 缓存命中率系统通知告警默认阈值（百分比）。
+fn default_cache_hit_rate_threshold() -> u8 {
+    DEFAULT_CACHE_HIT_RATE_THRESHOLD
 }
 
 /// "聚焦会话终端"全局快捷键的默认组合。双修饰键降低与其它软件冲突的概率。
@@ -1082,6 +1097,9 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         waiting_sound: input.waiting_sound,
         sleep_prevention: input.sleep_prevention,
         keep_display_awake: input.keep_display_awake,
+        cache_hit_rate_threshold: input
+            .cache_hit_rate_threshold
+            .clamp(MIN_CACHE_HIT_RATE_THRESHOLD, MAX_CACHE_HIT_RATE_THRESHOLD),
     })
 }
 
@@ -3211,6 +3229,7 @@ mod tests {
             waiting_sound: WaitingSound::Submarine,
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
             keep_display_awake: false,
+            cache_hit_rate_threshold: default_cache_hit_rate_threshold(),
         };
 
         let normalized = normalize_app_preferences(input).expect("normalize 应成功");
@@ -3266,6 +3285,7 @@ mod tests {
             waiting_sound: WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
             keep_display_awake: false,
+            cache_hit_rate_threshold: default_cache_hit_rate_threshold(),
         };
 
         let bad_terminal = AppPreferencesInput {
@@ -3279,6 +3299,60 @@ mod tests {
             ..base()
         };
         assert!(normalize_app_preferences(bad_editor).is_err());
+    }
+
+    #[test]
+    fn app_preferences_default_cache_hit_rate_threshold_is_90() {
+        let prefs = AppPreferences::default();
+        assert_eq!(prefs.cache_hit_rate_threshold, 90);
+    }
+
+    #[test]
+    fn normalize_app_preferences_clamps_cache_hit_rate_threshold() {
+        let base = || AppPreferencesInput {
+            show_tray_title: true,
+            show_tray_sessions: true,
+            system_notifications_enabled: false,
+            collapse_sidebar_by_default: false,
+            third_party_provider_pricing_enabled: true,
+            ui_language: "zh".to_string(),
+            default_terminal_app: "terminal".to_string(),
+            default_editor_app: None,
+            tray_title_max_chars: None,
+            session_tray_count_style: SessionTrayCountStyle::default(),
+            tray_pulse_waiting: true,
+            focus_session_shortcut: None,
+            led_control: crate::led::LedControlPreferences::default(),
+            floating_widget_enabled: false,
+            floating_widget_metrics: default_floating_widget_metrics(),
+            floating_widget_opacity: default_floating_widget_opacity(),
+            waiting_sound_enabled: false,
+            waiting_sound: WaitingSound::default(),
+            sleep_prevention: crate::sleep::SleepPreventionMode::default(),
+            keep_display_awake: false,
+            cache_hit_rate_threshold: 90,
+        };
+
+        let low = normalize_app_preferences(AppPreferencesInput {
+            cache_hit_rate_threshold: 5,
+            ..base()
+        })
+        .unwrap();
+        assert_eq!(low.cache_hit_rate_threshold, 10);
+
+        let high = normalize_app_preferences(AppPreferencesInput {
+            cache_hit_rate_threshold: 100,
+            ..base()
+        })
+        .unwrap();
+        assert_eq!(high.cache_hit_rate_threshold, 99);
+
+        let mid = normalize_app_preferences(AppPreferencesInput {
+            cache_hit_rate_threshold: 85,
+            ..base()
+        })
+        .unwrap();
+        assert_eq!(mid.cache_hit_rate_threshold, 85);
     }
 
     #[test]
@@ -4415,6 +4489,7 @@ mod tests {
                 waiting_sound: WaitingSound::default(),
                 sleep_prevention: crate::sleep::SleepPreventionMode::default(),
                 keep_display_awake: false,
+                cache_hit_rate_threshold: DEFAULT_CACHE_HIT_RATE_THRESHOLD,
             },
             profiles: vec![ConfigProfile {
                 id: "user-deepseek".to_string(),
