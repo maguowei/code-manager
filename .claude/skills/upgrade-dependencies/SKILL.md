@@ -95,7 +95,6 @@ Vite、TypeScript、pnpm、Rust 主版本依赖逐项独立评估。
 
 - **不手动编辑 `pnpm-lock.yaml` / `Cargo.lock`**——lock 文件由 resolver 生成，手改会引入实际不存在的版本组合。用 `CI=true pnpm install`、`CI=true pnpm install --no-frozen-lockfile`、`cargo update` 等命令生成。
 - **不顺手改 UI 文案、Tauri command/capability、产品行为**——升级只动版本号；编译/类型/测试挂时按最小必要修改适配，不顺道做产品改进。
-- **不把 `sqlx` 单独升到 `0.9`**——`tauri-plugin-sql` 当前主版本仍绑定 `sqlx 0.8`，两者共享 `SqlitePool` 类型，主版本错配会运行时崩溃。等 plugin 跟上或先解耦池类型。
 - **不把工具链主版本混入安全批**——Vite/TypeScript/pnpm 主版本属于 Batch D，混入会让"安全修复 PR"丧失快速合并和快速回滚的属性。
 - **`pnpm install` 强制 `CI=true`**——无 TTY 场景重建 `node_modules` 可能挂起等待交互输入，`CI=true` 关闭交互。
 
@@ -121,7 +120,6 @@ Vite、TypeScript、pnpm、Rust 主版本依赖逐项独立评估。
 - Vite 8 + `@vitejs/plugin-react` 6 + TypeScript 7 可通过本仓库门禁；TS 下需显式 Node types，并移除已弃用的 `baseUrl`，仅保留 `paths` alias。
 - `schemars 1.x` 弃用了 `RootSchema.schema.object` 访问路径；schema 契约测试改为 `serde_json::to_value(schema_for!(...))` 后读取 `properties` / `required`。
 - `reqwest 0.13` 使用 `default-features = false` 时，Rustls feature 是 `rustls`，不是旧的 `rustls-tls`。
-- `sqlx 0.8.x` 仍与 `tauri-plugin-sql 2.4.0` 绑定（见"执行约束"）。
 
 ## 输出格式
 
@@ -164,4 +162,4 @@ Batch D — breaking：
 - 漏洞修复状态（before/after by severity）
 - 主版本风险与延后理由
 - 锁文件是否完全由工具生成（绝无手改）
-- 下次升级前需要先解决的耦合（如 sqlx/tauri-plugin-sql）
+- 下次升级前需要先解决的依赖耦合

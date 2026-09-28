@@ -8,7 +8,7 @@ Code Manager 的领域术语表(glossary),只记录本项目语境下需要统�
 
 **配置(Profile)**:
 一份完整的 Claude Code 设置单元,引用一个 [Provider](#provider供应商) 并在其 `env` 之上叠加自身 `settings`(认证密钥、permissions/hooks、行为等)。可被[应用](#应用apply)写入 `~/.claude/settings.json`。已移除旧的继承链,配置之间不再互相继承。
-_Avoid_: Profile(裸用英文)、预设/preset(已移除的旧继承模型残留,仅存于 `presetId` 兼容别名)、方案
+_Avoid_: Profile(裸用英文)、预设/preset(已移除的旧继承模型残留)、方案
 
 **Provider(供应商)**:
 只承载供应商客观信息的单元:连接地址 `env.ANTHROPIC_BASE_URL`、模型映射与元数据(`models`/`docUrl`),以及网关要求的客户端会话标识头声明(`sessionHeader`)。**全部内置只读、不支持自定义、无继承**,且**不含认证密钥、不含 permissions/hooks**——那些都属于[配置](#配置profile)。

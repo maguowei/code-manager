@@ -21,7 +21,7 @@ paths:
 
 项目采用 **Provider -> 配置** 两层模型：Provider（供应商）只承载供应商客观信息——`env`（连接地址 `ANTHROPIC_BASE_URL` + 模型映射 + 可选附加环境变量）与元数据（`models`/`modelSuggestions`/`docUrl`/`sessionHeader`），**不含认证密钥、不含 permissions/hooks 等其它 Claude Code 配置、无继承**。Provider **全部内置只读、不支持自定义**：定义在 `src-tauri/resources/builtin-providers.json`，无 `customProviders`、无 `ProviderInput` / `upsert_provider` / `delete_provider`，也无 `ProviderSource`。配置引用一个 `providerId`，在 Provider 的 `env` 之上叠加自身 `settings`（认证密钥、permissions/hooks、行为等都在配置）。地址单一事实源是 `env.ANTHROPIC_BASE_URL`（不单列 baseUrl 字段）。
 
-> 限期兼容（COMPAT，0.23.0 移除）：`ConfigProfile.provider_id` 带 serde `alias = "presetId"` 读旧字段；`resolve_profile_settings` 对悬空 `providerId` 容错跳过。详见 `config.rs` 中 `COMPAT(presetId→providerId)` 标记。
+`resolve_profile_settings` 对悬空 `providerId`（如引用已下线的内置供应商）容错跳过，只用配置自身 `settings`，不报错。
 
 ## 先读文件
 

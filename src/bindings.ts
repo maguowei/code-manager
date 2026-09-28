@@ -296,11 +296,10 @@ export type ConfigProfile_Deserialize = {
 	id: string,
 	name: string,
 	description: string,
+	providerId: string | null,
 	settings: unknown,
 	createdAt: string,
 	updatedAt: string,
-} & {
-	providerId: string | null,
 };
 
 export type ConfigProfile_Serialize = {

@@ -208,12 +208,7 @@ pub struct ConfigProfile {
     pub id: String,
     pub name: String,
     pub description: String,
-    // COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
-    #[serde(
-        rename = "providerId",
-        alias = "presetId",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(rename = "providerId", skip_serializing_if = "Option::is_none")]
     pub provider_id: Option<String>,
     #[specta(type = specta_typescript::Unknown)]
     pub settings: Value,
@@ -1437,8 +1432,7 @@ fn resolve_profile_settings(profile: &ConfigProfile) -> Result<Value, String> {
     let mut provider_resolved = false;
 
     if let Some(provider_id) = profile.provider_id.as_deref() {
-        // COMPAT(presetId→providerId): 兼容 <=0.20.x 的旧字段，计划 0.23.0 移除
-        // C2：providerId 解析不到（如引用了已丢弃的旧供应商）时容错跳过，仅用 profile.settings，不报错
+        // providerId 解析不到（如引用了已下线的内置供应商）时容错跳过，仅用 profile.settings，不报错
         if let Some(provider) = find_provider(provider_id) {
             provider_resolved = true;
             let mut base = Map::new();
@@ -3639,19 +3633,6 @@ mod tests {
         assert!(read_and_validate_import(path.to_str().unwrap()).is_err());
     }
 
-    // COMPAT(presetId→providerId): 兼容回归测试，0.23.0 移除兼容逻辑时一并删除
-    #[test]
-    fn legacy_preset_id_field_deserializes_into_provider_id() {
-        let json = r#"{
-            "id": "p", "name": "p", "description": "",
-            "presetId": "builtin:deepseek",
-            "settings": {}, "createdAt": "t", "updatedAt": "t"
-        }"#;
-        let profile: ConfigProfile = serde_json::from_str(json).unwrap();
-        assert_eq!(profile.provider_id.as_deref(), Some("builtin:deepseek"));
-    }
-
-    // COMPAT(presetId→providerId): 兼容回归测试，0.23.0 移除兼容逻辑时一并删除
     #[test]
     fn resolve_skips_dangling_provider_id_without_error() {
         let profile = sample_profile(

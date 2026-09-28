@@ -88,7 +88,7 @@ diff <(git show HEAD:src/schemas/claude-settings.schema.json | jq -r '.propertie
 | 格式 | `make fmt-check` |
 | Diff whitespace | `git diff --check` |
 
-- **测试过滤是子串匹配**：`cargo test validate_settings_document` 会命中 4 个 `validate_settings_document_*` 单测（均在 `config::tests` 内），并非"0 个用例"。验证以更全的 `cargo test config::tests`（68 passed 量级）为准即可，二者不矛盾。
+- **测试过滤是子串匹配**：`cargo test validate_settings_document` 只命中 `validate_settings_document_*` 这几个单测（均在 `config::tests` 内），并非"0 个用例"。验证以更全的 `cargo test config::tests` 为准，二者不矛盾。
 - **`validate_settings_document()` 的性质**：未知顶层键放行，已知字段的嵌套结构严格校验。推论：上游**删除**顶层字段 → 老配置作为未知键仍通过，Rust 一般不炸；上游**改已知字段的嵌套结构** → Rust 可能挂，需更新断言或修校验代码。
 - **前端门禁**：Stop 钩子会通用地提示 `make lint/build/test-frontend`；schema-only 改动由上表覆盖，无需前端构建。
 
