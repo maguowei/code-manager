@@ -140,7 +140,12 @@ git_diff_info=""
 if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
     # 获取 git 根目录，以其路径作为缓存 key（md5 取前 8 位）
     git_root=$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")
-    cache_key=$(printf '%s' "$git_root" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "$git_root" | md5 2>/dev/null | cut -c1-8)
+    # 先探测可用的 md5 命令再计算（管道退出码取决于 cut，|| 回退写法在缺 md5sum 时不会触发）
+    if command -v md5sum >/dev/null 2>&1; then
+        cache_key=$(printf '%s' "$git_root" | md5sum | cut -c1-8)
+    else
+        cache_key=$(printf '%s' "$git_root" | md5 | cut -c1-8)
+    fi
     cache_dir="${TMPDIR:-/tmp}"
     cache_file="${cache_dir%/}/statusline-git-cache-${cache_key}"
     cache_max_age=5  # 缓存有效期（秒）
