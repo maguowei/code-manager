@@ -1,7 +1,7 @@
 # Claude Code 默认状态行脚本（Windows / PowerShell 版）
 # 功能完整对齐 resources/statusline/default.sh：两行布局、目录/项目名、git 分支与脏标记、
-# diff 行数、模型/effort/thinking、上下文百分比、token、费用、rate limits、session id、
-# worktree、agent、版本、output style、ANSI 颜色与 OSC 8 超链接。
+# diff 行数、模型/effort/thinking、上下文百分比、token、prompt cache 状态与未命中诊断、费用、
+# rate limits、session id、worktree、agent、版本、output style、窄终端紧凑模式、ANSI 颜色与 OSC 8 超链接。
 # PowerShell 与 ConvertFrom-Json 为系统自带，无需 jq；git 由 Git for Windows 提供。
 
 # 状态行追求健壮而非严格：单个字段异常不应导致整行无输出
@@ -55,12 +55,9 @@ function Osc8($url, $text) {
     return $ESC + ']8;;' + $url + $ESC + '\' + $text + $ESC + ']8;;' + $ESC + '\'
 }
 
-# unix epoch 秒 → 相对时间字符串（如 2h30m、5d、45m）
-function Format-RelativeTime($target) {
-    try { $t = [int64][math]::Floor([double]$target) } catch { return '' }
-    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    $diff = $t - $now
-    if ($diff -le 0) { return 'now' }
+# 秒数 → 时长字符串（如 2h30m、5d、45m，不足 1 分钟为 <1m）
+function Format-Span($diff) {
+    if ($diff -lt 60) { return '<1m' }
     $d = [math]::Floor($diff / 86400)
     $h = [math]::Floor(($diff % 86400) / 3600)
     $m = [math]::Floor(($diff % 3600) / 60)
@@ -71,6 +68,60 @@ function Format-RelativeTime($target) {
     } else {
         return ('{0}m' -f $m)
     }
+}
+
+# unix epoch 秒 → 距今剩余时间（已过期为 now）
+function Format-RelativeTime($target) {
+    try { $t = [int64][math]::Floor([double]$target) } catch { return '' }
+    $diff = $t - [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    if ($diff -le 0) { return 'now' }
+    return Format-Span $diff
+}
+
+# token 数 → k 单位（不足 1000 原样输出）
+function Format-TokensK($n) {
+    $v = [int64](AsNum $n)
+    if ($v -lt 1000) { return "$v" }
+    return ('{0}k' -f [int64][math]::Floor(($v + 500) / 1000))
+}
+
+# 缓存命中率 → 带 ANSI 颜色字符串（越高越省：≥90 绿、70-89 黄、<70 红，与用量配色相反）
+function Format-HitPct($pct) {
+    if ($pct -ge 90) { return $C_32 + $pct + '%' + $C_RESET }
+    elseif ($pct -ge 70) { return $C_33 + $pct + '%' + $C_RESET }
+    else { return $C_31 + $pct + '%' + $C_RESET }
+}
+
+# prompt_cache.last_miss_cause → 缩写（tools+2-1 / sys+120 / ttl5m / server，未知原因原样输出）
+function Format-MissCause($cause) {
+    if ($null -eq $cause) { return '' }
+    $names = @()
+    foreach ($name in @($cause.causes)) {
+        if ($null -eq $name -or "$name" -eq '') { continue }
+        $n = "$name"
+        if ($n -eq 'tools_changed') {
+            $s = 'tools'
+            $added = [int64](AsNum $cause.tools_added)
+            $removed = [int64](AsNum $cause.tools_removed)
+            if ($added -gt 0) { $s += '+' + $added }
+            if ($removed -gt 0) { $s += '-' + $removed }
+            $names += $s
+        } elseif ($n -eq 'system_prompt_changed') {
+            $s = 'sys'
+            if ($null -ne $cause.system_char_delta) {
+                $delta = [int64](AsNum $cause.system_char_delta)
+                if ($delta -ge 0) { $s += '+' + $delta } else { $s += "$delta" }
+            }
+            $names += $s
+        } elseif ($n.StartsWith('ttl_expired_')) {
+            $names += ('ttl' + $n.Substring('ttl_expired_'.Length))
+        } elseif ($n -eq 'likely_server_side') {
+            $names += 'server'
+        } else {
+            $names += $n
+        }
+    }
+    return ($names -join ',')
 }
 
 # rate limit 百分比 → 带 ANSI 颜色字符串（<70 绿,70-89 黄,≥90 红）
@@ -142,6 +193,24 @@ $rl7dReset = Get-Field $data @('rate_limits', 'seven_day', 'resets_at')
 $repoHost = Get-Field $data @('workspace', 'repo', 'host')
 $repoOwner = Get-Field $data @('workspace', 'repo', 'owner')
 $repoName = Get-Field $data @('workspace', 'repo', 'name')
+
+# 窄终端紧凑模式：COLUMNS 由 Claude Code 注入，不足 120 列时省略次要细节（token 用量、缓存倒计时、未命中原因）
+# 缺失、非数字或 0 视为宽度未知，保持完整输出
+$termCols = ToInt $env:COLUMNS
+$compact = ($termCols -gt 0 -and $termCols -lt 120)
+
+# prompt_cache（Claude Code ≥ v2.1.251，主对话首次响应后出现）
+$promptCache = Get-Field $data @('prompt_cache')
+$pcObserved = Get-Field $promptCache @('caching_observed')
+$pcWarm = Get-Field $promptCache @('warm')
+$pcTtl = Get-Field $promptCache @('ttl')
+$pcExpiresAt = Get-Field $promptCache @('expires_at')
+$pcHitRatio = Get-Field $promptCache @('hit_ratio')
+$pcRecacheCold = Get-Field $promptCache @('recache_tokens_if_cold')
+$pcRequests = Get-Field $promptCache @('requests')
+$pcMisses = Get-Field $promptCache @('misses')
+$pcLastMissAt = Get-Field $promptCache @('last_miss_at')
+$pcMissCause = Format-MissCause (Get-Field $promptCache @('last_miss_cause'))
 
 # ── git 分支、脏状态及变更行数（带缓存，避免频繁执行 git diff）──
 $gitInfo = ''
@@ -229,17 +298,35 @@ if ($cwd -and $gitAvailable) {
     }
 }
 
-# ── 当前上下文缓存命中占比（cache_read / total_input_tokens，越高越省）──
+# ── prompt cache 状态（Claude Code ≥ v2.1.251 提供 prompt_cache，主对话首次响应后出现；缺少时不显示）──
+#   有效：cache 91% 42m left（剩余不足 TTL 的 20% 变黄）
+#   失效：cache 91% cold ~45k（~45k 为下次请求需重新缓存的 token）
+#   未上报：cache off（prompt caching 关闭，或供应商/网关不上报缓存 token）
 $cacheInfo = ''
-$totalInput = Get-Field $data @('context_window', 'total_input_tokens')
-$ti = AsNum $totalInput
-if ($ti -gt 0) {
-    $cacheRead = Get-Field $data @('context_window', 'current_usage', 'cache_read_input_tokens')
-    $cachePct = [int][math]::Round((AsNum $cacheRead) * 100 / $ti)
-    # 命中率越高越好：≥90 绿、70-89 黄、<70 红（与上下文用量配色相反）
-    if ($cachePct -ge 90) { $cacheInfo = 'cache ' + $C_32 + $cachePct + '%' + $C_RESET }
-    elseif ($cachePct -ge 70) { $cacheInfo = 'cache ' + $C_33 + $cachePct + '%' + $C_RESET }
-    else { $cacheInfo = 'cache ' + $C_31 + $cachePct + '%' + $C_RESET }
+if ($null -ne $promptCache -and $pcObserved -eq $false) {
+    $cacheInfo = 'cache ' + $C_90 + 'off' + $C_RESET
+} elseif ($null -ne $promptCache) {
+    $cacheInfo = 'cache'
+    if ($null -ne $pcHitRatio) {
+        $cacheInfo += ' ' + (Format-HitPct ([int][math]::Round((AsNum $pcHitRatio) * 100)))
+    }
+    $cacheRemain = $null
+    if ($pcWarm -eq $true -and $null -ne $pcExpiresAt) {
+        $cacheRemain = [int64][math]::Floor((AsNum $pcExpiresAt)) - [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    }
+    if ($pcWarm -eq $true -and ($null -eq $cacheRemain -or $cacheRemain -gt 0)) {
+        if (-not $compact -and $null -ne $cacheRemain) {
+            $cacheTtlS = 0
+            if ($pcTtl -eq '5m') { $cacheTtlS = 300 } elseif ($pcTtl -eq '1h') { $cacheTtlS = 3600 }
+            $remainColor = if ($cacheRemain * 5 -lt $cacheTtlS) { $C_33 } else { $C_90 }
+            $cacheInfo += ' ' + $remainColor + (Format-Span $cacheRemain) + ' left' + $C_RESET
+        }
+    } else {
+        $cacheInfo += ' ' + $C_90 + 'cold' + $C_RESET
+        if (-not $compact -and $null -ne $pcRecacheCold) {
+            $cacheInfo += ' ' + $C_33 + '~' + (Format-TokensK $pcRecacheCold) + $C_RESET
+        }
+    }
 }
 
 # ── 上下文窗口使用百分比及用量 ──
@@ -255,7 +342,8 @@ if ($null -ne $usedPct -and "$usedPct" -ne '') {
     if ($ctxCurrent -gt 0) { $ctxCurrentFmt = Format-K $ctxCurrent }
     if ($ctxTotal -and (AsNum $ctxTotal) -ne 0) { $ctxTotalFmt = Format-K $ctxTotal }
     $ctxUsageSuffix = ''
-    if ($ctxCurrentFmt -and $ctxTotalFmt) { $ctxUsageSuffix = ' (' + $ctxCurrentFmt + '/' + $ctxTotalFmt + ')' }
+    # 紧凑模式省略用量附加信息（如 90k/200k）
+    if (-not $compact -and $ctxCurrentFmt -and $ctxTotalFmt) { $ctxUsageSuffix = ' (' + $ctxCurrentFmt + '/' + $ctxTotalFmt + ')' }
     if ($usedInt -ge 90) {
         $contextInfo = 'ctx ' + $C_31 + $usedInt + '%' + $C_RESET + $C_90 + $ctxUsageSuffix + $C_RESET
     } elseif ($usedInt -ge 70) {
@@ -347,7 +435,23 @@ if ($null -ne $rl7dPct -and "$rl7dPct" -ne '') {
     }
 }
 
-# 3. #xxxxxxxx：session_id 前 8 位（有 transcript_path 则带 OSC 8 链向其父目录）
+# 3. miss N/M：主对话缓存未命中次数/请求数（仅 misses>0 显示；非紧凑模式附最后一次原因与距今时间）
+if ((AsNum $pcMisses) -gt 0) {
+    $missText = 'miss ' + [int64](AsNum $pcMisses)
+    if ($null -ne $pcRequests) { $missText += '/' + [int64](AsNum $pcRequests) }
+    $missSeg = $C_33 + $missText + $C_RESET
+    if (-not $compact) {
+        if ($pcMissCause) { $missSeg += ' ' + $C_90 + $pcMissCause + $C_RESET }
+        if ($null -ne $pcLastMissAt) {
+            $missAgo = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [int64][math]::Floor((AsNum $pcLastMissAt))
+            if ($missAgo -lt 0) { $missAgo = 0 }
+            $missSeg += ' ' + $C_90 + (Format-Span $missAgo) + ' ago' + $C_RESET
+        }
+    }
+    $line2Parts += $missSeg
+}
+
+# 4. #xxxxxxxx：session_id 前 8 位（有 transcript_path 则带 OSC 8 链向其父目录）
 $sessionId = Get-Field $data @('session_id')
 $transcriptPath = Get-Field $data @('transcript_path')
 if ($sessionId) {
@@ -363,29 +467,29 @@ if ($sessionId) {
     }
 }
 
-# 4. @session_name
+# 5. @session_name
 if ($sessionName) { $line2Parts += ($C_90 + '@' + $sessionName + $C_RESET) }
 
-# 5. +N/-N：本次会话累计代码行变更
+# 6. +N/-N：本次会话累计代码行变更
 if ($linesInfo) { $line2Parts += $linesInfo }
 
-# 6. api/wall：会话耗时
+# 7. api/wall：会话耗时
 if ($durationInfo) { $line2Parts += $durationInfo }
 
-# 7. wt:NAME：当前 git worktree 名称
+# 8. wt:NAME：当前 git worktree 名称
 if ($gitWorktree) { $line2Parts += ($C_2_36 + 'wt:' + $gitWorktree + $C_RESET) }
 
-# 8. agent:NAME：--agent 模式下的 agent 名称
+# 9. agent:NAME：--agent 模式下的 agent 名称
 if ($agentName) { $line2Parts += ($C_90 + 'agent:' + $agentName + $C_RESET) }
 
-# 9. vX.Y.Z：版本号（带 OSC 8 链到 CHANGELOG）
+# 10. vX.Y.Z：版本号（带 OSC 8 链到 CHANGELOG）
 $version = Get-Field $data @('version')
 if ($version) {
     $versionLink = Osc8 'https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md' ('v' + $version)
     $line2Parts += ($C_90 + $versionLink + $C_RESET)
 }
 
-# 10. [STYLE]：output_style.name（仅当非 default 时显示）
+# 11. [STYLE]：output_style.name（仅当非 default 时显示）
 $outputStyle = Get-Field $data @('output_style', 'name')
 if ($outputStyle -and $outputStyle -ne 'default') {
     $line2Parts += ($C_90 + '[' + $outputStyle + ']' + $C_RESET)
