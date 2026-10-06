@@ -531,15 +531,27 @@ export default function BrowseMarketplaceTab({
     );
   }
 
-  function formatRefreshSuccessDescription(
-    summaries: Awaited<ReturnType<typeof refreshAll>>,
-  ): string {
+  function formatRefreshDescription(summaries: Awaited<ReturnType<typeof refreshAll>>): string {
     return summaries
       .map((summary) =>
-        formatTemplate(t("profileEditor.plugins.browse.refreshSuccessItem"), {
-          marketplace: summary.marketplaceId,
-          count: summary.pluginCount,
-        }),
+        summary.status === "error"
+          ? formatTemplate(t("profileEditor.plugins.browse.refreshFailureItem"), {
+              marketplace: summary.marketplaceId,
+              error: summary.timedOut
+                ? t("profileEditor.plugins.browse.requestTimeout")
+                : (summary.error ?? ""),
+            })
+          : [
+              formatTemplate(t("profileEditor.plugins.browse.refreshSuccessItem"), {
+                marketplace: summary.marketplaceId,
+                count: summary.pluginCount,
+              }),
+              summary.cacheSaved === false
+                ? t("profileEditor.plugins.browse.cacheUnavailable")
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" · "),
       )
       .join("\n");
   }
@@ -551,7 +563,7 @@ export default function BrowseMarketplaceTab({
     let summaries: Awaited<ReturnType<typeof refreshAll>> = [];
     let installCountsError: string | null = null;
     try {
-      // GitHub 插件列表刷新与 claude catalog 重拉并发；后者失败降级，不拖垮列表刷新
+      // 列表与安装数并发刷新，各自有超时边界；安装数失败时保留列表结果。
       [summaries] = await Promise.all([
         refreshAll(),
         ipc.refreshPluginInstallCounts().catch((error) => {
@@ -561,6 +573,11 @@ export default function BrowseMarketplaceTab({
       // catalog 缓存重拉后重读完整 catalog（本地读取，廉价）
       const next = await loadPluginCatalog();
       setCatalog(next);
+    } catch (error) {
+      showToast(t("profileEditor.plugins.browse.refreshFailure"), "error", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+      return;
     } finally {
       const remainingMs = MIN_REFRESH_FEEDBACK_MS - (Date.now() - startedAt);
       if (remainingMs > 0) {
@@ -568,13 +585,29 @@ export default function BrowseMarketplaceTab({
       }
       setRefreshingAll(false);
     }
-    if (installCountsError) {
+    const failed = summaries.filter((summary) => summary.status === "error");
+    if (failed.length > 0) {
+      const supported = summaries.filter((summary) => !summary.unsupported);
+      showToast(
+        t(
+          failed.length === supported.length
+            ? "profileEditor.plugins.browse.refreshFailure"
+            : "profileEditor.plugins.browse.refreshPartialFailure",
+        ),
+        "error",
+        {
+          description: [formatRefreshDescription(summaries), installCountsError]
+            .filter(Boolean)
+            .join("\n"),
+        },
+      );
+    } else if (installCountsError) {
       showToast(t("profileEditor.plugins.browse.installCountsRefreshFailed"), "error", {
         description: installCountsError,
       });
     } else {
       showToast(t("profileEditor.plugins.browse.refreshSuccess"), "success", {
-        description: formatRefreshSuccessDescription(summaries),
+        description: formatRefreshDescription(summaries),
       });
     }
   }
@@ -851,7 +884,11 @@ export default function BrowseMarketplaceTab({
                     <div>
                       <div>{failure.marketplaceId}</div>
                       {failure.error && (
-                        <div className="text-xs text-muted-foreground">{failure.error}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {failure.timedOut
+                            ? t("profileEditor.plugins.browse.requestTimeout")
+                            : failure.error}
+                        </div>
                       )}
                     </div>
                     <Button

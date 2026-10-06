@@ -2,6 +2,7 @@ use std::env;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::time::Duration;
 
 #[cfg(windows)]
 const CLAUDE_FILE_NAMES: &[&str] = &["claude.exe", "claude.cmd", "claude.bat", "claude"];
@@ -12,6 +13,7 @@ const CLAUDE_FILE_NAMES: &[&str] = &["claude"];
 pub(crate) enum ClaudeCliError {
     NotFound,
     Spawn(std::io::Error),
+    Timeout,
 }
 
 impl fmt::Display for ClaudeCliError {
@@ -22,11 +24,39 @@ impl fmt::Display for ClaudeCliError {
                 "未找到 claude CLI，请确认 Claude Code 已安装并可在 PATH 或标准安装目录中访问"
             ),
             Self::Spawn(error) => write!(formatter, "执行 claude CLI 失败: {error}"),
+            Self::Timeout => write!(formatter, "claude CLI 执行超时，请稍后重试"),
         }
     }
 }
 
 pub(crate) fn run(args: &[String]) -> Result<Output, ClaudeCliError> {
+    let mut command = build_command(args)?;
+    command.output().map_err(ClaudeCliError::Spawn)
+}
+
+pub(crate) async fn run_with_timeout(
+    args: &[String],
+    timeout: Duration,
+) -> Result<Output, ClaudeCliError> {
+    let command = build_command(args)?;
+    run_command_with_timeout(command, timeout).await
+}
+
+async fn run_command_with_timeout(
+    command: Command,
+    timeout: Duration,
+) -> Result<Output, ClaudeCliError> {
+    let mut command = tokio::process::Command::from(command);
+    // 超时会丢弃 output future；终止其子进程，避免后台残留执行中的 CLI。
+    command.kill_on_drop(true);
+    command.stdin(std::process::Stdio::null());
+    tokio::time::timeout(timeout, command.output())
+        .await
+        .map_err(|_| ClaudeCliError::Timeout)?
+        .map_err(ClaudeCliError::Spawn)
+}
+
+fn build_command(args: &[String]) -> Result<Command, ClaudeCliError> {
     // 保留调用进程显式 PATH 的优先级，再覆盖 GUI 应用缺少 shell PATH 的标准安装场景。
     let program = path_executable()
         .or_else(|| native_installer_path().filter(|path| is_executable(path)))
@@ -38,7 +68,7 @@ pub(crate) fn run(args: &[String]) -> Result<Output, ClaudeCliError> {
     let mut command = Command::new(program);
     command.args(args);
     crate::utils::hide_command_window(&mut command);
-    command.output().map_err(ClaudeCliError::Spawn)
+    Ok(command)
 }
 
 fn path_executable() -> Option<PathBuf> {
@@ -118,10 +148,61 @@ fn is_executable(path: &Path) -> bool {
 
 #[cfg(all(test, unix))]
 mod tests {
-    use super::run;
+    use super::{run, run_command_with_timeout, ClaudeCliError};
     use std::env;
     use std::ffi::OsString;
     use std::fs;
+
+    #[test]
+    fn command_timeout_terminates_child_without_blocking_runtime() {
+        use std::process::Command;
+        use std::time::Duration;
+
+        let root = tempfile::tempdir().unwrap();
+        let marker = root.path().join("finished");
+        let mut command = Command::new("/bin/sh");
+        command.args([
+            "-c",
+            "/bin/sleep 0.2; printf finished > \"$1\"",
+            "diagnostic",
+        ]);
+        command.arg(&marker);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let task = tokio::spawn(run_command_with_timeout(command, Duration::from_millis(50)));
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            assert!(!marker.exists());
+            let result = task.await.unwrap();
+            assert!(matches!(result, Err(ClaudeCliError::Timeout)));
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            assert!(!marker.exists(), "超时后 CLI 不应继续写入");
+        });
+    }
+
+    #[test]
+    fn command_with_timeout_collects_large_output_and_exit_status() {
+        use std::process::Command;
+        use std::time::Duration;
+
+        let mut command = Command::new("/bin/sh");
+        command.args([
+            "-c",
+            "/bin/dd if=/dev/zero bs=1024 count=600 2>/dev/null; printf failure >&2; exit 7",
+        ]);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let output = runtime
+            .block_on(run_command_with_timeout(command, Duration::from_secs(5)))
+            .unwrap();
+        assert_eq!(output.stdout.len(), 600 * 1024);
+        assert_eq!(output.stderr, b"failure");
+        assert_eq!(output.status.code(), Some(7));
+    }
 
     struct EnvVarGuard {
         key: &'static str,

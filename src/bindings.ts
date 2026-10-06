@@ -130,6 +130,8 @@ export const commands = {
 	 *  成功/失败，CLI 原始输出仅进后端日志。
 	 */
 	refreshPluginInstallCounts: () => typedError<null, string>(__TAURI_INVOKE("refresh_plugin_install_counts")),
+	/**  专用读取完整 catalog，避免文件预览接口的截断规则影响安装数。 */
+	readPluginCatalog: () => typedError<string | null, string>(__TAURI_INVOKE("read_plugin_catalog")),
 	/**  探测 ANTICATER 设备是否连接(设置页显式调用)。 */
 	ledProbeStatus: () => __TAURI_INVOKE<LedProbeStatus>("led_probe_status"),
 	/**  测试某个灯效(设置页「测试」按钮 / 真机验证门)。立即下发,不受 enabled 影响。 */

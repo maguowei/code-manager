@@ -63,7 +63,7 @@ use memory::{
     preview_delete_memory, toggle_memory, update_memory,
 };
 use native_open::get_native_open_app_options;
-use plugins::refresh_plugin_install_counts;
+use plugins::{read_plugin_catalog, refresh_plugin_install_counts};
 use project::{
     cleanup_project_branches, cleanup_project_worktrees, create_project_agents_skills_symlink,
     create_project_agents_symlink, create_project_claude_settings_file,
@@ -183,6 +183,7 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             refresh_usage_pricing,
             rescan_usage,
             refresh_plugin_install_counts,
+            read_plugin_catalog,
             led_probe_status,
             led_test_mode,
             get_sleep_prevention_status,
