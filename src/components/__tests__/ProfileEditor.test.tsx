@@ -12,6 +12,7 @@ import {
   OFFICIAL_MARKETPLACE_ID,
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
+import { RECOMMENDED_PERMISSION_RULES } from "../profile-editor/permission-presets";
 import { RECOMMENDED_SANDBOX_PRESET } from "../profile-editor/sandbox-presets";
 import { ThemeProvider } from "../theme-provider";
 
@@ -2602,13 +2603,17 @@ describe("ProfileEditor", () => {
     expect(within(permissionsSection).queryByLabelText("询问规则 1")).not.toBeInTheDocument();
     expect(within(permissionsSection).queryByLabelText("拒绝规则 1")).not.toBeInTheDocument();
 
-    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 允许规则" }));
+    // 预设的 allow 为空，列表不再显示展开开关
+    expect(
+      within(permissionsSection).queryByRole("button", { name: "展开 允许规则" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 询问规则" }));
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 拒绝规则" }));
 
-    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("WebSearch");
-    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(rm *)");
-    expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue("Bash(sudo *)");
+    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(git push *)");
+    expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue(
+      "Bash(gh auth token*)",
+    );
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -2624,21 +2629,18 @@ describe("ProfileEditor", () => {
       disableAutoMode: "disable",
       additionalDirectories: ["~/projects/shared"],
     });
-    expect(savedPermissions?.allow).toEqual(["WebSearch"]);
-    expect(savedPermissions?.allow).not.toContain("Bash(old-allow *)");
-    expect(savedPermissions?.ask).toContain("Bash(pnpm publish *)");
-    expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
-    expect(savedPermissions?.deny).toContain("Bash(printenv*)");
-    // 系统配置需可读，避免沙箱内 git status 无法探测 /etc/gitconfig
+    // 预设与 dotfiles 镜像：allow 为空，空列表不写回 allow 键
+    expect(savedPermissions?.allow).toBeUndefined();
+    expect(savedPermissions?.ask).toEqual([...RECOMMENDED_PERMISSION_RULES.ask]);
+    expect(savedPermissions?.deny).toEqual([...RECOMMENDED_PERMISSION_RULES.deny]);
+    expect(savedPermissions?.ask).toContain("Bash(git push *)");
+    expect(savedPermissions?.ask).not.toContain("Bash(rm *)");
+    expect(savedPermissions?.deny).toContain("Bash(gh auth token*)");
+    expect(savedPermissions?.deny).not.toContain("Bash(sudo *)");
+    expect(savedPermissions?.deny).not.toContain("Bash(git reset --hard*)");
+    // 系统配置需可读（如 /etc/gitconfig），只禁写
+    expect(savedPermissions?.deny).toContain("Edit(//etc/**)");
     expect(savedPermissions?.deny).not.toContain("Read(//etc/**)");
-    expect(savedPermissions?.deny).toEqual(
-      expect.arrayContaining([
-        "Edit(//etc/**)",
-        "Read(//etc/shadow)",
-        "Read(//etc/gshadow)",
-        "Read(//etc/ssh/ssh_host_*_key)",
-      ]),
-    );
     expect(savedPermissions?.deny).not.toContain("Read(**/config.yaml)");
   }, 10_000);
 
@@ -3067,7 +3069,7 @@ describe("ProfileEditor", () => {
       "pnpm *",
       ...RECOMMENDED_SANDBOX_PRESET.excludedCommands,
     ]);
-    expect(savedSandbox?.excludedCommands).toContain("git *");
+    expect(savedSandbox?.excludedCommands).toContain("git push *");
     const savedCredentials = savedSandbox?.credentials as Record<string, unknown> | undefined;
     const savedEnvVars = savedCredentials?.envVars as Array<{ name: string }> | undefined;
     // 已存在的 GH_TOKEN 不重复追加
@@ -3077,10 +3079,14 @@ describe("ProfileEditor", () => {
     expect(savedCredentials?.files).toEqual(RECOMMENDED_SANDBOX_PRESET.credentials.files);
     const savedNetwork = savedSandbox?.network as Record<string, unknown> | undefined;
     expect(savedNetwork).toMatchObject({
-      allowedDomains: ["example.com"],
       allowLocalBinding: true,
     });
-    expect(savedNetwork?.allowUnixSockets).toEqual(["/tmp/app.sock", "/var/run/docker.sock"]);
+    expect(savedNetwork?.allowedDomains).toEqual([
+      "example.com",
+      ...RECOMMENDED_SANDBOX_PRESET.network.allowedDomains,
+    ]);
+    // 预设不再接管 allowUnixSockets，用户已有配置保持不变
+    expect(savedNetwork?.allowUnixSockets).toEqual(["/tmp/app.sock"]);
   });
 
   it("keeps delegate visible for existing permissions default mode without exposing it as a normal option", () => {

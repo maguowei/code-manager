@@ -1,5 +1,7 @@
 import { readObject } from "./editor-utils";
 
+// 本预设逐条镜像维护者 dotfiles 的 claude/settings.json 的 sandbox 段；
+// 调整预设时需同步该文件，避免应用出来的配置与 dotfiles 漂移。
 export const RECOMMENDED_SANDBOX_PRESET = {
   enabled: true,
   autoAllowBashIfSandboxed: true,
@@ -8,41 +10,53 @@ export const RECOMMENDED_SANDBOX_PRESET = {
       { name: "AWS_ACCESS_KEY_ID", mode: "deny" },
       { name: "AWS_SECRET_ACCESS_KEY", mode: "deny" },
       { name: "AWS_SESSION_TOKEN", mode: "deny" },
-      { name: "CLOUDSDK_PROXY_PASSWORD", mode: "deny" },
       { name: "GH_TOKEN", mode: "deny" },
       { name: "GITHUB_TOKEN", mode: "deny" },
       { name: "GITLAB_TOKEN", mode: "deny" },
       { name: "NPM_TOKEN", mode: "deny" },
+      { name: "ANTHROPIC_API_KEY", mode: "deny" },
+      { name: "OPENAI_API_KEY", mode: "deny" },
     ],
     files: [
       { path: "~/.ssh", mode: "deny" },
       { path: "~/.aws", mode: "deny" },
       { path: "~/.gnupg", mode: "deny" },
-      { path: "~/.kube", mode: "deny" },
-      { path: "~/.docker/config.json", mode: "deny" },
       { path: "~/.config/gh", mode: "deny" },
       { path: "~/.config/gcloud", mode: "deny" },
+      { path: "~/.kube", mode: "deny" },
+      { path: "~/.docker/config.json", mode: "deny" },
       { path: "~/.git-credentials", mode: "deny" },
       { path: "~/.netrc", mode: "deny" },
-      { path: "~/.npmrc", mode: "deny" },
       { path: "~/.pypirc", mode: "deny" },
     ],
   },
-  // Git 统一在沙箱外执行，以兼容系统配置、凭据和 hooks
+  // 只有联网类 git 子命令在沙箱外执行，以兼容凭据、hooks 与远端访问；
+  // 其余 git 子命令仍在沙箱内运行
   excludedCommands: [
-    "git *",
-    "docker *",
+    "git push *",
+    "git pull *",
+    "git fetch *",
+    "git clone *",
+    "git ls-remote *",
+    "git submodule *",
     "gh *",
-    "aws *",
-    "gcloud *",
-    "kubectl *",
-    "helm *",
-    "ssh *",
-    "scp *",
+    "docker *",
   ],
   network: {
     allowLocalBinding: true,
-    allowUnixSockets: ["/var/run/docker.sock"],
+    allowedDomains: [
+      "github.com",
+      "*.githubusercontent.com",
+      "ghcr.io",
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "proxy.golang.org",
+      "sum.golang.org",
+      "crates.io",
+      "*.crates.io",
+      "formulae.brew.sh",
+    ],
   },
 } as const;
 
@@ -168,12 +182,12 @@ export function mergeRecommendedSandboxPreset(value: unknown): SandboxPresetMerg
     networkChanged = true;
   }
 
-  const allowUnixSockets = appendMissingStrings(
-    nextNetwork.allowUnixSockets,
-    RECOMMENDED_SANDBOX_PRESET.network.allowUnixSockets,
+  const allowedDomains = appendMissingStrings(
+    nextNetwork.allowedDomains,
+    RECOMMENDED_SANDBOX_PRESET.network.allowedDomains,
   );
-  if (allowUnixSockets.changed) {
-    nextNetwork.allowUnixSockets = allowUnixSockets.value;
+  if (allowedDomains.changed) {
+    nextNetwork.allowedDomains = allowedDomains.value;
     networkChanged = true;
   }
 
