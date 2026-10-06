@@ -1808,6 +1808,80 @@ describe("ProfileEditor", () => {
     expect(saved.settings).not.toHaveProperty("effortLevel");
   });
 
+  it("shows a top-level effort level and migrates the edited value to env", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "custom:team-plan",
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          model: "opus",
+          effortLevel: "xhigh",
+        },
+      },
+    });
+
+    // Claude Code 的 /effort 会写顶层 effortLevel；卡片按「env -> 供应商 -> 顶层」回退，
+    // 编辑器必须显示同一个值，否则会出现「卡片有值、编辑器未设置」的错位
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("xhigh");
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("努力级别"));
+    });
+    const effortSlider = document.querySelector('[data-slot="effort-level-slider"]') as HTMLElement;
+    act(() => {
+      fireEvent.click(within(effortSlider).getByRole("button", { name: "medium" }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.settings.env.CLAUDE_CODE_EFFORT_LEVEL).toBe("medium");
+    // 被编辑过的字段清掉顶层同义键，避免它继续遮蔽刚写入的 env 值
+    expect(saved.settings).not.toHaveProperty("effortLevel");
+    // 未编辑的字段保持原样，不做无谓迁移
+    expect(saved.settings.model).toBe("opus");
+  });
+
+  it("clears both effort layers when the level is unset", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "custom:team-plan",
+        settings: {
+          env: {
+            ANTHROPIC_AUTH_TOKEN: "token",
+            CLAUDE_CODE_EFFORT_LEVEL: "high",
+          },
+          effortLevel: "xhigh",
+        },
+      },
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("努力级别"));
+    });
+    const effortSlider = document.querySelector('[data-slot="effort-level-slider"]') as HTMLElement;
+    act(() => {
+      fireEvent.click(within(effortSlider).getByRole("button", { name: "未设置" }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    const saved = onSave.mock.calls[0][0];
+    // 清空后不应留下任何一层旧值，否则卡片会回退到顶层键继续显示努力级别
+    expect(saved.settings.env.CLAUDE_CODE_EFFORT_LEVEL).toBeUndefined();
+    expect(saved.settings).not.toHaveProperty("effortLevel");
+  });
+
   it("renders env-backed model override fields inside behavior", async () => {
     await act(async () => {
       renderEditor();

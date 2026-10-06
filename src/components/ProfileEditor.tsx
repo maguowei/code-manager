@@ -410,16 +410,18 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       // providerDefault 是 provider 提供的继承默认,effectiveValue 是最终生效值。
       const override = readEnvString(settings, field.envKey);
       const providerDefault = readProviderEnvDefault(field.envKey) || field.defaultValue || "";
-      const source: "override" | "inherited" | "unset" = override
-        ? "override"
-        : providerDefault
-          ? "inherited"
-          : "unset";
+      // 同义顶层键（如 effortLevel）是 schema 规范字段，Claude Code 的 /effort 会写入：
+      // 与配置卡片的回退顺序一致（env 覆盖 -> 供应商默认 -> 顶层键），避免两边显示不同的值
+      const legacyValue = field.legacyTopLevelKey
+        ? readString(settings[field.legacyTopLevelKey])
+        : "";
+      const source: "override" | "inherited" | "unset" =
+        override || legacyValue ? "override" : providerDefault ? "inherited" : "unset";
       return {
         mappedToEnv: true,
         value: override,
         providerDefault,
-        effectiveValue: override || providerDefault,
+        effectiveValue: override || providerDefault || legacyValue,
         source,
       };
     }
@@ -447,7 +449,12 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     _mappedToEnv: boolean,
   ) {
     if (field.envKey) {
-      applySettings(setEnvString(settings, field.envKey, value));
+      let next = setEnvString(settings, field.envKey, value);
+      if (field.legacyTopLevelKey) {
+        // 用户显式写过这一层后，清掉同义顶层键，避免它继续遮蔽新值
+        next = setTopLevelString(next, field.legacyTopLevelKey, "");
+      }
+      applySettings(next);
       return;
     }
     handleSimpleFieldChange(field, value);

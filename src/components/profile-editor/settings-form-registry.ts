@@ -15,6 +15,9 @@ export interface SettingsFieldDefinition {
   kind: SettingsFieldKind;
   storage?: SettingsFieldStorage;
   envKey?: string;
+  // 与 envKey 同义的顶层键（如 effortLevel，Claude Code 的 /effort 会写入）：
+  // 读取时作为回退值，写回时清理，保证编辑器与配置卡片看到同一个值
+  legacyTopLevelKey?: string;
   helperKey?: string;
   defaultValue?: string;
   defaultEnabled?: boolean;
@@ -62,6 +65,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "select",
     storage: "env-only",
     envKey: "CLAUDE_CODE_EFFORT_LEVEL",
+    legacyTopLevelKey: "effortLevel",
     label: {
       zh: "努力级别",
       en: "Effort Level",

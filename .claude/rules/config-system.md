@@ -59,6 +59,7 @@ paths:
 - 专项复杂字段由 profile-editor 子组件维护，例如 Permissions、Sandbox、Hooks、Marketplace、Enabled Plugins、Status Line。
 - 结构化设置分区的官方文档入口在 `StructuredSettingsSections.tsx`，新增分区时同步文档路径、i18n 和错误聚合。
 - 复杂编辑器必须避免首次挂载 no-op writeback。尤其是 accordion 内懒挂载组件，语义等价时不要调用 `onChange`。
+- 同一语义存在两层存储时（`env.CLAUDE_CODE_EFFORT_LEVEL` 与顶层 `effortLevel`），编辑器必须按卡片的回退顺序读取：`env 覆盖 -> 供应商默认 -> 同义顶层键`，并在写回时清掉同义顶层键。只读写 env 会出现「卡片有值、编辑器未设置」，写回后残留的顶层键还会继续遮蔽新值（`SettingsFieldDefinition.legacyTopLevelKey`）。
 - `ProfileEditor` 的 dirty 判断仍依赖 JSON 结构比较；局部编辑器写回时要保留未管理字段和 key 语义，避免只重建自己认识的字段。
 
 ## 插件与 Marketplace
