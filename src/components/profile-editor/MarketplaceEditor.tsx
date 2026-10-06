@@ -18,7 +18,11 @@ import {
   type MarketplaceSourceType,
   readObject,
 } from "./editor-utils";
-import { buildOfficialMarketplaceDraft, OFFICIAL_MARKETPLACE_ID } from "./marketplace-presets";
+import {
+  BUILTIN_MARKETPLACES,
+  type BuiltinMarketplace,
+  buildBuiltinMarketplaceDraft,
+} from "./marketplace-presets";
 import RequiredBadge from "./RequiredBadge";
 
 interface MarketplaceEditorProps {
@@ -265,8 +269,12 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
       },
     ];
   }, [draft, marketplaces]);
-  const hasOfficialMarketplace = useMemo(
-    () => marketplaces.some((marketplace) => marketplace.marketplaceId === OFFICIAL_MARKETPLACE_ID),
+  const availablePresets = useMemo(
+    () =>
+      BUILTIN_MARKETPLACES.filter(
+        (preset) =>
+          !marketplaces.some((marketplace) => marketplace.marketplaceId === preset.marketplaceId),
+      ),
     [marketplaces],
   );
 
@@ -371,15 +379,15 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
     resetEditor(buildNewDraft());
   }
 
-  function handleAddOfficialMarketplace() {
+  function handleAddBuiltinMarketplace(preset: BuiltinMarketplace) {
     if (blockIfDirty()) {
       return;
     }
-    if (hasOfficialMarketplace) {
+    if (marketplaces.some((marketplace) => marketplace.marketplaceId === preset.marketplaceId)) {
       return;
     }
 
-    const nextMarketplaces = [...marketplaces, buildOfficialMarketplaceDraft()];
+    const nextMarketplaces = [...marketplaces, buildBuiltinMarketplaceDraft(preset)];
     setMarketplaces(nextMarketplaces);
     onChange(buildMarketplaceRecord(nextMarketplaces));
     setInteractionError("");
@@ -826,12 +834,16 @@ function MarketplaceEditor({ value, onChange, onError, showTitle = true }: Marke
           </div>
 
           <div className="flex flex-wrap gap-2 max-[720px]:[&>button]:w-full max-[720px]:[&>button]:justify-center">
-            {!hasOfficialMarketplace ? (
-              <Button type="button" className="" onClick={handleAddOfficialMarketplace}>
-                <Plus className="size-4" aria-hidden="true" />
-                {t("profileEditor.marketplace.addOfficial")}
+            {availablePresets.map((preset) => (
+              <Button
+                key={preset.marketplaceId}
+                type="button"
+                onClick={() => handleAddBuiltinMarketplace(preset)}
+              >
+                <Plus data-icon="inline-start" aria-hidden="true" />
+                {t(preset.editorLabel)}
               </Button>
-            ) : null}
+            ))}
             <Button type="button" variant="outline" className="" onClick={handleAddMarketplace}>
               <Plus className="size-4" aria-hidden="true" />
               {t("profileEditor.marketplace.addItem")}
