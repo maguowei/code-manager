@@ -4179,6 +4179,100 @@ describe("ProfileEditor", () => {
     expect(within(behaviorSection).getAllByText("来自供应商").length).toBeGreaterThan(0);
   });
 
+  it("freezes the provider effort level instead of the top-level fallback", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      providers: [
+        ...BUILTIN_PRESETS,
+        {
+          id: "builtin:withdefaults",
+          name: "WithDefaults",
+          description: "带默认值的供应商",
+          modelSuggestions: [],
+          env: {
+            ANTHROPIC_MODEL: "prov-model",
+            CLAUDE_CODE_EFFORT_LEVEL: "max",
+          },
+        },
+      ],
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "builtin:withdefaults",
+        settings: {
+          env: { ANTHROPIC_AUTH_TOKEN: "token" },
+          effortLevel: "xhigh",
+        },
+      },
+    });
+
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("max");
+    fireEvent.click(screen.getByRole("button", { name: "固化当前值" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认应用" }));
+
+    // 固化后更换供应商，努力级别仍保持刚才显示的值。
+    chooseComboboxOption("供应商", "团队计划");
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("max");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.settings.env.CLAUDE_CODE_EFFORT_LEVEL).toBe("max");
+    expect(saved.settings).not.toHaveProperty("effortLevel");
+    expect(saved.settings.env.ANTHROPIC_AUTH_TOKEN).toBe("token");
+  });
+
+  it("clears both effort layers when restoring provider defaults", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      providers: [
+        ...BUILTIN_PRESETS,
+        {
+          id: "builtin:withdefaults",
+          name: "WithDefaults",
+          description: "带默认值的供应商",
+          modelSuggestions: [],
+          env: { CLAUDE_CODE_EFFORT_LEVEL: "max" },
+        },
+      ],
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "builtin:withdefaults",
+        settings: {
+          env: {
+            ANTHROPIC_AUTH_TOKEN: "token",
+            CLAUDE_CODE_EFFORT_LEVEL: "high",
+          },
+          effortLevel: "xhigh",
+        },
+      },
+    });
+
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("high");
+    fireEvent.click(screen.getByRole("button", { name: "恢复默认" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("high")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认应用" }));
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("max");
+
+    // 切到没有默认值的供应商后，不应重新读到旧的顶层设置。
+    chooseComboboxOption("供应商", "团队计划");
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("未设置");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.settings.env).not.toHaveProperty("CLAUDE_CODE_EFFORT_LEVEL");
+    expect(saved.settings).not.toHaveProperty("effortLevel");
+    expect(saved.settings.env.ANTHROPIC_AUTH_TOKEN).toBe("token");
+  });
+
   it("guides users to the merged config preview from the env section", () => {
     renderEditor();
 

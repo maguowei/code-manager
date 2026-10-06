@@ -415,11 +415,16 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       const legacyValue = field.legacyTopLevelKey
         ? readString(settings[field.legacyTopLevelKey])
         : "";
-      const source: "override" | "inherited" | "unset" =
-        override || legacyValue ? "override" : providerDefault ? "inherited" : "unset";
+      const source: "override" | "inherited" | "unset" = override
+        ? "override"
+        : providerDefault
+          ? "inherited"
+          : legacyValue
+            ? "override"
+            : "unset";
       return {
         mappedToEnv: true,
-        value: override,
+        value: override || (!providerDefault ? legacyValue : ""),
         providerDefault,
         effectiveValue: override || providerDefault || legacyValue,
         source,
@@ -443,18 +448,29 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     return readString(settings[field.key]);
   }
 
+  function setBehaviorEnvValue(
+    currentSettings: Record<string, unknown>,
+    field: SettingsFieldDefinition,
+    value: string,
+  ) {
+    if (!field.envKey) {
+      return currentSettings;
+    }
+    let next = setEnvString(currentSettings, field.envKey, value);
+    if (field.legacyTopLevelKey) {
+      // 单字段与批量写回都清掉同义顶层键，避免旧值在之后的回退中重新出现。
+      next = setTopLevelString(next, field.legacyTopLevelKey, "");
+    }
+    return next;
+  }
+
   function handleMappedFieldChange(
     field: SettingsFieldDefinition,
     value: string,
     _mappedToEnv: boolean,
   ) {
     if (field.envKey) {
-      let next = setEnvString(settings, field.envKey, value);
-      if (field.legacyTopLevelKey) {
-        // 用户显式写过这一层后，清掉同义顶层键，避免它继续遮蔽新值
-        next = setTopLevelString(next, field.legacyTopLevelKey, "");
-      }
-      applySettings(next);
+      applySettings(setBehaviorEnvValue(settings, field, value));
       return;
     }
     handleSimpleFieldChange(field, value);
@@ -665,7 +681,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       }
       const state = readBehaviorFieldState(field);
       if (state.source === "override" && state.providerDefault) {
-        return setEnvString(acc, field.envKey, "");
+        return setBehaviorEnvValue(acc, field, "");
       }
       return acc;
     }, settings);
@@ -680,7 +696,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       }
       const state = readBehaviorFieldState(field);
       if (state.source === "inherited" && state.providerDefault) {
-        return setEnvString(acc, field.envKey, state.providerDefault);
+        return setBehaviorEnvValue(acc, field, state.providerDefault);
       }
       return acc;
     }, settings);
