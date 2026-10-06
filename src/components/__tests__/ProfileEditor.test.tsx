@@ -12,6 +12,7 @@ import {
   OFFICIAL_MARKETPLACE_ID,
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
+import { RECOMMENDED_SANDBOX_PRESET } from "../profile-editor/sandbox-presets";
 import { ThemeProvider } from "../theme-provider";
 
 const { invokeMock, showToastMock, fetchMock, openDialogMock, openUrlMock } = vi.hoisted(() => ({
@@ -683,12 +684,12 @@ describe("ProfileEditor", () => {
         "aria-expanded",
         "false",
       );
-      expect(within(commonSection).getByText("已启用 0/15")).toBeInTheDocument();
+      expect(within(commonSection).getByText("已启用 0/16")).toBeInTheDocument();
       expect(within(commonSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
       expect(within(commonSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
 
       const commonHeader = within(commonSection)
-        .getByText("已启用 0/15")
+        .getByText("已启用 0/16")
         .closest('[data-slot="settings-section-header"]');
       expect(commonHeader).toHaveClass("cursor-pointer");
       fireEvent.click(commonHeader as HTMLElement);
@@ -698,7 +699,7 @@ describe("ProfileEditor", () => {
       expect(
         within(commonSection).queryByRole("combobox", { name: "输出风格" }),
       ).not.toBeInTheDocument();
-      expect(within(commonSection).getAllByRole("switch")).toHaveLength(15);
+      expect(within(commonSection).getAllByRole("switch")).toHaveLength(16);
       expect(within(commonSection).getByText("默认启用深度思考")).toBeInTheDocument();
       expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
       expect(within(commonSection).getByText("接受计划时显示清理上下文")).toBeInTheDocument();
@@ -2605,7 +2606,7 @@ describe("ProfileEditor", () => {
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 询问规则" }));
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 拒绝规则" }));
 
-    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
+    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("WebSearch");
     expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(rm *)");
     expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue("Bash(sudo *)");
 
@@ -2623,10 +2624,11 @@ describe("ProfileEditor", () => {
       disableAutoMode: "disable",
       additionalDirectories: ["~/projects/shared"],
     });
-    expect(savedPermissions?.allow).toContain("Bash(go test *)");
+    expect(savedPermissions?.allow).toEqual(["WebSearch"]);
     expect(savedPermissions?.allow).not.toContain("Bash(old-allow *)");
-    expect(savedPermissions?.ask).toContain("Bash(curl *)");
+    expect(savedPermissions?.ask).toContain("Bash(pnpm publish *)");
     expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
+    expect(savedPermissions?.deny).toContain("Bash(printenv*)");
     expect(savedPermissions?.deny).not.toContain("Read(**/config.yaml)");
   }, 10_000);
 
@@ -3018,6 +3020,9 @@ describe("ProfileEditor", () => {
             filesystem: {
               allowWrite: ["/tmp/build"],
             },
+            credentials: {
+              envVars: [{ name: "GH_TOKEN", mode: "deny" }],
+            },
             excludedCommands: ["pnpm *"],
             network: {
               allowedDomains: ["example.com"],
@@ -3048,7 +3053,17 @@ describe("ProfileEditor", () => {
         allowWrite: ["/tmp/build"],
       },
     });
-    expect(savedSandbox?.excludedCommands).toEqual(["pnpm *", "docker *", "git *"]);
+    expect(savedSandbox?.excludedCommands).toEqual([
+      "pnpm *",
+      ...RECOMMENDED_SANDBOX_PRESET.excludedCommands,
+    ]);
+    const savedCredentials = savedSandbox?.credentials as Record<string, unknown> | undefined;
+    const savedEnvVars = savedCredentials?.envVars as Array<{ name: string }> | undefined;
+    // 已存在的 GH_TOKEN 不重复追加
+    expect(savedEnvVars?.[0]).toEqual({ name: "GH_TOKEN", mode: "deny" });
+    expect(savedEnvVars?.filter((entry) => entry.name === "GH_TOKEN")).toHaveLength(1);
+    expect(savedEnvVars).toHaveLength(RECOMMENDED_SANDBOX_PRESET.credentials.envVars.length);
+    expect(savedCredentials?.files).toEqual(RECOMMENDED_SANDBOX_PRESET.credentials.files);
     const savedNetwork = savedSandbox?.network as Record<string, unknown> | undefined;
     expect(savedNetwork).toMatchObject({
       allowedDomains: ["example.com"],
@@ -4287,7 +4302,7 @@ describe("ProfileEditor", () => {
     renderEditor({ profile: null, onSave });
 
     const commonSection = getSection("常用选项");
-    expect(within(commonSection).getByText("已启用 8/15")).toBeInTheDocument();
+    expect(within(commonSection).getByText("已启用 8/16")).toBeInTheDocument();
     toggleAccordionSection("常用选项");
     for (const label of [
       "默认启用深度思考",
@@ -4312,6 +4327,7 @@ describe("ProfileEditor", () => {
       "禁用所有 Hooks",
       "尊重 .gitignore",
       "禁用自动更新",
+      "子进程凭据清理",
       "显式启用 Tool Search",
       "启用 Agent Teams",
     ]) {
@@ -4350,6 +4366,7 @@ describe("ProfileEditor", () => {
     expect(saved.settings.env).not.toHaveProperty("DISABLE_AUTOUPDATER");
     expect(saved.settings.env).not.toHaveProperty("ENABLE_TOOL_SEARCH");
     expect(saved.settings.env).not.toHaveProperty("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
+    expect(saved.settings.env).not.toHaveProperty("CLAUDE_CODE_SUBPROCESS_ENV_SCRUB");
   });
 
   function opencodeGoProvider(): Provider {

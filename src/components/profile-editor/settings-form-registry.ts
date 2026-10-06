@@ -451,6 +451,22 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     },
   },
   {
+    key: "subprocessEnvScrub",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB",
+    enabledValue: "1",
+    label: {
+      zh: "子进程凭据清理",
+      en: "Scrub subprocess credentials",
+    },
+    description: {
+      zh: "从 Bash、hooks 和 stdio MCP 子进程环境中清理 Anthropic、AWS、NPM、数据库等凭据；GitHub Token 和代理设置保留。依赖被清理凭据的脚本、发布操作或 MCP 服务可能认证失败。",
+      en: "Scrub Anthropic, AWS, NPM, database, and other credentials from Bash, hook, and stdio MCP subprocess environments. GitHub tokens and proxy settings are preserved. Scripts, publishing commands, or MCP servers that need scrubbed credentials may fail to authenticate.",
+    },
+  },
+  {
     key: "disableAutoUpdater",
     section: "common",
     kind: "checkbox",
