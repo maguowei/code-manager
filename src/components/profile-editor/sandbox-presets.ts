@@ -28,17 +28,9 @@ export const RECOMMENDED_SANDBOX_PRESET = {
       { path: "~/.pypirc", mode: "deny" },
     ],
   },
-  // 仅排除需要联网、凭据或会写 .git/hooks 的命令，本地 git 操作仍留在沙箱内
+  // Git 统一在沙箱外执行，以兼容系统配置、凭据和 hooks
   excludedCommands: [
-    "git commit *",
-    "git push *",
-    "git pull *",
-    "git fetch *",
-    "git clone *",
-    "git ls-remote *",
-    "git remote *",
-    "git submodule *",
-    "git subtree *",
+    "git *",
     "docker *",
     "gh *",
     "aws *",

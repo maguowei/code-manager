@@ -158,7 +158,10 @@ export const RECOMMENDED_PERMISSION_RULES = {
     "Edit(~/.config/gcloud/**)",
     "Read(~/.git-credentials)",
     "Edit(~/.git-credentials)",
-    "Read(//etc/**)",
+    // 系统配置需可读（如 /etc/gitconfig），只阻止读取系统密码和 SSH 主机私钥
+    "Read(//etc/shadow)",
+    "Read(//etc/gshadow)",
+    "Read(//etc/ssh/ssh_host_*_key)",
     "Edit(//etc/**)",
     "Read(//root/**)",
     "Edit(//root/**)",

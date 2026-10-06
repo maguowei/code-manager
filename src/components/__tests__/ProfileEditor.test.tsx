@@ -2629,6 +2629,16 @@ describe("ProfileEditor", () => {
     expect(savedPermissions?.ask).toContain("Bash(pnpm publish *)");
     expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
     expect(savedPermissions?.deny).toContain("Bash(printenv*)");
+    // 系统配置需可读，避免沙箱内 git status 无法探测 /etc/gitconfig
+    expect(savedPermissions?.deny).not.toContain("Read(//etc/**)");
+    expect(savedPermissions?.deny).toEqual(
+      expect.arrayContaining([
+        "Edit(//etc/**)",
+        "Read(//etc/shadow)",
+        "Read(//etc/gshadow)",
+        "Read(//etc/ssh/ssh_host_*_key)",
+      ]),
+    );
     expect(savedPermissions?.deny).not.toContain("Read(**/config.yaml)");
   }, 10_000);
 
@@ -3057,6 +3067,7 @@ describe("ProfileEditor", () => {
       "pnpm *",
       ...RECOMMENDED_SANDBOX_PRESET.excludedCommands,
     ]);
+    expect(savedSandbox?.excludedCommands).toContain("git *");
     const savedCredentials = savedSandbox?.credentials as Record<string, unknown> | undefined;
     const savedEnvVars = savedCredentials?.envVars as Array<{ name: string }> | undefined;
     // 已存在的 GH_TOKEN 不重复追加
