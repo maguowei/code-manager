@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowDown, ArrowUp, ArrowUpDown, CircleCheck, Info, RefreshCw, Store } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Info, Plus, RefreshCw, Store } from "lucide-react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/hooks/useToast";
@@ -25,7 +25,7 @@ import MarketplacePluginRow from "./MarketplacePluginRow";
 import type { MarketplacePluginEntry } from "./marketplace-catalog";
 import { getProviderAffiliation } from "./marketplace-catalog";
 import { estimatePluginRowSize } from "./marketplace-plugin-row-utils";
-import { OFFICIAL_MARKETPLACE_ID, OFFICIAL_MARKETPLACE_REPO } from "./marketplace-presets";
+import { BUILTIN_MARKETPLACES, type BuiltinMarketplace } from "./marketplace-presets";
 import {
   emptyPluginCatalog,
   loadPluginCatalog,
@@ -95,7 +95,7 @@ function getAriaSort(direction: SortDirection): "ascending" | "descending" {
 // owner/repo 格式校验
 const GITHUB_REPO_PATTERN = /^[^/\s]+\/[^/\s]+$/;
 
-// 浏览页快速添加 github 插件市场的轻量 Popover：一键官方 + 自定义仓库
+// 浏览页快速添加 github 插件市场的轻量 Popover：内置市场 + 自定义仓库
 function AddMarketplacePopover({
   existingMarketplaceIds,
   onAddMarketplace,
@@ -113,7 +113,9 @@ function AddMarketplacePopover({
   const [repo, setRepo] = useState("");
   const [error, setError] = useState("");
 
-  const officialPresent = existingMarketplaceIds.includes(OFFICIAL_MARKETPLACE_ID);
+  const availablePresets = BUILTIN_MARKETPLACES.filter(
+    (preset) => !existingMarketplaceIds.includes(preset.marketplaceId),
+  );
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -123,10 +125,10 @@ function AddMarketplacePopover({
     }
   }
 
-  function handleAddOfficial() {
+  function handleAddBuiltin(preset: BuiltinMarketplace) {
     onAddMarketplace({
-      marketplaceId: OFFICIAL_MARKETPLACE_ID,
-      repo: OFFICIAL_MARKETPLACE_REPO,
+      marketplaceId: preset.marketplaceId,
+      repo: preset.repo,
       ref: "",
       path: "",
     });
@@ -168,17 +170,20 @@ function AddMarketplacePopover({
           <div className="text-sm font-semibold">
             {t("profileEditor.plugins.browse.addMarketplaceTitle")}
           </div>
-          {!officialPresent && (
+          {availablePresets.length > 0 && (
             <>
-              <Button
-                type="button"
-                variant="secondary"
-                className="justify-start gap-1.5"
-                onClick={handleAddOfficial}
-              >
-                <CircleCheck className="size-3.5" aria-hidden="true" />
-                {t("profileEditor.plugins.browse.addMarketplaceOfficial")}
-              </Button>
+              {availablePresets.map((preset) => (
+                <Button
+                  key={preset.marketplaceId}
+                  type="button"
+                  variant="secondary"
+                  className="justify-start gap-1.5"
+                  onClick={() => handleAddBuiltin(preset)}
+                >
+                  <Plus data-icon="inline-start" aria-hidden="true" />
+                  {t(preset.browseLabel)}
+                </Button>
+              ))}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
                 {t("profileEditor.plugins.browse.addMarketplaceOr")}

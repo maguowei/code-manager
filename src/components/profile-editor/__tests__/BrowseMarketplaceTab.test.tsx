@@ -826,6 +826,63 @@ describe("BrowseMarketplaceTab", () => {
     expect(screen.getByText(/complete description that should wrap/)).toBeInTheDocument();
   });
 
+  it("社区市场快捷入口使用清单 ID，且可在空列表添加", async () => {
+    const onAddMarketplace = vi.fn();
+    renderTab({ sources: [], existingMarketplaceIds: [], onAddMarketplace });
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    fireEvent.click(await screen.findByRole("button", { name: "一键添加社区市场" }));
+    expect(onAddMarketplace).toHaveBeenCalledWith({
+      marketplaceId: "claude-community",
+      repo: "anthropics/claude-plugins-community",
+      ref: "",
+      path: "",
+    });
+  });
+
+  it("社区市场已配置时隐藏其快捷入口并保留官方入口", async () => {
+    renderTab({
+      sources: [],
+      existingMarketplaceIds: ["claude-community"],
+      onAddMarketplace: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    expect(await screen.findByRole("button", { name: "一键添加官方市场" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "一键添加社区市场" })).not.toBeInTheDocument();
+  });
+
+  it("社区市场清单可加载并使用正确插件 ID 启用", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        name: "claude-community",
+        plugins: [
+          {
+            name: "community-example",
+            source: { source: "url", url: "https://example.com/plugin.git" },
+          },
+        ],
+      }),
+    } as Response);
+    const onAddPlugin = vi.fn();
+    renderTab({
+      sources: [
+        {
+          marketplaceId: "claude-community",
+          sourceType: "github",
+          repo: "anthropics/claude-plugins-community",
+          ref: "",
+          path: "",
+        },
+      ],
+      onAddPlugin,
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /添加并启用/ }));
+    expect(onAddPlugin).toHaveBeenCalledWith("community-example@claude-community");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://raw.githubusercontent.com/anthropics/claude-plugins-community/main/.claude-plugin/marketplace.json",
+    );
+  });
+
   it("无 marketplace 时显示空状态", () => {
     renderTab({ sources: [] });
     expect(screen.getByText("未配置插件来源")).toBeInTheDocument();

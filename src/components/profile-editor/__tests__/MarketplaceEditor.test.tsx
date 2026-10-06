@@ -84,6 +84,43 @@ describe("MarketplaceEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("adds the community preset with its manifest ID and preserves existing markets", () => {
+    const existing = { source: { source: "github", repo: "team/plugins", ref: "stable" } };
+    const { onChange } = renderEditor({ value: { "team-market": existing } });
+    fireEvent.click(screen.getByRole("button", { name: "启用社区市场" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      "team-market": existing,
+      "claude-community": {
+        source: { source: "github", repo: "anthropics/claude-plugins-community" },
+      },
+    });
+    expect(screen.queryByRole("button", { name: "启用社区市场" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "启用官方市场" })).toBeInTheDocument();
+  });
+
+  it("preserves an existing community source without writing on mount", () => {
+    const { onChange } = renderEditor({
+      value: {
+        "claude-community": {
+          source: { source: "github", repo: "custom/community", ref: "pinned" },
+        },
+      },
+    });
+    expect(screen.queryByRole("button", { name: "启用社区市场" })).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("blocks the community shortcut while a marketplace draft is dirty", () => {
+    const { onChange } = renderEditor({ value: {} });
+    fireEvent.click(screen.getByRole("button", { name: "新增 Marketplace" }));
+    fireEvent.change(screen.getByLabelText("Marketplace ID"), {
+      target: { value: "draft-market" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "启用社区市场" }));
+    expect(screen.getByText("请先保存或取消当前 Marketplace 编辑。")).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("shows a confirmation dialog before deleting a saved marketplace", () => {
     const { onChange } = renderEditor();
 
