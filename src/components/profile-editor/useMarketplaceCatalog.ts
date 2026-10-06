@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchMarketplaceCatalog,
   loadMarketplaceCatalogCache,
+  MarketplaceCatalogTimeoutError,
   type MarketplaceFetchInput,
   type MarketplacePluginEntry,
   saveMarketplaceCatalogCache,
@@ -26,6 +27,7 @@ export interface MarketplaceCatalogState {
   error?: string;
   cachedAt?: string;
   unsupported?: boolean;
+  timedOut?: boolean;
 }
 
 interface UseMarketplaceCatalogOptions {
@@ -45,6 +47,8 @@ export interface MarketplaceRefreshSummary {
   pluginCount: number;
   error?: string;
   unsupported?: boolean;
+  timedOut?: boolean;
+  cacheSaved?: boolean;
 }
 
 function isSupportedSource(sourceType: string): boolean {
@@ -127,10 +131,10 @@ export function useMarketplaceCatalog({
           unsupported: true,
         };
       }
-      setEntry(input.marketplaceId, { status: "loading", error: undefined });
+      setEntry(input.marketplaceId, { status: "loading", error: undefined, timedOut: false });
       try {
         const plugins = await fetchMarketplaceCatalog(input);
-        saveMarketplaceCatalogCache(input.marketplaceId, plugins);
+        const cacheSaved = saveMarketplaceCatalogCache(input.marketplaceId, plugins);
         setEntry(input.marketplaceId, {
           status: "ready",
           plugins,
@@ -141,15 +145,18 @@ export function useMarketplaceCatalog({
           marketplaceId: input.marketplaceId,
           status: "ready",
           pluginCount: plugins.length,
+          cacheSaved,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : "fetch failed";
-        setEntry(input.marketplaceId, { status: "error", error: message });
+        const timedOut = error instanceof MarketplaceCatalogTimeoutError;
+        setEntry(input.marketplaceId, { status: "error", error: message, timedOut });
         return {
           marketplaceId: input.marketplaceId,
           status: "error",
           pluginCount: 0,
           error: message,
+          timedOut,
         };
       }
     },

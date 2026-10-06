@@ -122,11 +122,8 @@ export async function loadPluginCatalog(): Promise<PluginCatalog> {
   }
 
   try {
-    const preview = await ipc.readClaudeFilePreview(PLUGIN_CATALOG_CACHE_PATH);
-    if (preview.isBinary || preview.truncated || !preview.content.trim()) {
-      return emptyPluginCatalog();
-    }
-    return parsePluginCatalog(JSON.parse(preview.content));
+    const content = await ipc.readPluginCatalog();
+    return content ? parsePluginCatalog(JSON.parse(content)) : emptyPluginCatalog();
   } catch {
     return emptyPluginCatalog();
   }

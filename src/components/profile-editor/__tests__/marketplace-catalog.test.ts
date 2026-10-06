@@ -22,6 +22,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   Object.defineProperty(globalThis, "fetch", {
     value: originalFetch,
     writable: true,
@@ -129,3 +130,33 @@ describe("marketplace-catalog", () => {
     expect(localStorage.getItem(CACHE_KEY)).toContain('"a"');
   });
 });
+
+it("请求无响应时超时并取消请求", async () => {
+  vi.useFakeTimers();
+  fetchMock.mockImplementation(() => new Promise(() => {}));
+  const request = fetchMarketplaceCatalog({
+    marketplaceId: "x",
+    sourceType: "github",
+    repo: "x/y",
+    ref: "",
+    path: "",
+  });
+  const verdict = expect(request).rejects.toThrow(/timeout/i);
+  await vi.advanceTimersByTimeAsync(30_000);
+  await verdict;
+  expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
+}, 1000);
+it("响应体持续等待也受请求超时限制", async () => {
+  vi.useFakeTimers();
+  fetchMock.mockResolvedValue({ ok: true, json: () => new Promise(() => {}) });
+  const request = fetchMarketplaceCatalog({
+    marketplaceId: "x",
+    sourceType: "github",
+    repo: "x/y",
+    ref: "",
+    path: "",
+  });
+  const verdict = expect(request).rejects.toThrow(/timeout/i);
+  await vi.advanceTimersByTimeAsync(30_000);
+  await verdict;
+}, 1000);

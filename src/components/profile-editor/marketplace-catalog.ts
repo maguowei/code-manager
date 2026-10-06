@@ -22,6 +22,13 @@ export interface MarketplaceFetchInput {
 
 export const MARKETPLACE_CATALOG_CACHE_KEY = "code-manager-marketplace-plugin-cache:v1";
 const CACHE_VERSION = 1;
+const FETCH_TIMEOUT_MS = 30_000;
+
+export class MarketplaceCatalogTimeoutError extends Error {
+  constructor() {
+    super("marketplace request timeout");
+  }
+}
 
 // catalog 缓存里 Anthropic 第一方插件的作者名
 export const ANTHROPIC_AUTHOR = "Anthropic";
@@ -95,9 +102,27 @@ export async function fetchMarketplaceCatalog(
 ): Promise<MarketplacePluginEntry[]> {
   const url = buildMarketplaceRawUrl(input);
   if (!url) throw new Error(`unsupported marketplace source: ${input.sourceType}`);
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`fetch failed: ${response.status}`);
-  return parseMarketplacePluginCatalog(await response.json(), input.marketplaceId);
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new MarketplaceCatalogTimeoutError());
+      controller.abort();
+    }, FETCH_TIMEOUT_MS);
+  });
+  try {
+    // 超时覆盖请求和响应体读取；取消网络请求，同时保证刷新能够结束。
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`fetch failed: ${response.status}`);
+        return parseMarketplacePluginCatalog(await response.json(), input.marketplaceId);
+      })(),
+      timeout,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function loadMarketplaceCatalogCache(): CacheV1["byMarketplace"] | null {
@@ -115,9 +140,15 @@ export function loadMarketplaceCatalogCache(): CacheV1["byMarketplace"] | null {
 export function saveMarketplaceCatalogCache(
   marketplaceId: string,
   plugins: MarketplacePluginEntry[],
-): void {
-  const current = loadMarketplaceCatalogCache() ?? {};
-  current[marketplaceId] = { plugins, cachedAt: new Date().toISOString() };
-  const cache: CacheV1 = { version: CACHE_VERSION, byMarketplace: current };
-  localStorage.setItem(MARKETPLACE_CATALOG_CACHE_KEY, JSON.stringify(cache));
+): boolean {
+  try {
+    const current = loadMarketplaceCatalogCache() ?? {};
+    current[marketplaceId] = { plugins, cachedAt: new Date().toISOString() };
+    const cache: CacheV1 = { version: CACHE_VERSION, byMarketplace: current };
+    localStorage.setItem(MARKETPLACE_CATALOG_CACHE_KEY, JSON.stringify(cache));
+    return true;
+  } catch {
+    // 缓存只用于下次打开时加速，写入失败不能丢弃已经下载的插件列表。
+    return false;
+  }
 }

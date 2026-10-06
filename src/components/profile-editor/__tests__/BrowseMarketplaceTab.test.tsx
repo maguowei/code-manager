@@ -450,27 +450,18 @@ describe("BrowseMarketplaceTab", () => {
       if (command === "get_config_workspace") {
         return { app: { uiLanguage: "zh" } };
       }
-      if (command === "read_claude_file_preview") {
-        expect(args).toEqual({ path: "plugins/plugin-catalog-cache.json" });
-        return {
-          path: "plugins/plugin-catalog-cache.json",
-          name: "plugin-catalog-cache.json",
-          content: JSON.stringify({
-            version: 1,
-            fetchedAt: "2026-05-25T00:00:00.000Z",
-            catalog: {
-              plugins: {
-                "alpha@claude-plugins-official": { unique_installs: 1234 },
-                "zoo@claude-plugins-official": { unique_installs: 56 },
-              },
+      if (command === "read_plugin_catalog") {
+        expect(args).toBeUndefined();
+        return JSON.stringify({
+          version: 1,
+          fetchedAt: "2026-05-25T00:00:00.000Z",
+          catalog: {
+            plugins: {
+              "alpha@claude-plugins-official": { unique_installs: 1234 },
+              "zoo@claude-plugins-official": { unique_installs: 56 },
             },
-          }),
-          isBinary: false,
-          truncated: false,
-          size: 100,
-          modifiedAt: 0,
-          encoding: "utf-8",
-        };
+          },
+        });
       }
       return null;
     });
@@ -494,34 +485,25 @@ describe("BrowseMarketplaceTab", () => {
       if (command === "get_config_workspace") {
         return { app: { uiLanguage: "zh" } };
       }
-      if (command === "read_claude_file_preview") {
-        return {
-          path: "plugins/plugin-catalog-cache.json",
-          name: "plugin-catalog-cache.json",
-          content: JSON.stringify({
-            version: 1,
-            fetchedAt: "2026-06-14T02:00:00.000Z",
-            catalog: {
-              generated_at: "2026-06-13T08:00:00.000Z",
-              marketplace_sha: "abc1234deadbeef",
-              plugins: {
-                "alpha@claude-plugins-official": {
-                  unique_installs: 1234,
-                  components: {
-                    commands: [{ name: "cmd-a" }],
-                    skills: [{ name: "skill-x" }, { name: "skill-y" }],
-                    hooks: ["PreToolUse"],
-                  },
+      if (command === "read_plugin_catalog") {
+        return JSON.stringify({
+          version: 1,
+          fetchedAt: "2026-06-14T02:00:00.000Z",
+          catalog: {
+            generated_at: "2026-06-13T08:00:00.000Z",
+            marketplace_sha: "abc1234deadbeef",
+            plugins: {
+              "alpha@claude-plugins-official": {
+                unique_installs: 1234,
+                components: {
+                  commands: [{ name: "cmd-a" }],
+                  skills: [{ name: "skill-x" }, { name: "skill-y" }],
+                  hooks: ["PreToolUse"],
                 },
               },
             },
-          }),
-          isBinary: false,
-          truncated: false,
-          size: 100,
-          modifiedAt: 0,
-          encoding: "utf-8",
-        };
+          },
+        });
       }
       return null;
     });
@@ -672,26 +654,17 @@ describe("BrowseMarketplaceTab", () => {
       if (command === "get_config_workspace") {
         return { app: { uiLanguage: "zh" } };
       }
-      if (command === "read_claude_file_preview") {
-        return {
-          path: "plugins/plugin-catalog-cache.json",
-          name: "plugin-catalog-cache.json",
-          content: JSON.stringify({
-            version: 1,
-            fetchedAt: "2026-05-25T00:00:00.000Z",
-            catalog: {
-              plugins: {
-                "alpha@claude-plugins-official": { unique_installs: 10 },
-                "zoo@claude-plugins-official": { unique_installs: 90 },
-              },
+      if (command === "read_plugin_catalog") {
+        return JSON.stringify({
+          version: 1,
+          fetchedAt: "2026-05-25T00:00:00.000Z",
+          catalog: {
+            plugins: {
+              "alpha@claude-plugins-official": { unique_installs: 10 },
+              "zoo@claude-plugins-official": { unique_installs: 90 },
             },
-          }),
-          isBinary: false,
-          truncated: false,
-          size: 100,
-          modifiedAt: 0,
-          encoding: "utf-8",
-        };
+          },
+        });
       }
       return null;
     });
@@ -724,26 +697,17 @@ describe("BrowseMarketplaceTab", () => {
       if (command === "get_config_workspace") {
         return { app: { uiLanguage: "zh" } };
       }
-      if (command === "read_claude_file_preview") {
-        return {
-          path: "plugins/plugin-catalog-cache.json",
-          name: "plugin-catalog-cache.json",
-          content: JSON.stringify({
-            version: 1,
-            fetchedAt: "2026-05-25T00:00:00.000Z",
-            catalog: {
-              plugins: {
-                "alpha@claude-plugins-official": { unique_installs: 10 },
-                "zoo@claude-plugins-official": { unique_installs: 90 },
-              },
+      if (command === "read_plugin_catalog") {
+        return JSON.stringify({
+          version: 1,
+          fetchedAt: "2026-05-25T00:00:00.000Z",
+          catalog: {
+            plugins: {
+              "alpha@claude-plugins-official": { unique_installs: 10 },
+              "zoo@claude-plugins-official": { unique_installs: 90 },
             },
-          }),
-          isBinary: false,
-          truncated: false,
-          size: 100,
-          modifiedAt: 0,
-          encoding: "utf-8",
-        };
+          },
+        });
       }
       return null;
     });
@@ -880,6 +844,7 @@ describe("BrowseMarketplaceTab", () => {
     expect(onAddPlugin).toHaveBeenCalledWith("community-example@claude-community");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://raw.githubusercontent.com/anthropics/claude-plugins-community/main/.claude-plugin/marketplace.json",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -1028,4 +993,126 @@ describe("BrowseMarketplaceTab", () => {
     expect(header).toHaveClass("sticky", "top-0", "z-sticky");
     expect(header).not.toHaveClass("z-10");
   });
+});
+
+it("市场刷新失败时不弹成功通知", async () => {
+  fetchMock.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ plugins: [{ name: "alpha" }] }),
+  });
+  renderTab();
+  await screen.findByText("alpha");
+  fetchMock.mockRejectedValueOnce(new Error("fetch failed: 503"));
+  fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
+  expect(showToastMock).not.toHaveBeenCalledWith("插件市场已刷新", "success", expect.anything());
+  expect(showToastMock).toHaveBeenCalledWith(
+    "插件市场刷新失败",
+    "error",
+    expect.objectContaining({ description: expect.stringContaining("503") }),
+  );
+});
+it("CLI 超时后刷新结束且保留已下载插件", async () => {
+  enableTauriRuntime();
+  let rejectCli: (error: string) => void = () => {};
+  invokeMock.mockImplementation(async (command) => {
+    if (command === "get_config_workspace") return { app: { uiLanguage: "zh" } };
+    if (command === "refresh_plugin_install_counts")
+      return new Promise((_resolve, reject) => {
+        rejectCli = reject;
+      });
+    return null;
+  });
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ plugins: [{ name: "alpha" }] }) });
+  renderTab();
+  await screen.findByText("alpha");
+  fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+  expect(screen.getByRole("button", { name: "刷新中..." })).toBeDisabled();
+  await act(async () => {
+    rejectCli("claude CLI 执行超时");
+  });
+  await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
+  expect(screen.getByText("alpha")).toBeInTheDocument();
+  expect(showToastMock).toHaveBeenCalledWith(
+    "插件安装数刷新失败，可能不是最新",
+    "error",
+    expect.anything(),
+  );
+});
+it("大型安装数缓存通过专用接口完整读取", async () => {
+  enableTauriRuntime();
+  invokeMock.mockImplementation(async (command) => {
+    if (command === "get_config_workspace") return { app: { uiLanguage: "zh" } };
+    if (command === "read_plugin_catalog")
+      return JSON.stringify({
+        catalog: { plugins: { "alpha@claude-plugins-official": { unique_installs: 1234 } } },
+      });
+    if (command === "read_claude_file_preview") throw new Error("不应使用预览接口");
+    return null;
+  });
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ plugins: [{ name: "alpha" }] }) });
+  renderTab();
+  expect(await screen.findByText("1,234")).toBeInTheDocument();
+});
+
+it("网络超时后恢复刷新按钮并提示中文错误", async () => {
+  fetchMock.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ plugins: [{ name: "alpha" }] }),
+  });
+  renderTab();
+  await screen.findByText("alpha");
+  fetchMock.mockImplementationOnce(() => new Promise(() => {}));
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(30_000);
+  });
+  expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled();
+  expect(screen.getByText("alpha")).toBeInTheDocument();
+  expect(showToastMock).toHaveBeenCalledWith(
+    "插件市场刷新失败",
+    "error",
+    expect.objectContaining({ description: expect.stringContaining("请求超时（30 秒）") }),
+  );
+});
+it("部分市场失败时报告部分失败并保留其他市场列表", async () => {
+  const sources = [
+    ...SOURCES,
+    { marketplaceId: "community", sourceType: "github", repo: "x/y", ref: "", path: "" },
+  ];
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ plugins: [{ name: "alpha" }] }) });
+  renderTab({ sources });
+  await waitFor(() => expect(screen.getAllByText("alpha")).toHaveLength(2));
+  fetchMock.mockImplementation(async (url: string) => {
+    if (url.includes("x/y")) throw new Error("fetch failed: 503");
+    return { ok: true, json: async () => ({ plugins: [{ name: "updated" }] }) };
+  });
+  fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
+  expect(screen.getByText("updated")).toBeInTheDocument();
+  expect(showToastMock).toHaveBeenCalledWith(
+    "部分插件市场刷新失败",
+    "error",
+    expect.objectContaining({
+      description: expect.stringContaining("community：fetch failed: 503"),
+    }),
+  );
+});
+it("缓存未保存时刷新成功并说明缓存降级", async () => {
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ plugins: [{ name: "alpha" }] }) });
+  renderTab();
+  await screen.findByText("alpha");
+  vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+    throw new DOMException("quota", "QuotaExceededError");
+  });
+  fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
+  expect(screen.getByText("alpha")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /来源加载失败/ })).not.toBeInTheDocument();
+  expect(showToastMock).toHaveBeenCalledWith(
+    "插件市场已刷新",
+    "success",
+    expect.objectContaining({ description: expect.stringContaining("列表已更新，本地缓存未保存") }),
+  );
 });

@@ -17,6 +17,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   Object.defineProperty(globalThis, "fetch", {
     value: originalFetch,
     writable: true,
@@ -120,4 +121,19 @@ describe("useMarketplaceCatalog", () => {
     expect(result.current.byMarketplace.dev.status).toBe("idle");
     expect(fetchMock).not.toHaveBeenCalled();
   });
+});
+
+it("缓存配额不足不丢弃已下载列表", async () => {
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ plugins: [{ name: "alpha" }] }) });
+  vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+    throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+  });
+  const { result } = renderHook(() =>
+    useMarketplaceCatalog({ sources: SOURCES.slice(0, 1), active: false }),
+  );
+  await act(async () => {
+    await result.current.refreshAll();
+  });
+  expect(result.current.byMarketplace["claude-plugins-official"].status).toBe("ready");
+  expect(result.current.byMarketplace["claude-plugins-official"].plugins).toHaveLength(1);
 });
