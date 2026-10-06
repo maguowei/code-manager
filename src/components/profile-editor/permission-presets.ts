@@ -12,8 +12,6 @@ export const RECOMMENDED_PERMISSION_RULES = {
     "Bash(npm publish *)",
     "Bash(cargo publish *)",
     "Bash(kubectl *)",
-    "Read(**/.env)",
-    "Read(**/.env.*)",
   ],
   deny: [
     "Bash(gh auth token*)",
@@ -51,5 +49,13 @@ export const RECOMMENDED_PERMISSION_RULES = {
     "Edit(~/.pypirc)",
     // 系统配置需可读（如 /etc/gitconfig），只阻止写入
     "Edit(//etc/**)",
+    "Read(**/.env)",
+    "Edit(**/.env)",
+    "Read(**/.env.*)",
+    "Edit(**/.env.*)",
+    // `!` 是 gitignore 否定，把 .env.example 从上面的拒绝范围中排除，保持模板文件可读写；
+    // 它只对位于其前的相对规则生效，调整顺序时注意别让它静默失效
+    "Read(!**/.env.example)",
+    "Edit(!**/.env.example)",
   ],
 } as const;
