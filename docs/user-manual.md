@@ -115,7 +115,7 @@ The configuration editor on the right is divided into several sections.
 - **Basic information**: name (required), description, optional provider (selecting one automatically fills in the connection endpoint and model mapping).
 - **Authentication**: the authentication key is written to `env.ANTHROPIC_AUTH_TOKEN`; the API endpoint is written to `env.ANTHROPIC_BASE_URL`, and when it is not set, the model test uses the official Anthropic endpoint.
 - **Models and behavior**: the default model (an editable dropdown whose candidates come from the current provider's models, or you can type a custom model), the effort level (`auto`/`low`/`medium`/`high`/`xhigh`/`max`), the Opus / Sonnet / Haiku default models (also editable dropdowns), the Subagent model, the reply language, and the output style.
-- **Common options**: override common Claude Code switches such as deep thinking, thinking summaries, Fast Mode, disable Hooks, disable AI attribution, LSP tools, Tool Search, the new Init, no flicker, and Agent Teams. See the editor for the full list.
+- **Common options**: override common Claude Code switches such as deep thinking, thinking summaries, Fast Mode, disable Hooks, disable AI attribution, LSP tools, Tool Search, the new Init, no flicker, subprocess credential scrubbing, and Agent Teams. See the editor for the full list.
 - **Environment variables**: maintain `env` keys other than authentication and common options. Duplicate keys, invalid JSON, or an unsaved row edit will block saving.
 - **Permissions**: default mode, disable `bypassPermissions`, allow / deny / ask rules, additional directories, and recommended rule presets.
 - **Sandbox**: can be enabled or disabled, with recommended presets to add; complex configurations can switch to JSON mode.

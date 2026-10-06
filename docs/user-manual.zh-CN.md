@@ -115,7 +115,7 @@ Skills 对应 `~/.claude/skills/<id>/SKILL.md`。启用的 Skill 保存在 `~/.c
 - **基础信息**：名称（必填）、描述、可选供应商（选择后自动带入连接地址与模型映射）。
 - **认证**：认证密钥写入 `env.ANTHROPIC_AUTH_TOKEN`;API 地址写入 `env.ANTHROPIC_BASE_URL`，未设置时模型测试使用 Anthropic 官方地址。
 - **模型与行为**：默认模型（可输入下拉框，候选取自当前供应商的模型，也可手工输入自定义模型）、努力级别（`auto`/`low`/`medium`/`high`/`xhigh`/`max`）、Opus / Sonnet / Haiku 默认模型（同为可输入下拉框）、Subagent 模型、回复语言、输出风格。
-- **常用选项**：覆盖深度思考、Thinking 摘要、Fast Mode、禁用 Hooks、禁用 AI 署名、LSP 工具、Tool Search、新版 Init、无闪烁、Agent Teams 等 Claude Code 常用开关。具体可在编辑器内查看。
+- **常用选项**：覆盖深度思考、Thinking 摘要、Fast Mode、禁用 Hooks、禁用 AI 署名、LSP 工具、Tool Search、新版 Init、无闪烁、子进程凭据清理、Agent Teams 等 Claude Code 常用开关。具体可在编辑器内查看。
 - **环境变量**：维护除认证和常用选项外的 `env` 键。重复键、非法 JSON 或未保存的行编辑会阻止保存。
 - **权限**：默认模式、禁用 `bypassPermissions`、允许 / 拒绝 / 询问规则、附加目录、推荐规则预设。
 - **Sandbox**：可启用或关闭，可添加推荐预设；复杂配置可切换 JSON 模式。

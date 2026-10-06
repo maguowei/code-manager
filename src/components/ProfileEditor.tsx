@@ -410,16 +410,23 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       // providerDefault 是 provider 提供的继承默认,effectiveValue 是最终生效值。
       const override = readEnvString(settings, field.envKey);
       const providerDefault = readProviderEnvDefault(field.envKey) || field.defaultValue || "";
+      // 同义顶层键（如 effortLevel）是 schema 规范字段，Claude Code 的 /effort 会写入：
+      // 与配置卡片的回退顺序一致（env 覆盖 -> 供应商默认 -> 顶层键），避免两边显示不同的值
+      const legacyValue = field.legacyTopLevelKey
+        ? readString(settings[field.legacyTopLevelKey])
+        : "";
       const source: "override" | "inherited" | "unset" = override
         ? "override"
         : providerDefault
           ? "inherited"
-          : "unset";
+          : legacyValue
+            ? "override"
+            : "unset";
       return {
         mappedToEnv: true,
-        value: override,
+        value: override || (!providerDefault ? legacyValue : ""),
         providerDefault,
-        effectiveValue: override || providerDefault,
+        effectiveValue: override || providerDefault || legacyValue,
         source,
       };
     }
@@ -441,13 +448,29 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
     return readString(settings[field.key]);
   }
 
+  function setBehaviorEnvValue(
+    currentSettings: Record<string, unknown>,
+    field: SettingsFieldDefinition,
+    value: string,
+  ) {
+    if (!field.envKey) {
+      return currentSettings;
+    }
+    let next = setEnvString(currentSettings, field.envKey, value);
+    if (field.legacyTopLevelKey) {
+      // 单字段与批量写回都清掉同义顶层键，避免旧值在之后的回退中重新出现。
+      next = setTopLevelString(next, field.legacyTopLevelKey, "");
+    }
+    return next;
+  }
+
   function handleMappedFieldChange(
     field: SettingsFieldDefinition,
     value: string,
     _mappedToEnv: boolean,
   ) {
     if (field.envKey) {
-      applySettings(setEnvString(settings, field.envKey, value));
+      applySettings(setBehaviorEnvValue(settings, field, value));
       return;
     }
     handleSimpleFieldChange(field, value);
@@ -658,7 +681,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       }
       const state = readBehaviorFieldState(field);
       if (state.source === "override" && state.providerDefault) {
-        return setEnvString(acc, field.envKey, "");
+        return setBehaviorEnvValue(acc, field, "");
       }
       return acc;
     }, settings);
@@ -673,7 +696,7 @@ const ProfileEditor = forwardRef<ProfileEditorHandle, ProfileEditorProps>(functi
       }
       const state = readBehaviorFieldState(field);
       if (state.source === "inherited" && state.providerDefault) {
-        return setEnvString(acc, field.envKey, state.providerDefault);
+        return setBehaviorEnvValue(acc, field, state.providerDefault);
       }
       return acc;
     }, settings);

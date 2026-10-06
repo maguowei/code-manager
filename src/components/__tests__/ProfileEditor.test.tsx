@@ -12,6 +12,8 @@ import {
   OFFICIAL_MARKETPLACE_ID,
   OFFICIAL_MARKETPLACE_REPO,
 } from "../profile-editor/marketplace-presets";
+import { RECOMMENDED_PERMISSION_RULES } from "../profile-editor/permission-presets";
+import { RECOMMENDED_SANDBOX_PRESET } from "../profile-editor/sandbox-presets";
 import { ThemeProvider } from "../theme-provider";
 
 const { invokeMock, showToastMock, fetchMock, openDialogMock, openUrlMock } = vi.hoisted(() => ({
@@ -683,12 +685,12 @@ describe("ProfileEditor", () => {
         "aria-expanded",
         "false",
       );
-      expect(within(commonSection).getByText("已启用 0/15")).toBeInTheDocument();
+      expect(within(commonSection).getByText("已启用 0/16")).toBeInTheDocument();
       expect(within(commonSection).queryByRole("button", { name: "控件" })).not.toBeInTheDocument();
       expect(within(commonSection).queryByRole("button", { name: "JSON" })).not.toBeInTheDocument();
 
       const commonHeader = within(commonSection)
-        .getByText("已启用 0/15")
+        .getByText("已启用 0/16")
         .closest('[data-slot="settings-section-header"]');
       expect(commonHeader).toHaveClass("cursor-pointer");
       fireEvent.click(commonHeader as HTMLElement);
@@ -698,7 +700,7 @@ describe("ProfileEditor", () => {
       expect(
         within(commonSection).queryByRole("combobox", { name: "输出风格" }),
       ).not.toBeInTheDocument();
-      expect(within(commonSection).getAllByRole("switch")).toHaveLength(15);
+      expect(within(commonSection).getAllByRole("switch")).toHaveLength(16);
       expect(within(commonSection).getByText("默认启用深度思考")).toBeInTheDocument();
       expect(within(commonSection).getByText("显示 Thinking 摘要")).toBeInTheDocument();
       expect(within(commonSection).getByText("接受计划时显示清理上下文")).toBeInTheDocument();
@@ -1806,6 +1808,80 @@ describe("ProfileEditor", () => {
     expect(saved.settings).not.toHaveProperty("effortLevel");
   });
 
+  it("shows a top-level effort level and migrates the edited value to env", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "custom:team-plan",
+        settings: {
+          ...PROFILE_FIXTURE.settings,
+          model: "opus",
+          effortLevel: "xhigh",
+        },
+      },
+    });
+
+    // Claude Code 的 /effort 会写顶层 effortLevel；卡片按「env -> 供应商 -> 顶层」回退，
+    // 编辑器必须显示同一个值，否则会出现「卡片有值、编辑器未设置」的错位
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("xhigh");
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("努力级别"));
+    });
+    const effortSlider = document.querySelector('[data-slot="effort-level-slider"]') as HTMLElement;
+    act(() => {
+      fireEvent.click(within(effortSlider).getByRole("button", { name: "medium" }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.settings.env.CLAUDE_CODE_EFFORT_LEVEL).toBe("medium");
+    // 被编辑过的字段清掉顶层同义键，避免它继续遮蔽刚写入的 env 值
+    expect(saved.settings).not.toHaveProperty("effortLevel");
+    // 未编辑的字段保持原样，不做无谓迁移
+    expect(saved.settings.model).toBe("opus");
+  });
+
+  it("clears both effort layers when the level is unset", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "custom:team-plan",
+        settings: {
+          env: {
+            ANTHROPIC_AUTH_TOKEN: "token",
+            CLAUDE_CODE_EFFORT_LEVEL: "high",
+          },
+          effortLevel: "xhigh",
+        },
+      },
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("努力级别"));
+    });
+    const effortSlider = document.querySelector('[data-slot="effort-level-slider"]') as HTMLElement;
+    act(() => {
+      fireEvent.click(within(effortSlider).getByRole("button", { name: "未设置" }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    const saved = onSave.mock.calls[0][0];
+    // 清空后不应留下任何一层旧值，否则卡片会回退到顶层键继续显示努力级别
+    expect(saved.settings.env.CLAUDE_CODE_EFFORT_LEVEL).toBeUndefined();
+    expect(saved.settings).not.toHaveProperty("effortLevel");
+  });
+
   it("renders env-backed model override fields inside behavior", async () => {
     await act(async () => {
       renderEditor();
@@ -2601,13 +2677,17 @@ describe("ProfileEditor", () => {
     expect(within(permissionsSection).queryByLabelText("询问规则 1")).not.toBeInTheDocument();
     expect(within(permissionsSection).queryByLabelText("拒绝规则 1")).not.toBeInTheDocument();
 
-    fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 允许规则" }));
+    // 预设的 allow 为空，列表不再显示展开开关
+    expect(
+      within(permissionsSection).queryByRole("button", { name: "展开 允许规则" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 询问规则" }));
     fireEvent.click(within(permissionsSection).getByRole("button", { name: "展开 拒绝规则" }));
 
-    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
-    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(rm *)");
-    expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue("Bash(sudo *)");
+    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(git push *)");
+    expect(within(permissionsSection).getByLabelText("拒绝规则 1")).toHaveValue(
+      "Bash(gh auth token*)",
+    );
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -2623,10 +2703,18 @@ describe("ProfileEditor", () => {
       disableAutoMode: "disable",
       additionalDirectories: ["~/projects/shared"],
     });
-    expect(savedPermissions?.allow).toContain("Bash(go test *)");
-    expect(savedPermissions?.allow).not.toContain("Bash(old-allow *)");
-    expect(savedPermissions?.ask).toContain("Bash(curl *)");
-    expect(savedPermissions?.deny).toContain("Bash(git reset --hard*)");
+    // 预设与 dotfiles 镜像：allow 为空，空列表不写回 allow 键
+    expect(savedPermissions?.allow).toBeUndefined();
+    expect(savedPermissions?.ask).toEqual([...RECOMMENDED_PERMISSION_RULES.ask]);
+    expect(savedPermissions?.deny).toEqual([...RECOMMENDED_PERMISSION_RULES.deny]);
+    expect(savedPermissions?.ask).toContain("Bash(git push *)");
+    expect(savedPermissions?.ask).not.toContain("Bash(rm *)");
+    expect(savedPermissions?.deny).toContain("Bash(gh auth token*)");
+    expect(savedPermissions?.deny).not.toContain("Bash(sudo *)");
+    expect(savedPermissions?.deny).not.toContain("Bash(git reset --hard*)");
+    // 系统配置需可读（如 /etc/gitconfig），只禁写
+    expect(savedPermissions?.deny).toContain("Edit(//etc/**)");
+    expect(savedPermissions?.deny).not.toContain("Read(//etc/**)");
     expect(savedPermissions?.deny).not.toContain("Read(**/config.yaml)");
   }, 10_000);
 
@@ -2760,82 +2848,6 @@ describe("ProfileEditor", () => {
     expect(savedPermissions?.allow).toEqual(["Bash(rm *)"]);
     expect(savedPermissions?.ask).toEqual(["Bash(curl *)", "Bash(pwd)"]);
     expect(savedPermissions?.deny).toEqual(["Bash(git reset --hard*)"]);
-  });
-
-  it("toggles loose mode by moving configured ask rules into allow and back", async () => {
-    const onSave = vi.fn();
-    renderEditor({
-      onSave,
-      profile: {
-        ...PROFILE_FIXTURE,
-        settings: {
-          permissions: {
-            defaultMode: "dontAsk",
-            disableBypassPermissionsMode: "disable",
-            allow: ["Bash(pwd)"],
-            ask: ["Bash(kill *)", "Bash(env)", "Bash(custom *)"],
-            additionalDirectories: ["~/projects/shared"],
-          },
-        },
-      },
-    });
-
-    const permissionsSection = getSection("权限");
-    await act(async () => {
-      toggleAccordionSection("权限");
-      await Promise.resolve();
-    });
-    const looseModeSwitch = within(permissionsSection).getByRole("switch", {
-      name: "宽松模式",
-    });
-    expect(
-      within(permissionsSection).getByRole("button", { name: "宽松模式说明" }),
-    ).toHaveAttribute(
-      "data-tooltip",
-      "启用后会把宽松规则从询问规则移动到允许规则；关闭后会把这些规则移回询问规则。只影响当前编辑草稿，保存后生效。",
-    );
-    expect(looseModeSwitch).toHaveAttribute("aria-checked", "false");
-
-    await act(async () => {
-      fireEvent.click(looseModeSwitch);
-      await Promise.resolve();
-    });
-    expect(looseModeSwitch).toHaveAttribute("aria-checked", "true");
-    expect(
-      within(permissionsSection).getByRole("button", { name: "收起 允许规则" }),
-    ).toBeInTheDocument();
-
-    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
-    expect(within(permissionsSection).getByLabelText("允许规则 2")).toHaveValue("Bash(kill *)");
-    expect(within(permissionsSection).getByLabelText("允许规则 3")).toHaveValue("Bash(env)");
-    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(custom *)");
-
-    await act(async () => {
-      fireEvent.click(looseModeSwitch);
-      await Promise.resolve();
-    });
-    expect(looseModeSwitch).toHaveAttribute("aria-checked", "false");
-
-    expect(within(permissionsSection).getByLabelText("允许规则 1")).toHaveValue("Bash(pwd)");
-    expect(within(permissionsSection).getByLabelText("询问规则 1")).toHaveValue("Bash(custom *)");
-    expect(within(permissionsSection).getByLabelText("询问规则 2")).toHaveValue("Bash(kill *)");
-    expect(within(permissionsSection).getByLabelText("询问规则 3")).toHaveValue("Bash(env)");
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    });
-
-    expect(onSave).toHaveBeenCalledTimes(1);
-    const savedPermissions = onSave.mock.calls[0]?.[0]?.settings.permissions as
-      | Record<string, unknown>
-      | undefined;
-    expect(savedPermissions).toMatchObject({
-      defaultMode: "dontAsk",
-      disableBypassPermissionsMode: "disable",
-      additionalDirectories: ["~/projects/shared"],
-    });
-    expect(savedPermissions?.allow).toEqual(["Bash(pwd)"]);
-    expect(savedPermissions?.ask).toEqual(["Bash(custom *)", "Bash(kill *)", "Bash(env)"]);
   });
 
   it("selects an additional directory from the add action and preserves cancel as no-op", async () => {
@@ -3018,6 +3030,9 @@ describe("ProfileEditor", () => {
             filesystem: {
               allowWrite: ["/tmp/build"],
             },
+            credentials: {
+              envVars: [{ name: "GH_TOKEN", mode: "deny" }],
+            },
             excludedCommands: ["pnpm *"],
             network: {
               allowedDomains: ["example.com"],
@@ -3048,13 +3063,28 @@ describe("ProfileEditor", () => {
         allowWrite: ["/tmp/build"],
       },
     });
-    expect(savedSandbox?.excludedCommands).toEqual(["pnpm *", "docker *", "git *"]);
+    expect(savedSandbox?.excludedCommands).toEqual([
+      "pnpm *",
+      ...RECOMMENDED_SANDBOX_PRESET.excludedCommands,
+    ]);
+    expect(savedSandbox?.excludedCommands).toContain("git push *");
+    const savedCredentials = savedSandbox?.credentials as Record<string, unknown> | undefined;
+    const savedEnvVars = savedCredentials?.envVars as Array<{ name: string }> | undefined;
+    // 已存在的 GH_TOKEN 不重复追加
+    expect(savedEnvVars?.[0]).toEqual({ name: "GH_TOKEN", mode: "deny" });
+    expect(savedEnvVars?.filter((entry) => entry.name === "GH_TOKEN")).toHaveLength(1);
+    expect(savedEnvVars).toHaveLength(RECOMMENDED_SANDBOX_PRESET.credentials.envVars.length);
+    expect(savedCredentials?.files).toEqual(RECOMMENDED_SANDBOX_PRESET.credentials.files);
     const savedNetwork = savedSandbox?.network as Record<string, unknown> | undefined;
     expect(savedNetwork).toMatchObject({
-      allowedDomains: ["example.com"],
       allowLocalBinding: true,
     });
-    expect(savedNetwork?.allowUnixSockets).toEqual(["/tmp/app.sock", "/var/run/docker.sock"]);
+    expect(savedNetwork?.allowedDomains).toEqual([
+      "example.com",
+      ...RECOMMENDED_SANDBOX_PRESET.network.allowedDomains,
+    ]);
+    // 预设不再接管 allowUnixSockets，用户已有配置保持不变
+    expect(savedNetwork?.allowUnixSockets).toEqual(["/tmp/app.sock"]);
   });
 
   it("keeps delegate visible for existing permissions default mode without exposing it as a normal option", () => {
@@ -4149,6 +4179,100 @@ describe("ProfileEditor", () => {
     expect(within(behaviorSection).getAllByText("来自供应商").length).toBeGreaterThan(0);
   });
 
+  it("freezes the provider effort level instead of the top-level fallback", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      providers: [
+        ...BUILTIN_PRESETS,
+        {
+          id: "builtin:withdefaults",
+          name: "WithDefaults",
+          description: "带默认值的供应商",
+          modelSuggestions: [],
+          env: {
+            ANTHROPIC_MODEL: "prov-model",
+            CLAUDE_CODE_EFFORT_LEVEL: "max",
+          },
+        },
+      ],
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "builtin:withdefaults",
+        settings: {
+          env: { ANTHROPIC_AUTH_TOKEN: "token" },
+          effortLevel: "xhigh",
+        },
+      },
+    });
+
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("max");
+    fireEvent.click(screen.getByRole("button", { name: "固化当前值" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认应用" }));
+
+    // 固化后更换供应商，努力级别仍保持刚才显示的值。
+    chooseComboboxOption("供应商", "团队计划");
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("max");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.settings.env.CLAUDE_CODE_EFFORT_LEVEL).toBe("max");
+    expect(saved.settings).not.toHaveProperty("effortLevel");
+    expect(saved.settings.env.ANTHROPIC_AUTH_TOKEN).toBe("token");
+  });
+
+  it("clears both effort layers when restoring provider defaults", async () => {
+    const onSave = vi.fn();
+    renderEditor({
+      onSave,
+      providers: [
+        ...BUILTIN_PRESETS,
+        {
+          id: "builtin:withdefaults",
+          name: "WithDefaults",
+          description: "带默认值的供应商",
+          modelSuggestions: [],
+          env: { CLAUDE_CODE_EFFORT_LEVEL: "max" },
+        },
+      ],
+      profile: {
+        ...PROFILE_FIXTURE,
+        providerId: "builtin:withdefaults",
+        settings: {
+          env: {
+            ANTHROPIC_AUTH_TOKEN: "token",
+            CLAUDE_CODE_EFFORT_LEVEL: "high",
+          },
+          effortLevel: "xhigh",
+        },
+      },
+    });
+
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("high");
+    fireEvent.click(screen.getByRole("button", { name: "恢复默认" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("high")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认应用" }));
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("max");
+
+    // 切到没有默认值的供应商后，不应重新读到旧的顶层设置。
+    chooseComboboxOption("供应商", "团队计划");
+    expect(screen.getByLabelText("努力级别")).toHaveTextContent("未设置");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.settings.env).not.toHaveProperty("CLAUDE_CODE_EFFORT_LEVEL");
+    expect(saved.settings).not.toHaveProperty("effortLevel");
+    expect(saved.settings.env.ANTHROPIC_AUTH_TOKEN).toBe("token");
+  });
+
   it("guides users to the merged config preview from the env section", () => {
     renderEditor();
 
@@ -4287,7 +4411,7 @@ describe("ProfileEditor", () => {
     renderEditor({ profile: null, onSave });
 
     const commonSection = getSection("常用选项");
-    expect(within(commonSection).getByText("已启用 8/15")).toBeInTheDocument();
+    expect(within(commonSection).getByText("已启用 8/16")).toBeInTheDocument();
     toggleAccordionSection("常用选项");
     for (const label of [
       "默认启用深度思考",
@@ -4312,6 +4436,7 @@ describe("ProfileEditor", () => {
       "禁用所有 Hooks",
       "尊重 .gitignore",
       "禁用自动更新",
+      "子进程凭据清理",
       "显式启用 Tool Search",
       "启用 Agent Teams",
     ]) {
@@ -4350,6 +4475,7 @@ describe("ProfileEditor", () => {
     expect(saved.settings.env).not.toHaveProperty("DISABLE_AUTOUPDATER");
     expect(saved.settings.env).not.toHaveProperty("ENABLE_TOOL_SEARCH");
     expect(saved.settings.env).not.toHaveProperty("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
+    expect(saved.settings.env).not.toHaveProperty("CLAUDE_CODE_SUBPROCESS_ENV_SCRUB");
   });
 
   function opencodeGoProvider(): Provider {

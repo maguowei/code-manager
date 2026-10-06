@@ -15,6 +15,9 @@ export interface SettingsFieldDefinition {
   kind: SettingsFieldKind;
   storage?: SettingsFieldStorage;
   envKey?: string;
+  // 与 envKey 同义的顶层键（如 effortLevel，Claude Code 的 /effort 会写入）：
+  // 读取时作为回退值，写回时清理，保证编辑器与配置卡片看到同一个值
+  legacyTopLevelKey?: string;
   helperKey?: string;
   defaultValue?: string;
   defaultEnabled?: boolean;
@@ -62,6 +65,7 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     kind: "select",
     storage: "env-only",
     envKey: "CLAUDE_CODE_EFFORT_LEVEL",
+    legacyTopLevelKey: "effortLevel",
     label: {
       zh: "努力级别",
       en: "Effort Level",
@@ -448,6 +452,22 @@ export const PROFILE_SETTINGS_FORM_REGISTRY: SettingsFieldDefinition[] = [
     description: {
       zh: "关闭自动更新、反馈、错误上报和遥测等全部非必要网络请求；如只需关闭自动更新，请使用“禁用自动更新”。",
       en: "Disable auto-updates, feedback, error reporting, telemetry, and all other nonessential traffic. Use Disable auto-updates when only updates should be disabled.",
+    },
+  },
+  {
+    key: "subprocessEnvScrub",
+    section: "common",
+    kind: "checkbox",
+    storage: "env-only",
+    envKey: "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB",
+    enabledValue: "1",
+    label: {
+      zh: "子进程凭据清理",
+      en: "Scrub subprocess credentials",
+    },
+    description: {
+      zh: "从 Bash、hooks 和 stdio MCP 子进程环境中清理 Anthropic、AWS、NPM、数据库等凭据；GitHub Token 和代理设置保留。依赖被清理凭据的脚本、发布操作或 MCP 服务可能认证失败。",
+      en: "Scrub Anthropic, AWS, NPM, database, and other credentials from Bash, hook, and stdio MCP subprocess environments. GitHub tokens and proxy settings are preserved. Scripts, publishing commands, or MCP servers that need scrubbed credentials may fail to authenticate.",
     },
   },
   {

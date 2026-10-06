@@ -59,6 +59,7 @@ paths:
 - 专项复杂字段由 profile-editor 子组件维护，例如 Permissions、Sandbox、Hooks、Marketplace、Enabled Plugins、Status Line。
 - 结构化设置分区的官方文档入口在 `StructuredSettingsSections.tsx`，新增分区时同步文档路径、i18n 和错误聚合。
 - 复杂编辑器必须避免首次挂载 no-op writeback。尤其是 accordion 内懒挂载组件，语义等价时不要调用 `onChange`。
+- 同一语义存在两层存储时（`env.CLAUDE_CODE_EFFORT_LEVEL` 与顶层 `effortLevel`），编辑器必须按卡片的回退顺序读取：`env 覆盖 -> 供应商默认 -> 同义顶层键`，并在写回时清掉同义顶层键。只读写 env 会出现「卡片有值、编辑器未设置」，写回后残留的顶层键还会继续遮蔽新值（`SettingsFieldDefinition.legacyTopLevelKey`）。
 - `ProfileEditor` 的 dirty 判断仍依赖 JSON 结构比较；局部编辑器写回时要保留未管理字段和 key 语义，避免只重建自己认识的字段。
 
 ## 插件与 Marketplace
@@ -75,6 +76,7 @@ paths:
 ## 权限与状态行
 
 - 权限编辑器只管理 `defaultMode`、`disableBypassPermissionsMode`、`allow`、`deny`、`ask`、`additionalDirectories`；写回时保留其它顶层字段，例如 `disableAutoMode`。
+- 权限（`permission-presets.ts`）与沙箱（`sandbox-presets.ts`）的推荐预设逐条镜像维护者 dotfiles 的 `claude/settings.json` 对应段落，不额外追加项目自造的加固项；改任意一侧时同步另一侧和 `ProfileEditor.test.tsx` 断言。
 - 修复权限 dirty 问题时优先做局部语义比较，不要扩大到全局 dirty 系统。
 - 状态行默认脚本按平台分发：非 Windows 用 `src-tauri/resources/statusline/default.sh`（Bash，依赖 jq），Windows 用 `src-tauri/resources/statusline/default.ps1`（PowerShell，免 jq）。安装走后端 `install_status_line_preset`：Windows 写入 `~/.claude/statusline.ps1` 并把 `command` 设为绝对正斜杠**且加引号**的 `powershell -NoProfile -ExecutionPolicy Bypass -File "..."`（用户名含空格时不加引号会截断参数）；两份脚本功能需保持对齐。
 - 两份脚本源文件都**不带 BOM**；Windows 落盘时由 `config.rs::expected_status_line_script()` 前置 UTF-8 BOM。Windows PowerShell 5.1 读取无 BOM 的 `.ps1` 时按系统代码页（简中 CP936）解码，UTF-8 中文注释错位后残留的悬空 lead byte 会吞掉行尾换行，使下一行代码并入注释并触发 `ParserError`，状态行整行无输出。给源文件加 BOM 会变成双 BOM，Bash 脚本加 BOM 会让 shebang 失效——两者都不要做。
