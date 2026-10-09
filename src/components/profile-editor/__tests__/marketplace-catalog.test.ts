@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildMarketplaceRawUrl,
   fetchMarketplaceCatalog,
+  fetchMarketplaceName,
   loadMarketplaceCatalogCache,
   parseMarketplacePluginCatalog,
   saveMarketplaceCatalogCache,
@@ -119,6 +120,31 @@ describe("marketplace-catalog", () => {
         ref: "",
         path: "",
       }),
+    ).rejects.toThrow();
+  });
+
+  it("fetchMarketplaceName 返回 manifest 的 name 而非仓库名", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ name: " claude-community ", plugins: [] }),
+    } as unknown as Response);
+    await expect(
+      fetchMarketplaceName({
+        sourceType: "github",
+        repo: "anthropics/claude-plugins-community",
+        ref: "",
+        path: "",
+      }),
+    ).resolves.toBe("claude-community");
+  });
+
+  it("fetchMarketplaceName 在 manifest 缺少 name 时抛错", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [] }),
+    } as unknown as Response);
+    await expect(
+      fetchMarketplaceName({ sourceType: "github", repo: "x/y", ref: "", path: "" }),
     ).rejects.toThrow();
   });
 

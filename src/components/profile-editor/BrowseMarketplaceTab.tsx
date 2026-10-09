@@ -20,10 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { Spinner } from "../ui/spinner";
 import { formatShortDateTime } from "../usage/format";
 import MarketplacePluginRow from "./MarketplacePluginRow";
 import type { MarketplacePluginEntry } from "./marketplace-catalog";
-import { getProviderAffiliation } from "./marketplace-catalog";
+import { fetchMarketplaceName, getProviderAffiliation } from "./marketplace-catalog";
 import { estimatePluginRowSize } from "./marketplace-plugin-row-utils";
 import { BUILTIN_MARKETPLACES, type BuiltinMarketplace } from "./marketplace-presets";
 import {
@@ -112,6 +113,9 @@ function AddMarketplacePopover({
   const [open, setOpen] = useState(false);
   const [repo, setRepo] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  // 关闭或重开 Popover 后作废进行中的名称解析，避免旧请求回写
+  const submitTokenRef = useRef(0);
 
   const availablePresets = BUILTIN_MARKETPLACES.filter(
     (preset) => !existingMarketplaceIds.includes(preset.marketplaceId),
@@ -120,8 +124,10 @@ function AddMarketplacePopover({
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (!next) {
+      submitTokenRef.current += 1;
       setRepo("");
       setError("");
+      setSubmitting(false);
     }
   }
 
@@ -136,7 +142,10 @@ function AddMarketplacePopover({
     handleOpenChange(false);
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (submitting) {
+      return;
+    }
     const trimmedRepo = repo.trim();
     if (!trimmedRepo) {
       setError(t("profileEditor.plugins.browse.addMarketplaceErrorRepoEmpty"));
@@ -146,10 +155,35 @@ function AddMarketplacePopover({
       setError(t("profileEditor.plugins.browse.addMarketplaceErrorRepoInvalid"));
       return;
     }
-    // 名称默认取仓库末段；冲突时引导用高级配置自定义
-    const marketplaceId = trimmedRepo.split("/")[1]?.trim() ?? "";
+    // 市场名以 marketplace.json 的 name 为准（Claude Code 用它组成插件 ID 后缀），不能取仓库名
+    const token = ++submitTokenRef.current;
+    setSubmitting(true);
+    setError("");
+    let marketplaceId: string;
+    try {
+      marketplaceId = await fetchMarketplaceName({
+        sourceType: "github",
+        repo: trimmedRepo,
+        ref: "",
+        path: "",
+      });
+    } catch {
+      if (token === submitTokenRef.current) {
+        setSubmitting(false);
+        setError(t("profileEditor.plugins.browse.addMarketplaceErrorManifest"));
+      }
+      return;
+    }
+    if (token !== submitTokenRef.current) {
+      return;
+    }
+    setSubmitting(false);
     if (existingMarketplaceIds.includes(marketplaceId)) {
-      setError(t("profileEditor.plugins.browse.addMarketplaceErrorIdDuplicate"));
+      setError(
+        formatTemplate(t("profileEditor.plugins.browse.addMarketplaceErrorIdDuplicate"), {
+          name: marketplaceId,
+        }),
+      );
       return;
     }
     onAddMarketplace({ marketplaceId, repo: trimmedRepo, ref: "", path: "" });
@@ -206,7 +240,7 @@ function AddMarketplacePopover({
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  handleSubmit();
+                  void handleSubmit();
                 }
               }}
             />
@@ -221,7 +255,13 @@ function AddMarketplacePopover({
             >
               {t("profileEditor.common.cancel")}
             </Button>
-            <Button type="button" size="sm" onClick={handleSubmit}>
+            <Button
+              type="button"
+              size="sm"
+              disabled={submitting}
+              onClick={() => void handleSubmit()}
+            >
+              {submitting ? <Spinner data-icon="inline-start" aria-hidden="true" /> : null}
               {t("profileEditor.plugins.browse.addMarketplaceSubmit")}
             </Button>
           </div>

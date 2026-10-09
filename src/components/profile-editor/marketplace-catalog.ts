@@ -97,9 +97,8 @@ export function parseMarketplacePluginCatalog(
   return plugins;
 }
 
-export async function fetchMarketplaceCatalog(
-  input: MarketplaceFetchInput,
-): Promise<MarketplacePluginEntry[]> {
+// 拉取 marketplace.json 原始内容；超时覆盖请求和响应体读取，取消网络请求，同时保证调用方能够结束。
+async function fetchMarketplaceManifest(input: Omit<MarketplaceFetchInput, "marketplaceId">) {
   const url = buildMarketplaceRawUrl(input);
   if (!url) throw new Error(`unsupported marketplace source: ${input.sourceType}`);
   const controller = new AbortController();
@@ -111,18 +110,36 @@ export async function fetchMarketplaceCatalog(
     }, FETCH_TIMEOUT_MS);
   });
   try {
-    // 超时覆盖请求和响应体读取；取消网络请求，同时保证刷新能够结束。
     return await Promise.race([
-      (async () => {
+      (async (): Promise<unknown> => {
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error(`fetch failed: ${response.status}`);
-        return parseMarketplacePluginCatalog(await response.json(), input.marketplaceId);
+        return response.json();
       })(),
       timeout,
     ]);
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function fetchMarketplaceCatalog(
+  input: MarketplaceFetchInput,
+): Promise<MarketplacePluginEntry[]> {
+  return parseMarketplacePluginCatalog(await fetchMarketplaceManifest(input), input.marketplaceId);
+}
+
+// Claude Code 以 marketplace.json 的 name 作为市场名（插件 ID 的 @ 后缀），而非仓库名
+export function parseMarketplaceName(manifest: unknown): string {
+  return readTrim(readObject(manifest).name);
+}
+
+export async function fetchMarketplaceName(
+  input: Omit<MarketplaceFetchInput, "marketplaceId">,
+): Promise<string> {
+  const name = parseMarketplaceName(await fetchMarketplaceManifest(input));
+  if (!name) throw new Error("marketplace manifest missing name");
+  return name;
 }
 
 export function loadMarketplaceCatalogCache(): CacheV1["byMarketplace"] | null {

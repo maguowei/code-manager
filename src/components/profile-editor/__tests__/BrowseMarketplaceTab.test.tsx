@@ -577,7 +577,7 @@ describe("BrowseMarketplaceTab", () => {
     });
   });
 
-  it("快速添加市场：自定义 github 仓库并自动预填名称", async () => {
+  it("快速添加市场：自定义 github 仓库以 marketplace.json 的 name 作为市场名", async () => {
     const onAddMarketplace = vi.fn();
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -586,18 +586,75 @@ describe("BrowseMarketplaceTab", () => {
     renderTab({ existingMarketplaceIds: [], onAddMarketplace });
     await screen.findByText("alpha");
 
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ name: "acme-marketplace", plugins: [] }),
+    } as unknown as Response);
     fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
     fireEvent.change(await screen.findByLabelText("GitHub 仓库 (owner/repo)"), {
       target: { value: "acme/plugins" },
     });
     fireEvent.click(screen.getByRole("button", { name: "添加" }));
 
-    expect(onAddMarketplace).toHaveBeenCalledWith({
-      marketplaceId: "plugins",
-      repo: "acme/plugins",
-      ref: "",
-      path: "",
+    await waitFor(() =>
+      expect(onAddMarketplace).toHaveBeenCalledWith({
+        marketplaceId: "acme-marketplace",
+        repo: "acme/plugins",
+        ref: "",
+        path: "",
+      }),
+    );
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://raw.githubusercontent.com/acme/plugins/main/.claude-plugin/marketplace.json",
+      expect.anything(),
+    );
+  });
+
+  it("快速添加市场：manifest 中的市场名已存在时内联报错且不写回", async () => {
+    const onAddMarketplace = vi.fn();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab({ existingMarketplaceIds: ["acme-marketplace"], onAddMarketplace });
+    await screen.findByText("alpha");
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ name: "acme-marketplace", plugins: [] }),
+    } as unknown as Response);
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    fireEvent.change(await screen.findByLabelText("GitHub 仓库 (owner/repo)"), {
+      target: { value: "acme/plugins" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+
+    expect(
+      await screen.findByText("插件市场 acme-marketplace 已存在，请用高级配置自定义名称"),
+    ).toBeInTheDocument();
+    expect(onAddMarketplace).not.toHaveBeenCalled();
+  });
+
+  it("快速添加市场：读取 manifest 失败时内联报错且不写回", async () => {
+    const onAddMarketplace = vi.fn();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ plugins: [{ name: "alpha" }] }),
+    } as unknown as Response);
+    renderTab({ existingMarketplaceIds: [], onAddMarketplace });
+    await screen.findByText("alpha");
+
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 } as unknown as Response);
+    fireEvent.click(screen.getByRole("button", { name: "添加市场" }));
+    fireEvent.change(await screen.findByLabelText("GitHub 仓库 (owner/repo)"), {
+      target: { value: "acme/missing" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+
+    expect(
+      await screen.findByText("无法读取该仓库的 .claude-plugin/marketplace.json 或缺少 name 字段"),
+    ).toBeInTheDocument();
+    expect(onAddMarketplace).not.toHaveBeenCalled();
   });
 
   it("快速添加市场：仓库格式非法时内联报错且不写回", async () => {
