@@ -728,7 +728,9 @@ const translations = {
     "profileEditor.plugins.browse.addMarketplaceErrorRepoEmpty": "请填写 GitHub 仓库",
     "profileEditor.plugins.browse.addMarketplaceErrorRepoInvalid": "仓库格式应为 owner/repo",
     "profileEditor.plugins.browse.addMarketplaceErrorIdDuplicate":
-      "该仓库名已存在，请用高级配置自定义名称",
+      "插件市场 {name} 已存在，请用高级配置自定义名称",
+    "profileEditor.plugins.browse.addMarketplaceErrorManifest":
+      "无法读取该仓库的 .claude-plugin/marketplace.json 或缺少 name 字段",
     "profileEditor.plugins.browse.providerFilterFieldLabel": "提供方",
     "profileEditor.plugins.browse.providerFilterLabel": "按提供方筛选",
     "profileEditor.plugins.browse.providerAnthropic": "Anthropic",
@@ -2473,7 +2475,9 @@ const translations = {
     "profileEditor.plugins.browse.addMarketplaceErrorRepoInvalid":
       "Repo must be in owner/repo format",
     "profileEditor.plugins.browse.addMarketplaceErrorIdDuplicate":
-      "This name already exists — use marketplace settings to customize",
+      "Marketplace {name} already exists — use marketplace settings to customize",
+    "profileEditor.plugins.browse.addMarketplaceErrorManifest":
+      "Could not read .claude-plugin/marketplace.json from this repo, or it has no name",
     "profileEditor.plugins.browse.providerFilterFieldLabel": "Provider",
     "profileEditor.plugins.browse.providerFilterLabel": "Filter by provider",
     "profileEditor.plugins.browse.providerAnthropic": "Anthropic",
