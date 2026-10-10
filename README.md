@@ -4,24 +4,26 @@
 
 [![CI](https://github.com/maguowei/code-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/maguowei/code-manager/actions/workflows/release.yml/badge.svg)](https://github.com/maguowei/code-manager/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 ![Code Manager profile editor](docs/assets/readme-hero.webp)
 
-Code Manager is a local desktop management app for Claude Code users. It brings profiles, providers, the `~/.claude` directory, memories, Skills, history, stats, token usage, project status, the system tray, and diagnostic logs together in a single Tauri 2 app, making your local configuration more visible, previewable, and verifiable.
+**Code Manager** is a cross-platform desktop management application for Claude Code users, built with Tauri 2. It unifies your profiles, providers, `~/.claude` directory, memories, Skills, session history, token usage, project status, system tray, and diagnostic logs into a single interface — making local configuration visible, previewable, and verifiable.
 
-This document is for human users and project visitors. Execution rules for AI agents are in [CLAUDE.md](./CLAUDE.md), the full usage guide is in [docs/user-manual.md](./docs/user-manual.md), and platform differences are in [docs/platform-support.md](./docs/platform-support.md).
+> [!NOTE]
+> This document is for human users and project visitors. AI agent execution rules live in [CLAUDE.md](./CLAUDE.md), full usage documentation is in [docs/user-manual.md](./docs/user-manual.md), and platform differences are documented in [docs/platform-support.md](./docs/platform-support.md).
 
 ## The Problem It Solves
 
-Over long-term use of Claude Code, local configuration and session data tend to scatter across many files:
+As you use Claude Code across different projects, configuration and session data quickly scatter across various local files:
 
-- Different projects need different models, API endpoints, tokens, permissions, hooks, and plugin combinations.
-- `~/.claude/settings.json`, `CLAUDE.md`, `rules/*.md`, and Skills are hard to review as a whole.
-- Provider / model configuration is repetitive, and switching profiles easily misses environment variables or overrides user settings.
-- History, stats, token spend, project Git status, and worktree information lack a single entry point.
-- Troubleshooting requires quickly viewing redacted application logs instead of hunting for log files everywhere.
+- **Fragmented settings**: Different projects require distinct models, API endpoints, tokens, permissions, hooks, and plugins.
+- **Hidden state**: `~/.claude/settings.json`, `CLAUDE.md`, `rules/*.md`, and Skills are difficult to inspect as a whole.
+- **Configuration friction**: Switching providers or models is repetitive, with the risk of missing environment variables or accidentally overwriting user settings.
+- **Scattered telemetry**: Session history, token expenditure, project Git status, and worktrees lack a unified entry point.
+- **Cumbersome troubleshooting**: Resolving issues often requires hunting down system log files rather than inspecting structured, sanitized logs.
 
-Code Manager does not replace Claude Code; it provides a management layer for local configuration, session data, and diagnostic information.
+Code Manager does not replace Claude Code; it provides a dedicated control plane for managing local configurations, session data, and diagnostics.
 
 ## Core Capabilities
 
@@ -29,27 +31,27 @@ Code Manager does not replace Claude Code; it provides a management layer for lo
 
 | Capability | Description |
 | --- | --- |
-| `~/.claude` Overview | Browse, preview, edit, and locate the Claude Code user directory. |
-| Profiles / Built-in Providers | Manage the profile layer ultimately written to `~/.claude/settings.json`, picking connection endpoints and model mappings from built-in (read-only) providers. Edit models, environment variables, permissions, Sandbox, hooks, plugins, and the status line; preview, copy, test models, apply in one click, import / export (optionally with secrets, with a pre-save preview), compare diffs, and sync common options / marketplaces / plugins to other profiles in one click. |
-| Memory Management | Manage user-level `CLAUDE.md` and `rules/*.md`, with support for the Karpathy behavior guide preset, import, enable, disable, copy, preview, and path validation. |
-| Skills Management | Create, edit, delete, enable, and disable Claude Code Skills, and sync them as `~/.codex/skills/<id>` symlinks. |
-| History & Sessions | Read `~/.claude/history.jsonl` and view history details by project and session. |
-| Stats & Recent Sessions | Read a local stats snapshot from `~/.claude.json`. |
-| Token Usage & Cost | Scan `~/.claude/projects/**/*.jsonl`, aggregate tokens and cost by date, project, session, and model, with incremental SQLite caching. |
-| Project Management | Show project paths, remotes, branches, worktrees, project-level `.claude/`, `AGENTS.md` / `CLAUDE.md`, and `.agents/skills` status, with support for opening a terminal/editor, jumping to history/usage, branch and worktree cleanup, and clearing local project data. |
-| System Tray & Session Focus | Show the current profile and active Claude Code sessions in the menu bar, with session-count styles and a pending-session breathing indicator, attempt to focus existing terminal sessions on supported platforms, and (macOS only) mirror session state to ANTICATER USB device LED effects. |
-| Desktop Usage Widget | An always-on-top, translucent mini-window that shows today's token spend, usage, and cache-hit metrics in real time, with drag support, customizable metrics, and adjustable opacity, toggleable in settings. |
-| Settings & Diagnostics | Support language, theme, default-collapsed sidebar, menu-bar session display, system notifications, third-party model pricing, launch at login, default terminal and editor, session-focus shortcut and LED effects (macOS only), desktop usage widget toggle and metric customization, redacted log viewing, system info copy, and log rotation. |
+| **`~/.claude` Overview** | Browse, preview, edit, and quickly locate files in the Claude Code user directory. |
+| **Profiles & Providers** | Manage configuration layers written to `~/.claude/settings.json`. Select connection endpoints and model mappings from built-in (read-only) providers. Visually edit models, environment variables, permissions, Sandbox, hooks, plugins, and the status line. Supports connectivity testing, pre-apply diffs, secret-safe import/export, and one-click sync across profiles. |
+| **Memory Management** | Manage user-level `CLAUDE.md` and `rules/*.md` files with path validation. Includes Karpathy behavior guide presets, toggle switches (enable/disable), previewing, and cloning. |
+| **Skills Management** | Create, edit, toggle, and organize Claude Code Skills, with automatic symlink syncing to `~/.codex/skills/<id>`. |
+| **History & Sessions** | Parse `~/.claude/history.jsonl` to explore session timelines, prompts, and summaries filtered by project. |
+| **Stats & Insights** | Read local activity snapshots from `~/.claude.json` to monitor usage trends and recent sessions. |
+| **Token Usage & Cost** | Scan `~/.claude/projects/**/*.jsonl` with an incremental SQLite engine. Aggregate token counts and costs by date, project, session, and model. |
+| **Project Workspace** | Track Git branches, remotes, worktrees, project-level `.claude/`, rules (`AGENTS.md` / `CLAUDE.md`), and skills. Quickly launch a terminal or code editor. |
+| **System Tray & Focus** | Monitor active sessions from the system menu bar with pending-session breathing indicators, jump to active terminals via shortcuts, and mirror session state to ANTICATER USB LEDs (macOS only). |
+| **Desktop Usage Widget** | An always-on-top, translucent mini-window displaying today's token spend, usage, and cache-hit metrics in real time, with drag support and customizable metrics. |
+| **Settings & Diagnostics** | Customize theme, language, default terminal/editor, model pricing overrides, and launch-at-login. Built-in log viewer with automatic secret redaction and one-click system info export. |
 
 ## Download and Install
 
-On macOS, installing via Homebrew (own tap) is recommended:
+On macOS, installing via Homebrew is recommended:
 
 ```bash
 brew install --cask maguowei/tap/code-manager
 ```
 
-Or go to [Releases](https://github.com/maguowei/code-manager/releases) to download the installer for your platform.
+Alternatively, download the installer for your platform from [Releases](https://github.com/maguowei/code-manager/releases):
 
 | Platform | Installer |
 | --- | --- |
@@ -57,36 +59,41 @@ Or go to [Releases](https://github.com/maguowei/code-manager/releases) to downlo
 | Windows | `.msi` / `.exe` |
 | Linux | `.deb` / `.rpm` / `.AppImage` |
 
-The current macOS release packages are not notarized by Apple. Homebrew installs automatically remove the quarantine attribute; if you manually download the `.dmg` and the first launch is blocked by the system, run the following in a terminal:
-
-```bash
-xattr -rd com.apple.quarantine /Applications/code-manager.app
-```
+> [!TIP]
+> Current macOS releases are not notarized by Apple. Homebrew installations automatically clear quarantine attributes. If you manually download the `.dmg` and the first launch is blocked by Gatekeeper, run:
+> ```bash
+> xattr -rd com.apple.quarantine /Applications/code-manager.app
+> ```
 
 ### Nightly Builds
 
-Want to try the latest features before they are released? Nightly installers for macOS (`dmg`), Linux (`deb` / `AppImage`), and Windows (`setup.exe`) are built automatically on every `main` merge and published as a rolling prerelease at [releases/download/nightly](https://github.com/maguowei/code-manager/releases/download/nightly). The version includes the commit short SHA (e.g. `1.6.0-nightly.ga1b2c3d`) so you can tell exactly which build you have.
+Want to test the latest features before an official release? Nightly builds for macOS (`.dmg`), Linux (`.deb` / `.AppImage`), and Windows (`setup.exe`) are generated on every merge to `main` and published at [releases/download/nightly](https://github.com/maguowei/code-manager/releases/download/nightly). Versions include the commit short SHA (e.g. `1.6.0-nightly.ga1b2c3d`) for precise tracking.
 
-Nightly builds are **not signed or notarized**: macOS will block the first launch (right-click → Open, or `xattr -rd com.apple.quarantine /Applications/code-manager.app`), and Windows may show a SmartScreen warning. Nightly builds roll forward on each merge (older ones are overwritten) and do **not** self-update — install a stable release to get automatic updates.
+Nightly builds are **not signed or notarized**:
+- **macOS**: Right-click → Open, or run `xattr -rd com.apple.quarantine /Applications/code-manager.app`.
+- **Windows**: Windows SmartScreen may display an unrecognized app notice.
+- **Updates**: Nightly releases roll forward on each merge and do **not** self-update. Install a stable release for automatic update support.
 
 ### Automatic Updates
 
-The app has built-in automatic updates: it silently checks for new versions on startup, and once one is found you can download and install it with one click in "Settings - App Update", after which it restarts automatically. Users who installed via Homebrew can also keep upgrading with `brew upgrade`; both paths work, and after an in-app update the version Homebrew records will automatically align on the next `brew upgrade`.
+The app includes built-in update checks on launch:
+- When an update is detected, download and install with one click under **Settings → App Update**, followed by an automatic restart.
+- Homebrew users can continue using `brew upgrade`; in-app updates automatically align with Homebrew on the next upgrade.
 
 ## Quick Start
 
-1. After launch, Code Manager reads your local `~/.claude`, `~/.claude.json`, and `~/.claude/projects/`.
-2. In settings, choose the interface language, theme, default terminal, and default editor.
-3. On the profiles page, import an existing `~/.claude/settings.json`, or create a new profile, pick a built-in provider in the "Provider" option, and fill in the auth secret and model configuration.
-4. Click "Test Model" to confirm the configuration works.
-5. Click enable to apply the profile to `~/.claude/settings.json`.
-6. Go to the `~/.claude` overview to confirm the final configuration is as expected.
+1. **Auto-Discovery**: On launch, Code Manager reads your local `~/.claude`, `~/.claude.json`, and `~/.claude/projects/`.
+2. **General Preferences**: In **Settings**, choose your preferred interface language, theme, default terminal, and editor.
+3. **Configure Profile**: On the **Profiles** page, import an existing `~/.claude/settings.json` or create a new profile. Choose a built-in provider, then enter your API credentials and model configuration.
+4. **Test Connectivity**: Click **Test Model** to verify API communication.
+5. **Apply Configuration**: Click **Enable** to write the active profile safely into `~/.claude/settings.json`.
+6. **Verify Overview**: Switch to the **`~/.claude` Overview** page to confirm the updated directory and configuration state.
 
-For more detailed page descriptions, cost accounting rules, common workflows, and FAQ, see [docs/user-manual.md](./docs/user-manual.md).
+For detailed page descriptions, cost calculation rules, common workflows, and FAQ, see [docs/user-manual.md](./docs/user-manual.md).
 
 ## Local Data and Privacy
 
-Code Manager mainly reads and writes local files. Profile merging, directory scanning, usage aggregation, and log viewing all happen locally; model pricing prefers the local cache and built-in fallback data, and attempts to refresh from official models.dev providers after startup.
+Code Manager operates primarily on your local file system. Profile merging, directory scanning, token usage calculation, and log inspection run entirely offline on your machine. Model pricing prefers the local cache and built-in fallbacks, attempting to refresh from official models.dev providers after startup.
 
 | Purpose | macOS | Linux | Windows |
 | --- | --- | --- | --- |
@@ -94,7 +101,7 @@ Code Manager mainly reads and writes local files. Profile merging, directory sca
 | Usage SQLite | `~/Library/Application Support/com.gotobeta.app.code-manager/usage.db` | `$XDG_CONFIG_HOME/com.gotobeta.app.code-manager/usage.db` or `~/.config/com.gotobeta.app.code-manager/usage.db` | `%APPDATA%\com.gotobeta.app.code-manager\usage.db` |
 | Log directory | `~/Library/Logs/com.gotobeta.app.code-manager/` | `$XDG_DATA_HOME/com.gotobeta.app.code-manager/logs/` or `~/.local/share/com.gotobeta.app.code-manager/logs/` | `%LOCALAPPDATA%\com.gotobeta.app.code-manager\logs\` |
 
-The application data directory contains `config-registry.json`, `memories.json`, `model-pricing.json`, and `skills-disabled/`. On macOS, application data deliberately reuses `~/.config/code-manager/` for easier cross-platform backup and script access.
+The application data directory contains `config-registry.json`, `memories.json`, `model-pricing.json`, and `skills-disabled/`. On macOS, application data deliberately uses `~/.config/code-manager/` for easier cross-platform backup and scripting access.
 
 ## Local Development
 
@@ -105,28 +112,33 @@ Stack overview: Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS v4 + Rust.
 ### Prerequisites
 
 - Node.js LTS
-- `pnpm`, the project currently declares `pnpm@12.4.2`
+- `pnpm` (the project currently declares `pnpm@12.4.2`)
 - Rust stable
-- The system dependencies required to run Tauri 2
+- System dependencies required to run Tauri 2
 
 ### Common Commands
 
 ```bash
-make init             # Install dependencies and check the Rust toolchain
+# --- Development & Build ---
+make init             # Install dependencies and verify Rust toolchain
 make dev              # Start Tauri desktop dev mode
-make build            # Build the installer for the current platform
-make build-frontend   # TypeScript check and build the frontend
+make build            # Build production installer for current platform
+make build-frontend   # TypeScript check and build frontend
+
+# --- Verification & Testing ---
+make verify           # Comprehensive local verification (runs before push)
+make lint             # Biome (frontend) + Clippy (Rust) static checks
+make test             # Run all tests (Rust backend + frontend Vitest)
+make check            # Quick Rust compiler check (cargo check)
+make fmt-check        # Read-only formatting check (frontend + Rust)
+make lint-frontend    # Frontend-only static check
+make test-frontend    # Run frontend test suite
+
+# --- Contracts & Security ---
 make bindings         # Regenerate Tauri IPC TypeScript bindings
-make bindings-check   # Check that Rust command contracts and src/bindings.ts are in sync
-make lint             # Frontend Biome + Rust clippy
-make test             # Rust tests + frontend tests
-make check            # Rust cargo check
-make fmt-check        # Read-only format check for frontend + Rust
-make verify           # Local CI-like verification entry point
-make gitleaks         # Scan current project files for secrets
+make bindings-check   # Verify Rust command signatures match src/bindings.ts
+make gitleaks         # Scan working tree for secrets
 make gitleaks-history # Scan Git history for secrets
-make lint-frontend    # Read-only static check for the frontend
-make test-frontend    # Run frontend tests
 ```
 
 `pnpm install` triggers the `prepare` script and installs lefthook git hooks. Before a commit it runs staged Biome auto-fix, Gitleaks secret scanning, Rust format check, and commitlint; before a branch push it runs `make verify`; tag-only pushes are gated remotely by the release workflow's quality job. `make fmt` and `pnpm check` rewrite files; for read-only checks use `make lint`, `make lint-frontend`, or `make fmt-check`.
@@ -137,25 +149,25 @@ Build artifacts are located by default in `src-tauri/target/release/bundle/`.
 
 - `src/`: React frontend pages, components, hooks, schemas, and tests.
 - `src-tauri/`: Rust backend, Tauri commands, built-in resources, and permission declarations.
-- `docs/`: user manual, platform differences, and extended documentation.
+- `docs/`: User manual, platform differences, and extended documentation.
 
 For fine-grained component entry points, module responsibilities, and path navigation for AI agents, see [CLAUDE.md](./CLAUDE.md).
 
 ## Contributing and Feedback
 
-When filing an issue, please include as much as possible:
+When filing an issue, please include:
 
 - Operating system, Code Manager version, and Claude Code use case
 - Reproduction steps, expected result, and actual result
-- Relevant redacted log snippets from "Settings -> Diagnostics -> View Logs"
-- For development changes, the verification commands you have run
+- Relevant redacted log snippets from **Settings → Diagnostics → View Logs**
+- For development changes, verification commands you have run and test results
 
 ## Further Reading
 
-- [docs/user-manual.md](./docs/user-manual.md): the complete user manual
-- [docs/platform-support.md](./docs/platform-support.md): platform support differences
-- [CLAUDE.md](./CLAUDE.md): the repository execution manual for AI agents
-- [LICENSE](./LICENSE): license
+- [docs/user-manual.md](./docs/user-manual.md): Comprehensive user manual
+- [docs/platform-support.md](./docs/platform-support.md): Platform support differences
+- [CLAUDE.md](./CLAUDE.md): Repository execution manual for AI agents
+- [LICENSE](./LICENSE): MIT License
 
 ## License
 
