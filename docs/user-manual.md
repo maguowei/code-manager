@@ -2,7 +2,8 @@
 
 [English](./user-manual.md) | [中文](./user-manual.zh-CN.md)
 
-> This document is intended for end users. The execution handbook for coding agents such as Claude Code / Codex is in `CLAUDE.md` at the repository root.
+> [!NOTE]
+> This document is intended for end users. The execution handbook for coding agents such as Claude Code / Codex is in [CLAUDE.md](../CLAUDE.md) at the repository root.
 
 Code Manager is a local desktop management tool for Claude Code users. It brings the `~/.claude` directory, configurations, providers, memories, Skills, history, statistics, token usage, project status, the system tray, and diagnostic logs together into a single Tauri application, helping you maintain your local Claude Code configuration in a more visible, previewable, and verifiable way.
 
@@ -32,327 +33,365 @@ Code Manager is a local desktop management tool for Claude Code users. It brings
 
 ### Configuration
 
-A configuration is the user settings that can ultimately be applied to `~/.claude/settings.json`. It typically includes fields such as authentication keys, the API endpoint, the default model, permissions, Sandbox, Hooks, plugins, and the status line. A configuration can reference a built-in provider; when the configuration is applied, Code Manager merges the provider's `env` (endpoint and model mapping) with the configuration's own settings, generates the final JSON, and writes it to `~/.claude/settings.json`.
+A configuration is the set of user preferences that can be applied to `~/.claude/settings.json`. It includes authentication keys, API endpoints, default models, permissions, Sandbox settings, Hooks, plugins, and the status line.
 
-If `~/.claude/settings.json` already exists on this machine, the Configurations page can detect it when no configuration has been created yet and import it as a managed configuration. After a configuration has been applied, if the real `settings.json` is modified externally, the page shows a difference notice; you can review the diff and then choose to accept the actual settings or re-apply the managed configuration.
+- **Provider Integration**: A configuration can reference a built-in provider. When applied, Code Manager merges the provider's preset environment variables (endpoints and model mappings) with the configuration's own settings, generates standard JSON, and writes it safely to `~/.claude/settings.json`.
+- **Automatic Takeover**: If `~/.claude/settings.json` already exists on your machine and no configurations have been created yet, Code Manager detects it and offers to import it as a managed profile in place.
+- **External Change Detection**: When the active configuration differs from the actual file on disk (e.g. modified by an external editor), a difference notice appears. You can review the diff and choose to either **Accept actual settings** or **Re-apply** your managed configuration.
 
 ### Provider
 
-A provider carries only objective provider information (connection endpoint, model mapping, and optional additional environment variables). It contains no authentication keys and is built-in and read-only, with no custom providers. After a configuration references a provider, fields with the same name in the configuration override the provider's `env` (except the endpoint: the endpoint uses the provider as the single source of truth). See the [Providers](#providers) section for the full built-in list.
+A provider carries objective endpoint information (API URL, official model mappings, and optional environment variables). It contains no private authentication keys and is built-in and read-only.
+
+- **Override Rules**: When a configuration references a provider, matching keys in the configuration override the provider's `env` (except for the API endpoint: the provider's endpoint remains the single source of truth).
+- See the [Providers](#providers) section for the complete list of built-in providers.
 
 ### Memory
 
-Memories correspond to the Claude Code user-level `CLAUDE.md` and `~/.claude/rules/*.md`. When enabled, they are written to the real Claude Code directory.
+Memories correspond to Claude Code's user-level system instruction files: `~/.claude/CLAUDE.md` and `~/.claude/rules/*.md`. Files are only written to disk once enabled in the UI.
 
-- `CLAUDE.md`: only one can be enabled at a time, suitable as a long-term primary memory.
-- Rules: multiple can be enabled at the same time, saved to `~/.claude/rules/`, and can use the `paths` frontmatter for path matching.
+- **`CLAUDE.md`**: The primary memory file. Only one can be active at a time, making it ideal as a long-term baseline instruction set.
+- **Rules**: Modular rule files located in `~/.claude/rules/`. Multiple rules can be active simultaneously and support `paths` glob frontmatter for targeted file matching.
 
 ### Skills
 
-Skills correspond to `~/.claude/skills/<id>/SKILL.md`. Enabled Skills are stored in `~/.claude/skills/`; disabled Skills are moved to Code Manager's `skills-disabled/` directory. Symlinked Skills can be imported and toggled on or off, but their content is read-only and must be maintained in the source directory.
+Skills correspond to Claude Code custom capabilities located under `~/.claude/skills/<id>/SKILL.md`.
+
+- **Enable / Disable**: Active skills reside in `~/.claude/skills/`. Disabled skills are safely moved to `skills-disabled/` in the application data directory to keep your Claude workspace clean.
+- **Symlinked Skills**: Symlinked skills can be imported and toggled on or off. However, because their source files reside outside the managed directory, their content is read-only and must be edited in their original location.
 
 ### The Difference Between Stats and Usage
 
-- The Usage Statistics page reads `~/.claude.json` and shows the local Claude Code statistics snapshot (startup count, tool calls, Skill usage, the most recent session per project).
-- The Token Usage page scans `~/.claude/projects/**/*.jsonl` and `subagents/*.jsonl`, aggregates tokens and cost by date, project, session, and model, and uses SQLite for incremental caching.
+These two pages serve different purposes and draw from different data sources:
 
-The two have different data sources and metrics. When investigating cost or tokens, prefer the Token Usage page.
+- **Usage Statistics (Stats)**: Reads the local snapshot from `~/.claude.json`, showing aggregate launch counts, tool calls, skill invocation numbers, and the most recent session summary per project.
+- **Token Usage Statistics (Usage)**: Performs an incremental scan of `~/.claude/projects/**/*.jsonl` and `subagents/*.jsonl` log files, computing token counts and costs across dates, projects, sessions, and models via an embedded SQLite cache.
+
+> [!TIP]
+> Always use the **Token Usage Statistics** page when auditing actual token expenditure and accurate cost breakdowns.
 
 ## Quick Start
 
-1. Download the installer for your platform from the project Release page, then install and launch it.
-2. After the first launch, the application reads the local `~/.claude`, `~/.claude.json`, and `~/.claude/projects/`.
-3. On macOS, if the first launch is blocked by the system, run `xattr -rd com.apple.quarantine /Applications/code-manager.app` to remove the quarantine attribute.
+1. **Download and Install**: Download the installer for your operating system from the GitHub Releases page, install, and open the app.
+2. **Initial Detection**: On launch, Code Manager automatically inspects existing local `~/.claude`, `~/.claude.json`, and `~/.claude/projects/` paths.
+3. **macOS Quarantine Bypass (if needed)**: If Gatekeeper blocks the app on first launch, run:
+   ```bash
+   xattr -rd com.apple.quarantine /Applications/code-manager.app
+   ```
 
-Recommended order for the first setup:
+Recommended initial setup order:
 
-1. Open Settings in the lower-left corner and choose the interface language, theme, default terminal, and default editor.
-2. Go to the Configurations page, create a configuration, and select a suitable built-in provider under the "Provider" option.
-3. Fill in the authentication key and model configuration.
-4. Click Test Model to confirm that the API endpoint, token, and model are available.
-5. Click Enable to apply the configuration to `~/.claude/settings.json`.
-6. Open the Directory Overview to confirm that the write to `settings.json` matches your expectations.
+1. **General Preferences**: Open Settings (lower-left corner) to configure your preferred interface language, theme, default terminal, and editor.
+2. **Create a Profile**: Go to Configurations and click **New Configuration**. Select a matching provider from the **Provider** dropdown.
+3. **Fill Credentials**: Enter your API key and verify default model options.
+4. **Test Connectivity**: Click **Test Model** to verify that endpoints, keys, and model mappings communicate properly.
+5. **Apply Configuration**: Click **Enable** to apply the configuration directly to `~/.claude/settings.json`.
+6. **Verify Overview**: Open the **`~/.claude` Directory Overview** to confirm the generated files and settings.
 
 ## Main Navigation
 
 | Entry | Purpose |
 | --- | --- |
-| `AI` | Open or collapse the `~/.claude` Directory Overview |
-| Configurations | Manage configurations, generate and apply Claude Code user settings |
-| Memory | Manage `CLAUDE.md` and `rules/*.md` |
-| Skills | Manage Claude Code Skills |
-| Projects | View Claude project paths, Git status, worktrees, project-level `.claude/`, and AGENTS / Skills pairing status |
-| History | View historical inputs and session details in `~/.claude/history.jsonl` |
-| Stats | View the local statistics snapshot in `~/.claude.json` |
-| Usage | View the token and cost aggregation in `~/.claude/projects/` |
-| Cheat Sheet | Entry at the bottom of the sidebar; quick reference for Claude Code shortcuts, slash commands, settings, and environment variables |
-| Settings | Adjust language, theme, tray, default terminal, default editor, and diagnostic entries |
+| `AI` | Toggle the `~/.claude` directory tree overview and file preview workspace |
+| **Configurations** | Manage configuration profiles; generate and apply Claude Code user settings |
+| **Memory** | Manage user-level `CLAUDE.md` and modular `rules/*.md` files |
+| **Skills** | Create, edit, toggle, and organize Claude Code Skills |
+| **Projects** | View Claude projects, Git branch/worktree status, project-level `.claude/`, and rule pairings |
+| **History** | Explore historical prompts, commands, and session replays from `~/.claude/history.jsonl` |
+| **Stats** | Inspect local aggregate activity snapshots from `~/.claude.json` |
+| **Usage** | Scan session logs in `~/.claude/projects/` to analyze token usage and cost metrics |
+| **Cheat Sheet** | Located at the bottom of the sidebar; quick reference for shortcuts, slash commands, and flags |
+| **Settings** | Configure app preferences, tray behavior, default tools, and diagnostics |
 
-On most pages, the add or edit action opens a drawer on the right that supports control mode, JSON mode, or preview. When the configuration, memory, or Skill editor has unsaved changes, closing or switching prompts you to save, discard, or continue editing.
+On most pages, adding or editing opens a dedicated right-side drawer supporting form controls, JSON mode, and live preview. When an editor has unsaved changes, closing the drawer or switching pages triggers an exit guard dialog to prevent accidental data loss.
 
 ## `~/.claude` Directory Overview
 
-Click the `AI` entry in the upper-left corner to open it. After you select a file in the directory tree on the right, the preview area on the left opens a tab: Markdown shows the rendered preview by default (you can switch to source), other text files show their source, and binary files show only metadata. The bottom of the preview shows file size, modification time, encoding, and truncation status.
+Click the `AI` badge in the upper-left corner to access the directory overview:
 
-The file preview toolbar lets you copy the absolute path, reveal it in the file browser, and open it with the default editor; right-clicking in the directory tree lets you create a new file, create a new folder, rename, or delete. Deletion cannot be undone, so make sure you have a copy before handling `settings.json`, `CLAUDE.md`, `rules/`, or `skills/`.
-
-The Directory Overview lists paths under `~/.claude` (including symlinks). Symlink entries are labeled and can be opened read-only—directory symlinks expand, and file previews may follow targets outside `~/.claude`. Create, rename, and delete stay disabled on any path that crosses a symlink. The scan still skips `node_modules`, and shows a notice when the entry count or depth limit is reached. Binary preview uses a known-extension denylist; other files open as UTF-8 / lossy text.
+- **File Browsing & Preview**: Selecting any file in the tree opens a preview tab. Markdown files display rich formatting (with a raw source toggle), source code files render with syntax highlighting, and binary files display metadata. File size, modification time, encoding, and truncation status remain visible at the bottom.
+- **Toolbar & Actions**: Copy absolute paths, reveal files in your system file manager, or open them in your default code editor. Right-click any tree item to create files, create folders, rename, or delete.
+  > [!WARNING]
+  > File deletions cannot be undone. Always verify backups before modifying or deleting `settings.json`, `CLAUDE.md`, `rules/`, or `skills/`.
+- **Symlink Protection**: Symlinks are visually tagged and open in read-only mode. To prevent accidental modification of external workspaces, create, rename, and delete actions are strictly disabled on any path traversing a symlink. Scans ignore `node_modules` and warn if file count or depth limits are reached.
 
 ## Configurations
 
-The Configurations page is the main entry point for managing Claude Code settings.
+The Configurations page is your central control plane for managing Claude Code profiles.
 
 ### Configuration List
 
-Each card shows the name, description, whether it is applied, the primary model, the effort level, the permission mode, the Sandbox status, a plugin summary, and the result of the most recent model test. Available actions include create, enable (writing to `~/.claude/settings.json`), copy environment variables (generating `export KEY="value"` text), export the configuration file (optionally including or excluding the authentication key, with a preview of the final JSON before it is written to disk), duplicate, edit, delete, test all configurations at once, and drag to reorder. An enabled configuration also offers a one-click "sync common options and plugins to other configurations" action, which copies the current configuration's common options, plugin marketplaces, and enabled plugins to the remaining configurations, making it easy to unify a team baseline.
+Each profile card highlights essential information: name, description, active status, primary model, effort level, permission mode, Sandbox state, plugin summary, and recent connectivity test results.
 
-When the Configurations page finds an unmanaged `~/.claude/settings.json` and no configuration exists yet, it shows an import card. Importing takes over the current settings content in place and does not immediately rewrite the file. When a bound configuration is inconsistent with the real settings, the card shows a difference entry: choosing "Accept actual settings" writes the current file content back into the configuration; choosing "Re-apply" overwrites `settings.json` with the configuration's parsed result.
+- **Comprehensive Actions**: Create, enable (writes to `~/.claude/settings.json`), copy environment variables (`export KEY="value"` syntax), export profiles (with optional secret inclusion and pre-save JSON preview), duplicate, edit, delete, and drag-and-drop to reorder.
+- **Batch Model Testing**: Test connectivity for all managed profiles with a single click.
+- **Baseline Sync**: In an active profile, click **Sync common options and plugins to other configurations** to propagate common switches, plugin marketplaces, and enabled plugins across all other profiles.
+- **External Diff Tracking**: Detects unmanaged `~/.claude/settings.json` files on first launch. If an active file is modified externally, diff indicators let you choose between **Accept actual settings** or **Re-apply** to overwrite.
 
 ### Create or Edit a Configuration
 
-The configuration editor on the right is divided into several sections.
+The configuration drawer is organized into clean, functional sections:
 
-- **Basic information**: name (required), description, optional provider (selecting one automatically fills in the connection endpoint and model mapping).
-- **Authentication**: the authentication key is written to `env.ANTHROPIC_AUTH_TOKEN`; the API endpoint is written to `env.ANTHROPIC_BASE_URL`, and when it is not set, the model test uses the official Anthropic endpoint.
-- **Models and behavior**: the default model (an editable dropdown whose candidates come from the current provider's models, or you can type a custom model), the effort level (`auto`/`low`/`medium`/`high`/`xhigh`/`max`), the Opus / Sonnet / Haiku default models (also editable dropdowns), the Subagent model, the reply language, and the output style.
-- **Common options**: override common Claude Code switches such as deep thinking, thinking summaries, Fast Mode, disable Hooks, disable AI attribution, LSP tools, Tool Search, the new Init, no flicker, subprocess credential scrubbing, and Agent Teams. See the editor for the full list.
-- **Environment variables**: maintain `env` keys other than authentication and common options. Duplicate keys, invalid JSON, or an unsaved row edit will block saving.
-- **Permissions**: default mode, disable `bypassPermissions`, allow / deny / ask rules, additional directories, and recommended rule presets.
-- **Sandbox**: can be enabled or disabled, with recommended presets to add; complex configurations can switch to JSON mode.
-- **Hooks**: maintain Claude Code hooks with a summary view, add the built-in garbled-text check preset, and switch complex structures to JSON mode.
-- **Plugin marketplaces**: maintain `extraKnownMarketplaces` with built-in presets for the official marketplace (`claude-plugins-official`) and community marketplace (`claude-community`, repository `anthropics/claude-plugins-community`), available from both marketplace settings and Browse Marketplaces; each marketplace must fully specify the ID, source, repository or URL, path, package name, and install location.
-- **Plugins**: maintain `enabledPlugins`, split into two tabs, "Configured" and "Browse marketplace". Browsing the marketplace currently supports only the `github` source; you can filter by marketplace / enabled status / category / source, and clicking enable immediately syncs it to the configured list. Refresh requests and the install-count refresh each time out after 30 seconds. Failed sources are reported separately; a local cache write failure does not prevent the downloaded list from being displayed.
-- **Status line**: configure a custom status line command, and optionally enable the default status line preset (non-Windows writes `~/.claude/statusline.sh`; Windows writes `~/.claude/statusline.ps1` and automatically sets the PowerShell invocation command), and also sets a 60-second refresh interval so countdowns such as the prompt cache expiry keep updating while idle; if the target already exists with different content, you are prompted whether to overwrite.
-- **Final configuration**: preview the final JSON after merging the provider with the configuration; the source JSON mode lets you maintain the entire settings object directly, and the preview automatically adds the schema URL.
+- **Basic Information**: Profile name (required), description, and optional provider selection (which auto-populates endpoints and model mappings).
+- **Authentication**: Authentication key (written to `env.ANTHROPIC_AUTH_TOKEN`) and API base URL (written to `env.ANTHROPIC_BASE_URL`; defaults to official Anthropic endpoints when omitted).
+- **Models & Behavior**: Default model (editable dropdown with provider recommendations or custom text input), effort level (`auto`/`low`/`medium`/`high`/`xhigh`/`max`), Opus / Sonnet / Haiku model mappings, subagent models, preferred reply language, and output style.
+- **Common Options**: Visual toggles for deep thinking, thinking summaries, Fast Mode, disable Hooks, disable AI attribution, LSP tools, Tool Search, new Init, no-flicker mode, subprocess credential scrubbing, and Agent Teams.
+- **Environment Variables**: Manage custom `env` key-value pairs with duplicate key detection and JSON syntax validation.
+- **Permissions**: Default permission mode, disable `bypassPermissions` toggle, allow / deny / ask rules, trusted directories, and recommended security presets.
+- **Sandbox**: Toggle sandbox isolation with recommended presets; switch to JSON mode for advanced configurations.
+- **Hooks**: Maintain lifecycle hooks with an interactive summary view; includes built-in presets and JSON mode support.
+- **Plugin Marketplaces**: Manage `extraKnownMarketplaces` with built-in templates for official (`claude-plugins-official`) and community (`claude-community`) marketplaces.
+- **Plugins**: Manage `enabledPlugins` across **Configured** and **Browse marketplace** tabs. Filter by marketplace, status, and category with real-time toggle syncing.
+- **Status Line**: Configure custom status line commands. Includes presets for macOS/Linux (`~/.claude/statusline.sh`) and Windows (`~/.claude/statusline.ps1` with PowerShell invocation), complete with a 60-second idle refresh interval to keep prompt cache countdowns accurate.
+- **Final Configuration**: Live preview of the merged JSON output; includes a raw JSON mode to directly edit the underlying settings document.
 
 ### Model Test
 
-After you click Test Model, a request is sent based on the current edits. The result dialog shows whether it succeeded, the model used and the returned model, the request endpoint, the status code, the elapsed time, the request ID, the stop reason, the input prompt, the returned content, the request / response headers, the request body, and the raw response, along with the ability to copy cURL and to modify the prompt and retest.
+Clicking **Test Model** sends an immediate verification request using the currently edited configuration:
 
-Model testing requires a valid `ANTHROPIC_AUTH_TOKEN` and an accessible model API. Some gateways (for example OpenCode Go) require clients to declare a session header per conversation; model tests generate and send it automatically for every request, so no manual configuration is needed.
+- **Detailed Diagnostics**: View connection status, request and response model names, endpoint URL, HTTP status code, response latency, Request ID, stop reason, prompts, output tokens, headers, request payload, and raw responses.
+- **Practical Utilities**: Copy full cURL commands to test directly in your terminal, or modify the test prompt on the fly.
+- **Gateway Compatibility**: For API gateways requiring per-session identification headers (e.g. OpenCode Go), the test runner generates and injects them automatically.
 
 ### Deep Link Import
 
-You can send a Claude settings document into Code Manager via a system URL for preview-and-import. The scheme/path is `code-manager://profiles/import`.
+Import Claude configurations directly into Code Manager via custom system URLs using the `code-manager://profiles/import` scheme.
 
-- **Two mutually exclusive sources**: embedded `payload=` (base64url-encoded bare settings JSON, about 16KB decoded), or remote `url=` (HTTPS only; the app fetches then imports, with SSRF protections and size/redirect limits).
-- **Optional query params**: `name` and `description` only prefill the import dialog.
-- **Does not auto-enable**: after a successful resolve, the app switches to the Configurations page and opens the same preview dialog as file import. Confirming **creates a new configuration** with an empty `providerId` and **does not** automatically write or bind `~/.claude/settings.json`.
-- **Secrets**: if the payload contains authentication-like fields, you must acknowledge the risk before import. “Copy Deep Link” from an existing profile excludes secrets by default; including secrets requires the same acknowledgement.
-- **Queue**: multiple links are queued. Closing the preview or finishing an import continues with the next item. Leaving the Configurations page and returning restores unconfirmed links (the authoritative queue lives in the app backend).
-
-The scheme is registered for packaged installs on macOS / Windows / Linux; Linux/Windows may need extra registration in some development setups.
+- **Two Mutual Exclusive Sources**:
+  - **Embedded Payload**: `payload=` (base64url-encoded raw settings JSON; ~16KB decoded limit).
+  - **Remote URL**: `url=` (HTTPS only; fetched securely by the app with SSRF protections and size limits).
+- **Prefilled Metadata**: Optional `name` and `description` parameters prefill the import dialog.
+- **Safe by Default**: Resolving a link opens the configuration preview dialog. Confirming **creates a new profile** with an empty `providerId` and **never** automatically applies or overwrites `~/.claude/settings.json`.
+- **Secret Protection**: Payloads containing sensitive credentials require explicit user confirmation before importing. Copying deep links from existing profiles excludes secrets by default.
+- **Queueing**: Opening multiple deep links queues them sequentially, ensuring unconfirmed imports remain available across navigation.
 
 ## Providers
 
-Providers are all built-in and read-only. They carry only objective provider information (the connection endpoint `ANTHROPIC_BASE_URL`, the model mapping, and optional additional environment variables) and contain no authentication keys. They currently cover Anthropic, DeepSeek, Zhipu GLM Coding Plan, Kimi Code Plan, MiniMax Token Plan, Xiaomi MiMo Token Plan, OpenRouter, Volcengine Ark Coding Plan, Wanjie Ark, OpenCode Go, and Ollama.
+Providers are strictly **built-in and read-only**. They carry objective service endpoint configurations (`ANTHROPIC_BASE_URL`, model mappings, and default environment variables) without storing private credentials.
 
-Custom providers are not supported. After you select a built-in provider under the "Provider" option in the configuration editor, its connection endpoint and model mapping are filled in automatically; you only need to add the authentication key and behavior settings. Clicking "View built-in providers" below that option opens a read-only overview where you can see each provider's name, ID, API endpoint, official documentation link, recommended models, and the client session header (if that gateway requires one).
+- **Supported Ecosystems**: Covers Anthropic, DeepSeek, Zhipu GLM Coding Plan, Kimi Code Plan, MiniMax Token Plan, Xiaomi MiMo Token Plan, OpenRouter, Volcengine Ark Coding Plan, Wanjie Ark, OpenCode Go, and local Ollama deployments.
+- **Usage**: Select any provider from the dropdown to automatically populate connection URLs and recommended model mappings. Click **View built-in providers** below the dropdown to inspect official docs, endpoint specs, and gateway headers.
 
 ## Memory Management
 
-The Memory page is used to manage user-level Claude Code instructions.
+The Memory page manages user-level Claude Code instruction files.
 
-When there is no primary memory, the top of the page shows the Karpathy behavior guide preset, which you can create and enable as `CLAUDE.md` with one click. When editing an existing `CLAUDE.md`-type memory, you can also append this preset to the bottom of the current content; Code Manager uses a preset marker to prevent duplicate insertion and provides a link to the original repository so you can check the source.
-
-**Add a memory**: click Add Memory, fill in the name, choose the type (`CLAUDE.md` is written to `~/.claude/CLAUDE.md`, and only one can be enabled at a time; Rules are written to `~/.claude/rules/<path>.md`, multiple can be enabled at once, and `paths` glob matching is supported), write the Markdown content, and save. The real file is written to `~/.claude` only after you enable it in the list.
-
-**Edit, duplicate, and delete**: editing updates the managed content and, when enabled, syncs the change to the real file; duplicating creates a disabled copy; deleting removes the managed record and cleans up rule directories that are no longer needed.
-
-**Import local memories**: Code Manager detects files in `~/.claude/CLAUDE.md` and `~/.claude/rules/*.md` that have not yet been imported; clicking "Import to management" takes them over in place without immediately rewriting the content. Symlinked memories cannot be imported, and a path that is already occupied requires resolving the conflict first.
-
-**Import from a directory**: click Import Memory and choose a directory containing `CLAUDE.md` or `rules/`; imported items are disabled by default. Common reasons for skipping: a duplicate `CLAUDE.md`, a Rule already exists at the same path, an invalid path, a read failure, or symlinks not being supported.
+- **Karpathy Behavior Guide Preset**: When no primary memory exists, a banner offers to create and enable Karpathy's guidelines as `CLAUDE.md` with one click. When editing existing memories, the preset can be appended to the bottom (protected against duplicate insertions).
+- **Creating Memories**: Enter a name, select a type (`CLAUDE.md` written to `~/.claude/CLAUDE.md`, strictly single-active; Rules written to `~/.claude/rules/<path>.md`, multiple active with `paths` glob matching), and edit the Markdown content. Files are only written to disk when enabled.
+- **Maintenance**: Edit content, clone disabled duplicates, or delete obsolete rule files and folders.
+- **Importing**:
+  - **Local Detection**: Automatically discovers unmanaged `CLAUDE.md` and `rules/*.md` files in `~/.claude` for in-place takeover.
+  - **Directory Import**: Select an external folder to batch-import instruction files in disabled state; duplicates and invalid symlinks are skipped automatically.
 
 ## Skills Management
 
-The Skills page manages Claude Code Skills under `~/.claude/skills/`.
+The Skills page organizes custom capabilities stored under `~/.claude/skills/`.
 
-**Add a Skill**: click Add Skill, fill in the Skill name (the directory name / slash command, which allows only lowercase letters, digits, and hyphens), the display name, and the description, then write the `SKILL.md` body. You can set "manual trigger only" (writing `disable-model-invocation`) and "allow manual invocation".
-
-**List operations**: each Skill supports enable / disable, edit `SKILL.md`, delete, open the directory in an external editor, and sync to `~/.codex/skills`. Enabled corresponds to `~/.claude/skills/<id>/`, and disabled corresponds to `skills-disabled/<id>/` under the application data directory.
-
-**Import Skills**: you can select a single Skill directory, a Skill symlink, or a collection directory containing multiple Skills. Reasons for skipping include a name that does not match the rules, an item with the same name already exists, a missing valid `SKILL.md`, or an invalid symlink target. Symlinked Skills show a read-only notice and can be toggled and have their source directory opened, but their content cannot be modified inside the app.
-
-**Supporting files**: the editor shows a tree of supporting files other than `SKILL.md`. It currently only shows the directory tree; to make changes, open the Skill directory in an external editor.
+- **Create a Skill**: Provide an ID (directory and slash command name; lowercase letters, numbers, and hyphens only), display name, description, and `SKILL.md` body. Optionally configure manual invocation restrictions (`disable-model-invocation`).
+- **State Management & Archival**:
+  - **Enabled**: Stored in `~/.claude/skills/<id>/`.
+  - **Disabled**: Moved to `skills-disabled/<id>/` in the application data directory to keep your Claude workspace uncluttered.
+  - One-click symlink syncing to `~/.codex/skills`.
+- **Importing Skills**: Import individual skill directories, symlinks, or multi-skill parent folders. Symlinked skills display a read-only tag; they can be toggled and opened, but editing must take place in the source directory.
+- **Supporting Assets**: Browse auxiliary scripts, prompts, and templates within the skill directory; launch external editors for complex multi-file edits.
 
 ## Project Management
 
-The Projects page extracts the project list from `~/.claude/history.jsonl`, sorted by most recent activity. Project details also read the project's real directory and show Git, worktrees, project-level Claude configuration, and local cleanup entries.
+The Projects page extracts project history from `~/.claude/history.jsonl`, ordered by recent activity. Selecting a project inspects its working directory for Git state, worktrees, and project-level Claude configurations.
 
 ### Project List and Details
 
-The list on the left shows the project short name, path, last active time, session and input counts, and the most recent session ID. After you click a project, details are shown on the right.
+The left-side list shows project basenames, paths, last active timestamps, session and prompt counts, and the latest Session ID. Clicking any project loads its details on the right.
 
 ### Quick Actions
 
-- Open the project in a terminal: uses the default terminal from Settings, with options filtered by the current platform and what is installed locally.
-- Open the project in an editor: requires selecting a default editor in Settings first, with options filtered by platform and installation status.
-- Open the source repository: uses the project's Git remote URL.
+- **Open in Terminal**: Launches your default terminal configured in Settings, tailored to your operating system.
+- **Open in Editor**: Launches your selected code editor.
+- **Open Remote Repository**: Resolves the Git remote URL and opens it in your default web browser.
 
 ### Editor and Terminal Support Matrix
 
-| Application | macOS | Linux | Windows |
+| Tool | macOS | Linux | Windows |
 | --- | --- | --- | --- |
-| VS Code | Supported | Requires `code` CLI | Requires `code` CLI |
-| Zed | Supported | Requires `zed` CLI | Requires `zed` CLI |
-| Terminal | Terminal.app | Tries `$TERMINAL`, `xdg-terminal-exec`, `x-terminal-emulator`, etc. in order | Tries Windows Terminal, PowerShell, cmd in order |
-| iTerm | Supported | Not supported | Not supported |
-| Ghostty | Supported | Requires `ghostty` CLI | Not yet supported |
+| VS Code | Native application | Requires `code` CLI | Requires `code` CLI |
+| Zed | Native application | Requires `zed` CLI | Requires `zed` CLI |
+| Terminal | Terminal.app | Falls back: `$TERMINAL`, `xdg-terminal-exec`, `x-terminal-emulator` | Falls back: Windows Terminal, PowerShell, cmd |
+| iTerm2 | Fully supported | Not supported | Not supported |
+| Ghostty | Fully supported | Requires `ghostty` CLI | Not yet supported |
 
 ### Status Checks
 
-The details page shows: whether the directory exists, whether it is a Git repository, the `CLAUDE.md` / `AGENTS.md` pairing status, the `.claude/skills` / `.agents/skills` pairing status, the project-level `.claude/` overview, local branches and recent commits, worktree paths and status, the last active time, session and input counts, the most recent session ID, the Git root directory, and the 5 most recent sessions (clickable to view details). Quick actions support opening a terminal, opening an editor, opening the source repository, jumping to this project's history, and jumping to this project's token usage.
+Project details provide health checks and diagnostics:
+- Directory existence, Git repository detection, current branch, recent commits, and active worktrees.
+- `CLAUDE.md ↔ AGENTS.md` pairing status and `.claude/skills ↔ .agents/skills` directory pairing status.
+- Recent session timelines (clickable to inspect full message replays).
+- Quick navigation to project-specific history or token usage.
 
 ### Project-Level Claude Configuration
 
-Project-level Claude management is divided into three groups:
-
-- Memory files: `CLAUDE.md ↔ AGENTS.md` two-way pairing. When either side is a real file, you can create a relative symlink for the other side; when neither side exists, when a regular file conflicts, or when there is an orphan symlink, no automatic handling is performed.
-- Project-level Skills: `.claude/skills ↔ .agents/skills` two-way pairing. When either side is a real directory, you can create a relative symlink for the other side; when both sides are real directories, you must merge them manually.
-- The project `.claude/` directory: open the Sheet on the right to browse, preview, and open project-level Claude files in an external editor. `settings.json` and `settings.local.json` support one-click creation; other project-level files can be previewed or opened externally, but cannot be created, deleted, or renamed in the project drawer.
+Provides three core integration tools for project-level workflows:
+- **Instruction Pairing**: Bidirectional relative symlink creation between `CLAUDE.md ↔ AGENTS.md` ensures cross-agent compatibility.
+- **Skill Pairing**: Bidirectional symlinking between `.claude/skills ↔ .agents/skills`.
+- **Project `.claude/` Drawer**: Browse project-level Claude files in a slide-out drawer, with one-click creation of `settings.json` and `settings.local.json`.
 
 ### Branch and Worktree Cleanup
 
-Project details can detect local branches and worktrees that have been merged or deleted on the remote and can be safely cleaned up. Cleanup always takes two steps: first a preview list is generated for you to select from, and deletion is performed only after confirmation; the backend only cleans up the entries listed in the preview.
+Scans for local branches and worktrees that have already been merged or deleted on remote repositories.
+- **Safe Two-Step Operation**: Generates an interactive preview list; deletion only executes after user confirmation, ensuring unlisted items are never touched.
 
 ### Clear Project Local Data
 
-Right-click a project list item and choose Clear local data. The application first generates a dry-run deletion plan and only executes it after confirmation. This operation calls the Claude CLI to clear the project's saved local state, so review the plan carefully before executing it.
+Right-click any project item to initiate local data cleanup. The app runs a dry-run plan via the Claude CLI, prompting for user confirmation before clearing local project state.
 
 ## Usage History
 
-The History page reads `~/.claude/history.jsonl` and is used to review historical inputs and sessions.
+The History page parses `~/.claude/history.jsonl` to review past prompts and complete interaction sessions.
 
-The left side groups by project, the heatmap at the top shows recent history density, the search box filters by displayed text, and clicking a session opens the details drawer. The URL syncs the `project`, `q`, and `session` parameters so you can preserve filter state.
-
-Session details show user messages, assistant messages, thinking summaries, tool calls and returns, commands, images, plan content, and system events. You can copy the project path, the session ID, or a single message, or open the raw session record file in an editor.
+- **Filtering & Search**: Grouped by project on the left; displays interaction density heatmaps; text search filters history entries; URLs sync `project`, `q`, and `session` query parameters.
+- **Session Replay**: The detail drawer reconstructs the interaction timeline, displaying user prompts, assistant replies, thinking summaries, tool invocations, shell commands, images, plans, and system events.
+- **Utilities**: Copy paths, session IDs, or individual messages, or launch the raw `.jsonl` log file in your external editor.
 
 ## Usage Statistics
 
-The Stats page reads `~/.claude.json` and shows the local statistics snapshot (not a real-time computed result).
+The Stats page displays the static telemetry snapshot stored in `~/.claude.json` (not real-time computed runtime figures).
 
-The page provides the startup count, the first-use date, the number of projects, the last Plan Mode usage time, the `btw` usage count, a tool call count chart, a Skill usage count list, and a list of each project's most recent session. Each project's most recent session shows the latest cost, session duration, lines added / removed, the various token types, the number of web searches, model details, the first prompt, frame, and Hook performance metrics.
-
-The top of the page lets you refresh the data or open `~/.claude.json` in the default editor.
+- **High-Level Metrics**: Cumulative launches, first-use date, total projects, last Plan Mode timestamp, and `btw` invocation count.
+- **Charts & Rankings**: Tool invocation frequency charts and skill usage rankings.
+- **Recent Project Sessions**: Lists the most recent session per project, including estimated cost, duration, lines added/removed, token breakdowns, web search counts, and initial prompts.
 
 ## Token Usage Statistics
 
-The Usage page scans `~/.claude/projects/**/*.jsonl` and `subagents/*.jsonl`, extracts the usage field from assistant messages, and estimates cost based on the price table.
+The Usage page analyzes `~/.claude/projects/**/*.jsonl` and `subagents/*.jsonl` log files, extracting `usage` payloads from assistant messages and pricing them against standard pricing tables.
 
 ### Data Metrics
 
-- Deduplicated globally by `message.id`; when the same message appears multiple times, the snapshot with the larger token usage is kept.
-- Tokens include input, output, cache creation, and cache read; cost is estimated in units of USD / 1M tokens.
-- Price table loading order: the local cache `model-pricing.json` → the built-in Anthropic fallback table → an update from models.dev on startup or manual refresh.
-- models.dev only imports official provider prices: Anthropic, Moonshot / MoonshotAI, Z.ai / Zhipu / BigModel, MiniMax, Xiaomi / MiMo, DeepSeek. Among these, Kimi, MiMo, GLM, MiniMax, and DeepSeek are controlled by the "third-party model pricing" switch on the Settings page; when it is off, their cost is counted as 0.
-- Tokens for other models whose price cannot be matched are still counted, but their cost is counted as 0 and they enter the unknown models list.
+- **Deduplication**: Deduplicated globally by `message.id`; when duplicates occur, the snapshot with higher token counts is preserved.
+- **Token Composition**: Covers Input, Output, Cache Creation, and Cache Read tokens; costs are normalized in USD / 1M tokens.
+- **Pricing Resolution**: Local cache `model-pricing.json` → Built-in Anthropic fallback table → Live models.dev updates on startup or manual refresh.
+- **Official Providers**: models.dev imports pricing for official providers (Anthropic, Moonshot/Kimi, Zhipu GLM, MiniMax, Xiaomi MiMo, DeepSeek). Third-party Chinese models can be toggled via the **Third-party model pricing** switch in Settings (costs count as 0 when disabled).
+- **Unrecognized Models**: Models not found in pricing tables still track token counts, but costs are registered as 0 and categorized under unknown models.
 
 ### Top Status and Actions
 
-The top shows the price source (built-in / local cache / models.dev live). Action buttons: refresh prices, view the model price list (you can search by model to see input, output, cache write / read prices, and current usage), and rescan.
+Displays the current price table source (built-in, local cache, or models.dev live), with buttons to refresh prices, view the model pricing table, or trigger a full rescan.
 
 ### Filtering
 
-Supports filtering by date range, quick range (today, last 7 days, last 30 days, this week, this month, this year, all), project, and model (including `claude-*` aggregation). Reset returns to today.
+Filter by custom date ranges, quick presets (Today, Last 7 Days, Last 30 Days, This Week, This Month, This Year, All Time), target projects, and models (including `claude-*` wildcards).
 
 ### Charts and Tables
 
-The page includes total spend, total tokens, session count, message count, cache savings, spend trend, token trend, model cost share, token composition, and detail tables by date, project, session, and model. The trend charts support splitting by model or token type, curve or bar style, and day / hour / 5-minute granularity; you can click a legend item to toggle its display, or double-click a legend item to show only that item. Clicking a session in the by-session table opens the message-level usage details.
+- **Summary Cards**: Total spend, total tokens, session counts, message counts, and prompt cache savings.
+- **Trend Charts**: Spend and token trends split by model or token type, rendered as curves or bars across daily, hourly, or 5-minute granularities.
+- **Breakdown Tables**: Comprehensive tables grouped by date, project, session, and model; click any session to inspect message-level token waterfall charts.
 
 ## Desktop Usage Widget
 
-The desktop usage widget is a small, always-on-top, semi-transparent, borderless window that lets you keep an eye on today's usage without opening the main interface. Once enabled, it stays present across all virtual desktops (macOS Spaces), does not appear in the taskbar, first appears in the lower-right corner of the screen, and remembers its position after you drag it. It is available on all three platforms.
+An always-on-top, translucent, borderless desktop mini-window that tracks today's usage without keeping the main application open.
 
-- **Displayed metrics**: shows today's usage KPIs in real time, optionally cost, total tokens, cache hit rate, message count, session count, and top model. By default it shows the first three (cost, total tokens, cache hit rate), and you can customize the selection and order in Settings.
-- **Data refresh**: the data shares the same source as the Usage page and refreshes automatically when records or prices change.
-- **Quick jump**: clicking the body of the widget jumps to the Usage page in the main interface.
-- **Appearance and toggle**: the opacity is adjustable, and the enable toggle along with the metrics and opacity settings are all in the settings drawer (see the "Desktop Usage Widget" settings subsection below).
+- **Desktop Integration**: Persists across all macOS Spaces, bypasses the taskbar, initializes in the lower-right corner, remembers drag coordinates, and runs across all three platforms.
+- **Customizable KPIs**: Displays today's essential metrics (cost, total tokens, cache hit rate, message count, session count, top model) with custom selection and ordering in Settings.
+- **Real-Time Sync**: Shares the analytics engine cache and refreshes automatically when logs or pricing tables update.
+- **Instant Access**: Click the widget body to launch Code Manager directly to the Usage page.
+- **Appearance**: Adjust overall opacity from 30% to 100% in Settings.
 
 ## Cheat Sheet
 
-The Cheat Sheet entry at the bottom of the sidebar opens a Claude Code quick-reference page that follows the interface language (Chinese / English). It covers keyboard shortcuts, MCP servers, slash commands, memory and files, workflows and tips, configuration and environment variables, skills and agents, CLI flags, and permission modes. The table of contents on the right jumps to each section.
+Accessible at the bottom of the sidebar, the Cheat Sheet provides a quick-reference guide that adapts to your active interface language:
+- Covers keyboard shortcuts, MCP server setups, slash commands, memory rules, best practices, configuration and environment variables, subagents, CLI flags, and permission modes.
+- Includes an anchor table of contents on the right for navigation.
 
 ## System Tray and Session Focus
 
-Code Manager stays in the system tray (menu bar), with a menu divided into two parts:
+Code Manager stays accessible in the system tray / menu bar with two primary sections:
 
-- Main tray: switch the current configuration, quickly jump to each page, and quit the application. Switching the configuration is equivalent to enabling the corresponding configuration on the Configurations page.
-- Session tray: reads `~/.claude/sessions/*.json` and summarizes the current Claude sessions by status (awaiting input / working / idle). Whether it is shown, the character limit, the session count style, and the pending breathing indicator are all adjusted in Settings (see below).
+- **Main Menu**: Switch active configuration profiles, jump to application pages, or exit the app. Switching profiles here is identical to enabling them in the Configurations page.
+- **Session Menu**: Monitors `~/.claude/sessions/*.json`, summarizing active sessions by operational state (waiting for input, busy/thinking, idle).
 
-**Session focus**: on supported platforms, clicking a session entry or using the session focus shortcut returns you to the corresponding terminal tab. This capability is **macOS only**; it focuses Terminal.app and iTerm2 via `pid → tty → AppleScript`, and Ghostty first matches its `tty` property before using a unique working-directory fallback on older versions or when tty matching misses. Linux and Windows do not support automatic focus, and clicking a session will not switch the terminal. See [Platform Support Differences](./platform-support.md) for details.
+### Session Focus (macOS only)
 
-**LED light effect integration (macOS only)**: once enabled, the red/green status of the session tray is mirrored to the light effects of an external ANTICATER USB device, which is handy for getting a hardware light cue about session status when you are not watching the menu bar. The configuration entry is the LED light effect card in Settings.
+On supported setups, clicking any session entry or pressing the **Session Focus Shortcut** brings the target terminal window and tab directly into focus:
+- **Terminal.app & iTerm2**: Leverages `pid → tty → AppleScript` for terminal tab matching.
+- **Ghostty**: Matches the `tty` property, falling back to unique working directories.
+- **Platform Limits**: Linux and Windows do not support automatic terminal focusing. See [Platform Support Differences](./platform-support.md).
+
+### LED Hardware Integration (macOS only)
+
+Mirrors session tray status (red/green) directly to external ANTICATER USB device LEDs, providing hardware ambient cues when working away from your screen.
 
 ## Settings and Diagnostics
 
-The Settings entry is in the lower-left corner. The settings drawer is a single column of cards; the groups below follow the order of the cards in the drawer. Cards or options marked "macOS only" are not shown on Linux and Windows.
+Located in the lower-left corner, Settings presents a card-based drawer organized into clean sections:
 
 ### Interface
 
-- Interface language: Chinese / English.
-- Theme appearance: light / dark / follow system.
-- Collapse sidebar by default: after startup the sidebar shows only the menu icons; it still collapses automatically on narrow screens.
+- **Interface Language**: English / Simplified Chinese.
+- **Theme Appearance**: Light / Dark / Follow System.
+- **Collapse Sidebar by Default**: Starts with a collapsed, icon-only sidebar to maximize screen space.
 
 ### Menu Bar and Session Status
 
-- Show current configuration in the menu bar: shows the name of the currently active configuration next to the tray icon; the character limit can be set to off, up to N characters, or fully expanded.
-- Show current session in the menu bar: shows the current Claude session and its status in a separate menu bar area.
-- Session count style: number (`🔴 1 🟢 1`), superscript (`🔴¹ 🟢¹`), or compact (`🔴¹🟢¹`).
-- Pending session breathing indicator (macOS only): when there is a session awaiting input, the menu bar status shows a breathing-style pulse cue.
-- Session focus shortcut (macOS only): registers a global shortcut for "focus the session that most needs attention". Click to record and press the key combination (which must include at least one modifier key ⌘/⌃/⌥/⇧); you can restore the default at any time.
+- **Show Active Configuration in Menu Bar**: Displays the active profile name alongside the tray icon (off, truncated to N characters, or full width).
+- **Show Current Session in Menu Bar**: Shows Claude session indicators in a separate menu bar item.
+- **Session Count Style**: Standard numbers (`🔴 1 🟢 1`), superscripts (`🔴¹ 🟢¹`), or compact badges (`🔴¹🟢¹`).
+- **Pending Session Breathing Indicator (macOS only)**: Displays a pulsating animation when sessions require user attention.
+- **Session Focus Shortcut (macOS only)**: Register a custom global hotkey to jump immediately to the session requiring attention.
 
 ### Desktop Usage Widget
 
-- Enable the desktop usage widget: when enabled, creates an always-on-top semi-transparent small window that shows today's usage metrics in real time (see "Desktop Usage Widget" above).
-- Displayed metrics: multi-select the metrics to show in the widget (cost, total tokens, cache hit rate, message count, session count, top model), keeping at least one.
-- Opacity: a slider adjusts the overall opacity of the widget, ranging from 30% to 100%, defaulting to 92%.
+- **Enable Desktop Widget**: Toggle the floating usage window.
+- **Displayed Metrics**: Choose and order the metrics displayed on the widget.
+- **Opacity Slider**: Smoothly adjust widget transparency from 30% to 100% (default 92%).
 
 ### LED Light Effects (macOS only)
 
-- LED light effect integration: mirrors the tray session status to the light effects of an ANTICATER USB device. When you open Settings, the device is detected automatically, showing connected / no device detected / detecting status. The three states—awaiting your input, working / thinking, and done / idle—can each be assigned a light effect mode (off / clockwise / counterclockwise / alternating / jumping / blinking), and the test button next to each mode lights it up immediately for verification. The configuration can still be saved when no device is connected, and it takes effect once a device is attached.
-
-> The LED light effect card is shown only on macOS.
+Automatically discovers connected ANTICATER USB hardware:
+- Assign lighting patterns (off, clockwise, counterclockwise, alternating, jumping, blinking) to three session states: waiting for input, working/thinking, and done/idle.
+- Test buttons provide instant hardware verification.
 
 ### Prevent Sleep (macOS only)
 
-When Claude Code sessions need to run for a long time, you can stop the Mac from entering idle sleep.
-
-- **Mode (one of three)**:
-  - **Off**: do not interfere with system sleep.
-  - **While active**: stay awake while there is a running Claude Code session; idle sleep is allowed again when all sessions end.
-  - **Always**: stay awake unconditionally (still subject to the display option below).
-- **Keep display awake**: orthogonal to the mode. By default only **system idle sleep** is blocked and the display may still dim per system policy; enabling this keeps the display on as well.
-- **Live status**: when the mode is not Off, Settings shows a status dot such as “Keeping awake” or “Idle, may sleep”; the tray menu can also switch modes.
-- **Limits**: macOS only; hardware policies such as closing the lid may still sleep the machine; quitting the app releases the power assertion.
+Prevents system sleep during long-running tasks:
+- **Sleep Prevention Mode**:
+  - **Off**: Standard system sleep behavior.
+  - **While active**: Prevents sleep only while Claude Code sessions are actively running.
+  - **Always**: Keeps system awake unconditionally.
+- **Keep Display Awake**: Independently controls whether displays stay awake or dim according to system policies.
+- **Live Indicators**: Displays power assertion indicators in Settings and tray menus.
 
 ### System Notifications, Sounds, and Pricing
 
-- System notifications: used when a Claude session enters the pending state, when clicking a session to jump but terminal location fails, and when the cache hit rate in the last 5 minutes falls below the configured threshold (default 90%, adjustable from 10% to 99%). When enabled, system notification permission is requested first; if permission is denied, the setting stays off.
-- Waiting sound: plays a system sound when a session starts waiting for input; choose and preview Glass, Submarine, Hero, Ping, Sosumi, or Tink. The option is shown on every platform but only plays on macOS.
-- Third-party model pricing: controls whether Kimi, MiMo, GLM, MiniMax, and DeepSeek are estimated using models.dev prices; when off, the cost of these models is counted as 0.
+- **System Notifications**: Alerts when sessions need attention, when terminal jumps fail, or when cache hit rates drop below thresholds (default 90%, adjustable from 10% to 99%).
+- **Notification Sounds**: Plays audio cues when input is needed (Glass, Submarine, Hero, Ping, Sosumi, Tink).
+- **Third-Party Model Pricing**: Controls whether Chinese model costs are calculated using models.dev pricing tables.
 
 ### System Integration
 
-- Launch at startup: automatically launches Code Manager after you log in to the system.
-- Default terminal, default editor: used by the "open in terminal / editor" actions on the Projects page and in the Directory Overview.
-
-The available items come from a built-in support list and system detection; they do not automatically list every application on your computer, ensuring that each option has a clear open command and project path parameter. Editors on Linux and Windows require the corresponding CLI to be accessible in `PATH`; the default terminal on Windows prefers Windows Terminal and falls back to PowerShell and cmd on failure.
+- **Launch at Startup**: Automatically launches Code Manager upon system login.
+- **Default Terminal & Editor**: Configures preferred applications for external launching actions across projects and file trees.
 
 ### Log Viewer
 
-Click View Logs to open the log window, which supports filtering by level (all / error / warn / info / debug / trace), searching, refreshing, opening the log directory, and clearing logs. By default it shows the 500 most recent matching results, switchable to 1000 / 2000 / 5000, and indicates when results are truncated.
+Click **View Logs** to open the dedicated log viewer:
+- Filter by log level (All / Error / Warn / Info / Debug / Trace), perform text search, refresh, or clear logs.
+- Secrets and tokens are redacted before logs are written to disk.
+- Direct button to open the log directory in your system file explorer.
 
 ### System Information
 
-The System Information window shows the Code Manager version, the operating system type / platform / version / family, the CPU architecture, the hostname, and the locale. Clicking Copy copies the information as a Markdown table, which is convenient for filing an issue or troubleshooting.
+Collects application versions, OS distribution/kernel/family, CPU architecture, hostname, and locale settings. Includes a **Copy Markdown** button for issue reporting and troubleshooting.
 
 ### Application Update
 
-The application update card shows the current version and provides a "Check for updates" button: when a new version is found, clicking "Download and install" automatically downloads, installs, and restarts into the new version. The application also checks silently once on startup, and when a new version is found it only shows a Toast notice, leaving the decision to update up to you. Update packages are verified with an official minisign signature and pulled from GitHub Releases. Users who installed via Homebrew can also continue to upgrade with `brew upgrade`; both methods work.
+The update card displays the current version and release channel:
+- Manual **Check for Updates** button to download, verify, and restart with one click.
+- Silent startup checks notify you via non-intrusive toast messages.
+- Packages are verified against official minisign cryptographic signatures.
+- Homebrew users can continue using `brew upgrade`; in-app and Homebrew versions automatically align on subsequent checks.
 
 ## Local Data and Privacy
 
-Code Manager mainly reads and writes local files. Configuration merging, directory scanning, usage aggregation, and log viewing are all done locally.
+Code Manager follows a strict **Local-First** privacy architecture. Configuration merging, directory scanning, token calculation, and log inspection execute entirely offline on your machine. No user code, prompts, or configurations are transmitted to remote servers.
 
 ### Application-Managed Data
 
@@ -362,33 +401,34 @@ Code Manager mainly reads and writes local files. Configuration merging, directo
 | Linux | `$XDG_CONFIG_HOME/code-manager/` or `~/.config/code-manager/` |
 | Windows | `%APPDATA%\code-manager\` |
 
-> This application deliberately reuses `~/.config/code-manager/` instead of the macOS-standard `~/Library/Application Support/...`, to make cross-platform sync backups and unified script access easier.
+> [!NOTE]
+> On macOS, the app uses `~/.config/code-manager/` instead of `~/Library/Application Support/...` to facilitate unified script access and cross-platform backup workflows.
 
 ```text
 <application data directory>/
-  config-registry.json
-  memories.json
-  model-pricing.json
-  skills-disabled/
+  config-registry.json    # Managed configuration registry
+  memories.json           # Managed memories and rules
+  model-pricing.json      # Local model pricing cache
+  skills-disabled/        # Disabled skills archive
 ```
 
 ### Claude Code User Directory and Inputs
 
 ```text
 ~/.claude/
-  settings.json
-  CLAUDE.md
-  rules/
-  skills/
-  projects/        # input for the Usage page
-  history.jsonl    # input for the Projects and History pages
-  statusline.sh
-~/.claude.json     # input for the Stats page
+  settings.json           # Active Claude Code settings
+  CLAUDE.md               # Active primary memory
+  rules/                  # Active modular rules
+  skills/                 # Active custom skills
+  projects/               # Log inputs for Token Usage page
+  history.jsonl           # Input for Projects and History pages
+  statusline.sh           # Custom status line script
+~/.claude.json            # Telemetry input for Stats page
 ```
 
 ### Usage SQLite Cache
 
-Maintained by the backend usage runtime via `sqlx`. The database is named `usage.db` and is located in the Tauri default application configuration directory (which is not the same location as the "application data directory"). When SQLite uses WAL mode, `usage.db-wal` and `usage.db-shm` may also appear in the same directory.
+Maintained by the backend runtime via `sqlx` in the default application data directory (isolated from the application data directory above):
 
 | Platform | Path |
 | --- | --- |
@@ -398,7 +438,7 @@ Maintained by the backend usage runtime via `sqlx`. The database is named `usage
 
 ### Log Directory
 
-The file name is usually `code-manager.log`, and rotated files look like `code-manager_2026-04-29_09-13-00.log`.
+Primary logs are named `code-manager.log`, with rotated archives formatted as `code-manager_2026-04-29_09-13-00.log`:
 
 | Platform | Path |
 | --- | --- |
@@ -410,72 +450,82 @@ The file name is usually `code-manager.log`, and rotated files look like `code-m
 
 ### Create and Enable a Provider Configuration
 
-1. Go to the Configurations page, create a configuration, select a built-in provider under the "Provider" option, and fill in the authentication key.
-2. Adjust the default model, effort level, and common options as needed, then open the final configuration preview to confirm the `env` and permissions.
-3. Click Test Model, and save once it succeeds.
-4. Go back to the list and click Enable, then open the Directory Overview to check `settings.json`.
+1. **Create Profile**: Go to Configurations, click **New Configuration**, pick a built-in provider, and enter your API credentials.
+2. **Fine-Tune Options**: Adjust default models and common toggles, then inspect the **Final Configuration Preview** to confirm your `env` and permissions.
+3. **Test Connectivity**: Click **Test Model**; once verified, save the profile.
+4. **Activate & Verify**: Click **Enable** in the profile list, then switch to the **`~/.claude` Directory Overview** to confirm `settings.json` has been updated.
 
 ### Take Over an Existing `CLAUDE.md` and Rules
 
-1. Go to the Memory page and click "Import to management" for the files you want to manage in the not-yet-imported group.
-2. Check that the content and path match, and enable or disable them as needed.
+1. **Discover Files**: Navigate to the Memory page and locate discovered unmanaged files in the **Not Imported** section.
+2. **Import & Enable**: Click **Import to management** to take over files in place, reviewing paths and toggling active status as needed.
 
 ### Create a Skill and Sync It to Codex
 
-1. Go to the Skills page, add a Skill, and fill in a valid id, display name, and description.
-2. Write `SKILL.md`, set whether automatic / manual invocation is allowed, and save it as enabled.
-3. Click sync to `~/.codex/skills`.
+1. **Define Skill**: Go to Skills, click **Add Skill**, and enter a valid ID, display name, and description.
+2. **Draft Content**: Write your `SKILL.md` body, configure invocation triggers, and save in the enabled state.
+3. **Establish Symlink**: In the skill card menu, click **Sync to `~/.codex/skills`** to link the skill across tools.
 
 ### Troubleshoot a Model That Cannot Be Called
 
-1. Edit the target configuration and confirm the authentication key, API endpoint, and model.
-2. Click Test Model and check the status code, request endpoint, request body, and raw response in the result.
-3. If necessary, copy the cURL to a terminal to reproduce it; if the failure is in the app's own save or invocation, go to Settings to view the logs.
+1. **Verify Credentials**: Edit the active profile to confirm your API key, endpoint Base URL, and model identifier.
+2. **Run Diagnostics**: Click **Test Model** and inspect the returned HTTP status code, error messages, and raw responses.
+3. **Reproduce**: Copy the generated cURL command to verify directly in your terminal. For app-level errors, inspect **Settings → Diagnostics → View Logs**.
 
 ### Troubleshoot Abnormal Cost or Tokens
 
-1. Go to the Usage page, select the date range, project, and model, and check the total spend and composition.
-2. Open the model price list and confirm whether the target model has a complete price; switch to the by-session table and click the abnormal session to view the message-level details.
-3. A model appearing in the unrecognized list means its cost is counted as 0; you can try refreshing prices, and for third-party models confirm whether the pricing switch on the Settings page is on.
+1. **Isolate Scope**: On the Token Usage page, filter by date range, project, and model to pinpoint spending anomalies.
+2. **Audit Unit Rates**: Open the model pricing table to verify that pricing data exists for the model. Drill down into individual sessions in the session table to review message-level token waterfalls.
+3. **Zero-Cost Models**: If a model appears under unknown models, click **Refresh Prices**. For third-party Chinese models, check that third-party pricing is enabled in Settings.
 
 ## Frequently Asked Questions
 
 ### Where is a configuration written after I enable it?
 
-It is written to `~/.claude/settings.json`. The content is the final JSON after merging the provider `env` with the configuration's own settings, and it includes the Claude Code settings schema.
+**Written directly to `~/.claude/settings.json`.**
+The file contains the merged result of provider presets and custom profile settings, formatted as standard JSON with schema references for IDE autocompletion.
 
 ### Does deleting a configuration delete `settings.json`?
 
-No. Deleting a configuration only removes the managed record and binding status; it does not clean up the `~/.claude/settings.json` that has already been written out.
+**No.**
+Deleting a configuration only removes the managed profile from Code Manager's internal registry. It will never delete or wipe existing files on disk.
 
 ### Why does the model test report a missing `ANTHROPIC_AUTH_TOKEN`?
 
-The current configuration's final configuration has no usable authentication key. Fill it in the Authentication section, or confirm whether `env.ANTHROPIC_AUTH_TOKEN` in the JSON has been overridden to empty.
+**No valid credentials were found in the active configuration.**
+Ensure you entered an API key under Authentication, or verify that `env.ANTHROPIC_AUTH_TOKEN` has not been overridden with an empty value in JSON mode.
 
 ### Why are there no projects on the Projects page?
 
-The Projects page comes from `~/.claude/history.jsonl`. After you use Claude Code and produce history records, the projects will appear in Code Manager.
+**No Claude Code history exists yet on your machine.**
+The Projects page indexes `~/.claude/history.jsonl`. Once you conduct your first Claude Code session in any terminal, projects will populate automatically.
 
 ### Why are the costs on the Stats page and the Usage page inconsistent?
 
-The Stats page reads the local statistics snapshot from `~/.claude.json`; the Usage page scans `~/.claude/projects/**/*.jsonl` and re-estimates based on the current price table. The two have different data sources and calculation metrics.
+**They use different data sources and accounting methods.**
+The Stats page reads the static telemetry snapshot from `~/.claude.json`, whereas the Usage page scans raw `.jsonl` session files across all projects and prices them against active pricing tables.
 
 ### Why is the cost of some models 0?
 
-The model is not in the price table, so the tokens are still counted but the cost is counted as 0. Kimi, MiMo, GLM, MiniMax, and DeepSeek are also counted as 0 when third-party model pricing is off. You can try refreshing prices, or enable third-party model pricing on the Settings page.
+**The model lacks pricing data or third-party pricing is disabled.**
+When a model is not indexed by models.dev, token counts are tracked but unit prices default to 0. Similarly, Chinese models register as 0 if the third-party pricing toggle is turned off in Settings.
 
 ### How do I update Claude Code plugins?
 
-Code Manager only manages `enabledPlugins` and `extraKnownMarketplaces` in your settings; it does not install or upgrade plugins. To update plugins, run `claude plugin update <plugin>@<marketplace>` for a single plugin, or `/plugin marketplace update <marketplace>` inside Claude Code to refresh the catalog and upgrade the installed plugins from that marketplace. You can also set `extraKnownMarketplaces.<name>.autoUpdate` to `true` in the configuration's JSON mode so Claude Code updates them on startup. See the official docs: [Discover and install plugins](https://code.claude.com/docs/en/discover-plugins).
+**Run update commands in your terminal.**
+Code Manager manages `enabledPlugins` and `extraKnownMarketplaces` in your configuration, but does not download or build plugin files. In your terminal, run `claude plugin update <plugin>@<marketplace>` or `/plugin marketplace update <marketplace>`. You can also set `autoUpdate: true` in your profile settings. See official documentation: [Discover and install plugins](https://code.claude.com/docs/en/discover-plugins).
 
 ### Why can't I edit a symlinked Skill?
 
-The source directory of a symlinked Skill is not within Code Manager's direct management scope. The application only allows toggling, importing, and opening the directory; the content must be maintained in the source directory.
+**Symlink source targets reside outside the managed directory.**
+To prevent unintended modifications to external repositories, Code Manager only supports toggling, importing, and opening symlinked skills. Edit the files directly in their original source directories.
 
 ### Is clearing project local data safe?
 
-This operation first generates a dry-run deletion plan and only executes it after confirmation; it is used to clear the project local state saved by the Claude CLI. You must review the deletion plan before executing it to avoid accidentally deleting data you still need.
+**It includes dry-run planning, but should be used with care.**
+This action clears local context caches saved by the Claude CLI for the project. Code Manager displays a dry-run preview of files scheduled for deletion before requiring your explicit confirmation.
 
 ### Why don't I see the LED light effect integration or the session focus shortcut?
 
-Both are provided on **macOS only** and are not shown in the Settings on Linux and Windows. The LED light effect also requires connecting an ANTICATER USB device: when the LED light effect card in Settings shows "No device detected", the light effect will not light up, so confirm that the device is connected, turn on the switch in that card, and choose a non-"off" light effect mode for the corresponding status.
+**Both capabilities are exclusive to macOS.**
+These settings cards are automatically hidden on Linux and Windows. Additionally, LED effects require a physically connected ANTICATER USB device with enabled status modes.
