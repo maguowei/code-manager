@@ -17,7 +17,7 @@
     <meta property="og:title" content="Code Manager · Claude Code 本地配置管理桌面应用" />
     <meta
       property="og:description"
-      content="一站式管理 Claude Code 的配置、记忆、Skills、用量费用与会话状态。跨平台、完全本地、开源 (MIT)。"
+      content="一站式管理 Claude Code 的配置、记忆、Skills、用量费用与会话状态。跨平台、完全本地、开源（MIT）。"
     />
     <meta property="og:image" content="assets/img/logo.png" />
     <meta name="twitter:card" content="summary" />
@@ -81,8 +81,8 @@
           <div class="hero-grid">
             <div class="hero-copy">
               <span class="badge-pill"><span class="dot"></span>
-                <span data-lang="zh">开源 · MIT · v0.20.1</span>
-                <span data-lang="en">Open Source · MIT · v0.20.1</span>
+                <span data-lang="zh">开源 · MIT · v1.10.1</span>
+                <span data-lang="en">Open Source · MIT · v1.10.1</span>
               </span>
               <h1>
                 <span data-lang="zh">把 Claude Code 的<span class="accent">本地配置</span>管起来</span>
@@ -540,7 +540,7 @@
                   </tr>
                   <tr>
                     <td class="dim"><span data-lang="zh">许可</span><span data-lang="en">License</span></td>
-                    <td class="col-ours"><span class="yes">✓ </span><span data-lang="zh">开源 (MIT)</span><span data-lang="en">Open source (MIT)</span></td>
+                    <td class="col-ours"><span class="yes">✓ </span><span data-lang="zh">开源（MIT）</span><span data-lang="en">Open source (MIT)</span></td>
                     <td><span data-lang="zh">开源</span><span data-lang="en">Open source</span></td>
                   </tr>
                 </tbody>
@@ -577,8 +577,8 @@
               <p><span data-lang="zh">在「设置」中选择界面语言、主题、默认终端和默认编辑器。</span><span data-lang="en">In Settings, pick language, theme, default terminal and default editor.</span></p>
             </li>
             <li>
-              <h4><span data-lang="zh">查看供应商</span><span data-lang="en">Browse providers</span></h4>
-              <p><span data-lang="zh">在配置编辑器的「供应商」选项处选择内置供应商（内置 Anthropic、DeepSeek、智谱 GLM、Kimi、火山方舟、阿里云百炼等十余个），点「查看内置供应商」可打开只读一览。</span><span data-lang="en">Pick a built-in provider from the provider option in the profile editor (Anthropic, DeepSeek, GLM, Kimi, Volcengine, Bailian and 10+ more); the "view built-in providers" link opens a read-only list.</span></p>
+              <h4><span data-lang="zh">选择供应商</span><span data-lang="en">Select a provider</span></h4>
+              <p><span data-lang="zh">在配置编辑器的「供应商」选项中选择内置服务商（内置 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、火山方舟等十余个），点击「查看内置供应商」可打开只读一览。</span><span data-lang="en">Pick a built-in provider in the profile editor (Anthropic, DeepSeek, GLM, Kimi, MiniMax, Xiaomi MiMo, Volcengine and more); click "view built-in providers" to inspect full details.</span></p>
             </li>
             <li>
               <h4><span data-lang="zh">新建或导入配置</span><span data-lang="en">Create or import a profile</span></h4>
@@ -632,9 +632,11 @@
           <p class="dl-sub" style="margin-top:28px">
             <span data-lang="zh">更完整的页面说明、费用统计口径与 FAQ 见 </span>
             <span data-lang="en">For full page docs, cost methodology and FAQ, see </span>
-            <a href="https://github.com/maguowei/code-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener">docs/user-manual.md</a>
+            <a href="https://github.com/maguowei/code-manager/blob/main/docs/user-manual.zh-CN.md" target="_blank" rel="noopener" data-lang="zh">docs/user-manual.zh-CN.md</a>
+            <a href="https://github.com/maguowei/code-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener" data-lang="en">docs/user-manual.md</a>
             ·
-            <a href="https://github.com/maguowei/code-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener"><span data-lang="zh">平台差异</span><span data-lang="en">platform support</span></a>
+            <a href="https://github.com/maguowei/code-manager/blob/main/docs/platform-support.zh-CN.md" target="_blank" rel="noopener" data-lang="zh">平台差异</a>
+            <a href="https://github.com/maguowei/code-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener" data-lang="en">platform support</a>
           </p>
         </div>
       </section>
@@ -685,8 +687,8 @@
 
           <div class="dl-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>，会自动解析到最新版本的各平台安装包；需要历史版本时可前往 <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">全部 Releases</a>。macOS 发布包未经过 Apple 公证：用 Homebrew 安装会自动移除隔离属性，手动下载 <code>.dmg</code> 首次打开被拦截时执行下方的 <code>xattr</code> 命令即可。</span>
-            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong> and resolve to the newest per-platform installers automatically; for older versions, see <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized: installing via Homebrew removes the quarantine attribute automatically; for a manual <code>.dmg</code>, run the <code>xattr</code> command below if the first launch is blocked.</span>
+            <span data-lang="zh">下载按钮指向 <strong>Releases / latest</strong>，自动解析各平台最新正式版安装包。想提前体验最新特性可获取 <a href="https://github.com/maguowei/code-manager/releases/download/nightly" target="_blank" rel="noopener">每夜构建（Nightly）</a>；需要历史版本可前往 <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">全部 Releases</a>。macOS 发布包未经过 Apple 公证：Homebrew 安装会自动移除隔离属性，手动下载 <code>.dmg</code> 首次打开被 Gatekeeper 拦截时执行下方命令即可。</span>
+            <span data-lang="en">Download buttons point to <strong>Releases / latest</strong> and resolve to the newest stable installers automatically. To try bleeding-edge features, grab the <a href="https://github.com/maguowei/code-manager/releases/download/nightly" target="_blank" rel="noopener">Nightly Builds</a>; for older versions, see <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">all releases</a>. macOS builds aren't Apple-notarized: Homebrew removes quarantine flags automatically; for manual <code>.dmg</code> installs blocked by Gatekeeper, run the command below.</span>
           </div>
 
           <div class="codeblock" role="note">
@@ -716,7 +718,7 @@
             </details>
             <details>
               <summary><span data-lang="zh">支持哪些 Provider？</span><span data-lang="en">Which providers are supported?</span></summary>
-              <div class="answer"><span data-lang="zh">内置十余个供应商(只读、不可自定义)，包括 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、阿里云百炼、万界方舟、Ollama；在配置编辑器的供应商选项处选择即用。</span><span data-lang="en">A dozen+ built-in, read-only providers (no custom providers): Anthropic, DeepSeek, GLM, Kimi, MiniMax, Xiaomi MiMo, OpenRouter, Volcengine, Bailian, Wanjie, Ollama — pick one from the provider option in the profile editor.</span></div>
+              <div class="answer"><span data-lang="zh">内置十余个供应商（只读、不可自定义），包括 Anthropic、DeepSeek、智谱 GLM、Kimi、MiniMax、小米 MiMo、OpenRouter、火山方舟、万界方舟、OpenCode Go、Ollama；在配置编辑器的「供应商」选项处选择即用。</span><span data-lang="en">A dozen+ built-in, read-only providers (no custom providers): Anthropic, DeepSeek, GLM, Kimi, MiniMax, Xiaomi MiMo, OpenRouter, Volcengine, Wanjie, OpenCode Go, Ollama — select one from the provider option in the profile editor.</span></div>
             </details>
             <details>
               <summary><span data-lang="zh">macOS 提示「已损坏 / 无法打开」怎么办？</span><span data-lang="en">macOS says the app is "damaged / can't be opened"?</span></summary>
@@ -724,7 +726,7 @@
             </details>
             <details>
               <summary><span data-lang="zh">各平台功能一致吗？</span><span data-lang="en">Is functionality the same on every platform?</span></summary>
-              <div class="answer"><span data-lang="zh">核心配置管理在三平台对等，状态行预设也三平台都支持（Windows 用 PowerShell 版，免 jq）。差异集中在系统集成层：终端会话聚焦、可点击通知、LED 灯效目前仅 macOS。详见平台差异文档。</span><span data-lang="en">Core config management is at parity, and statusline presets work on all three platforms (PowerShell on Windows, no jq). Differences sit in system integration: terminal focus, clickable notifications and LED are macOS-only for now. See the platform-support doc.</span></div>
+              <div class="answer"><span data-lang="zh">核心配置管理在三平台完全对等，状态行预设也在三平台均可使用（Windows 采用 PowerShell 版，免安装 jq）。系统集成层存在部分平台差异：终端会话聚焦、系统提示音效、ANTICATER LED 硬件灯效目前仅支持 macOS。详见平台差异文档。</span><span data-lang="en">Core configuration governance is at full parity across all three platforms, and statusline presets work on all platforms (PowerShell on Windows, no jq required). System integration differences: terminal session focus, sound effects, and ANTICATER LED hardware lighting are macOS-exclusive for now. See the platform support guide for details.</span></div>
             </details>
             <details>
               <summary><span data-lang="zh">是开源的吗？</span><span data-lang="en">Is it open source?</span></summary>
@@ -783,15 +785,17 @@
             </div>
             <div class="footer-col">
               <h4><span data-lang="zh">文档</span><span data-lang="en">Docs</span></h4>
-              <a href="https://github.com/maguowei/code-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener"><span data-lang="zh">用户手册</span><span data-lang="en">User manual</span></a>
-              <a href="https://github.com/maguowei/code-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener"><span data-lang="zh">平台差异</span><span data-lang="en">Platform support</span></a>
+              <a href="https://github.com/maguowei/code-manager/blob/main/docs/user-manual.zh-CN.md" target="_blank" rel="noopener" data-lang="zh">用户手册</a>
+              <a href="https://github.com/maguowei/code-manager/blob/main/docs/user-manual.md" target="_blank" rel="noopener" data-lang="en">User manual</a>
+              <a href="https://github.com/maguowei/code-manager/blob/main/docs/platform-support.zh-CN.md" target="_blank" rel="noopener" data-lang="zh">平台差异</a>
+              <a href="https://github.com/maguowei/code-manager/blob/main/docs/platform-support.md" target="_blank" rel="noopener" data-lang="en">Platform support</a>
               <a href="#faq">FAQ</a>
             </div>
             <div class="footer-col">
               <h4><span data-lang="zh">项目</span><span data-lang="en">Project</span></h4>
               <a href="https://github.com/maguowei/code-manager" target="_blank" rel="noopener">GitHub</a>
               <a href="https://github.com/maguowei/code-manager/releases" target="_blank" rel="noopener">Releases</a>
-              <a href="https://github.com/maguowei/code-manager/blob/main/LICENSE" target="_blank" rel="noopener"><span data-lang="zh">许可 (MIT)</span><span data-lang="en">License (MIT)</span></a>
+              <a href="https://github.com/maguowei/code-manager/blob/main/LICENSE" target="_blank" rel="noopener"><span data-lang="zh">许可（MIT）</span><span data-lang="en">License (MIT)</span></a>
             </div>
           </div>
         </div>
