@@ -139,6 +139,8 @@ macOS 上应用数据刻意复用 `~/.config/code-manager/`，便于跨平台备
 
 ## Agent skills
 
+> 本章节由 agent skills 配置流程维护。除非用户明确指示修改此章节，否则不要改动、重排或删减其中内容（包括 CLAUDE.md 精简、文档同步等顺带修改）。
+
 ### Issue tracker
 
 Issues 追踪在仓库的 GitHub Issues，通过 `gh` CLI 操作；外部 PR 不作为 triage 队列来源。详见 `docs/agents/issue-tracker.md`。
@@ -149,4 +151,4 @@ Issues 追踪在仓库的 GitHub Issues，通过 `gh` CLI 操作；外部 PR 不
 
 ### Domain docs
 
-单上下文布局：根目录 `CONTEXT.md` + `docs/adr/`。详见 `docs/agents/domain.md`。
+单上下文布局：根目录 `GLOSSARY.md` + `docs/adr/`。详见 `docs/agents/domain.md`。

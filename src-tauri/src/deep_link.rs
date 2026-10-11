@@ -1,6 +1,6 @@
 //! 深度链接：配置导入（`code-manager://profiles/import`）。
 //!
-//! 契约见 `docs/adr/0003-deeplink-profile-import.md` 与 `CONTEXT.md`。
+//! 契约见 `docs/adr/0003-deeplink-profile-import.md` 与 `GLOSSARY.md`。
 
 use std::collections::VecDeque;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
