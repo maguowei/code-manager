@@ -1,17 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n";
-import type { Memory, MemoryPresetContentResult, MemoryPresetLanguage } from "../../types";
+import type { Memory } from "../../types";
 import MemoryEditor from "../MemoryEditor";
 import { ThemeProvider } from "../theme-provider";
-
-const { openUrlMock } = vi.hoisted(() => ({
-  openUrlMock: vi.fn(async (_url: string) => undefined),
-}));
-
-vi.mock("@tauri-apps/plugin-opener", () => ({
-  openUrl: openUrlMock,
-}));
 
 vi.mock("@uiw/react-codemirror", () => ({
   default: ({
@@ -51,24 +43,12 @@ function setSystemLanguages(languages: string[]) {
   });
 }
 
-function renderMemoryEditor(
-  memory: Memory | null = null,
-  options: {
-    loadMemoryPresetContent?: (
-      language: MemoryPresetLanguage,
-    ) => Promise<MemoryPresetContentResult>;
-  } = {},
-) {
+function renderMemoryEditor(memory: Memory | null = null) {
   const onSave = vi.fn();
   render(
     <I18nProvider>
       <ThemeProvider>
-        <MemoryEditor
-          memory={memory}
-          onSave={onSave}
-          onClose={vi.fn()}
-          loadMemoryPresetContent={options.loadMemoryPresetContent}
-        />
+        <MemoryEditor memory={memory} onSave={onSave} onClose={vi.fn()} />
       </ThemeProvider>
     </I18nProvider>,
   );
@@ -85,7 +65,6 @@ async function clickAndFlush(element: Element) {
 describe("MemoryEditor", () => {
   beforeEach(() => {
     localStorage.clear();
-    openUrlMock.mockReset();
     setSystemLanguages(["zh-CN"]);
     Object.defineProperty(window, "matchMedia", {
       value: vi.fn().mockImplementation(() => ({
@@ -203,36 +182,23 @@ describe("MemoryEditor", () => {
     expect(screen.queryByTestId("memory-markdown-preview")).not.toBeInTheDocument();
   });
 
-  it("imports the current Chinese Karpathy preset at the bottom of a CLAUDE.md draft", async () => {
-    const loadMemoryPresetContent = vi.fn(async () => ({
-      presetId: "karpathy-behavior-guidelines",
-      language: "zh" as const,
-      name: "Karpathy 行为指南",
-      content:
-        "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
-      sourceUrl:
-        "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
-    }));
-    const { onSave } = renderMemoryEditor(
-      {
-        id: "team-memory",
-        name: "团队规范",
-        content: "已有规则",
-        targetType: "claude",
-        isActive: true,
-        createdAt: 1767225600000,
-        updatedAt: 1767225600000,
-      },
-      { loadMemoryPresetContent },
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "导入 Karpathy 行为指南" }));
-
-    await waitFor(() => {
-      expect(loadMemoryPresetContent).toHaveBeenCalledWith("zh");
+  it("keeps a legacy Karpathy marker block as plain text when saving a CLAUDE.md memory", async () => {
+    const legacyContent =
+      "已有规则\n\n<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->";
+    const { onSave } = renderMemoryEditor({
+      id: "team-memory",
+      name: "团队规范",
+      content: legacyContent,
+      targetType: "claude",
+      isActive: true,
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
+
+    expect(screen.queryByRole("button", { name: /Karpathy/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "原仓库" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("memory-content-editor")).toHaveValue(
-      "# 团队规范\n\n已有规则\n\n<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+      `# 团队规范\n\n${legacyContent}`,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -241,103 +207,10 @@ describe("MemoryEditor", () => {
       expect(onSave).toHaveBeenCalledWith({
         id: "team-memory",
         name: "团队规范",
-        content:
-          "已有规则\n\n<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
+        content: legacyContent,
         targetType: "claude",
         rulePath: undefined,
       });
     });
-  });
-
-  it("shows the Karpathy repository link next to the editor import button", async () => {
-    const loadMemoryPresetContent = vi.fn(async () => ({
-      presetId: "karpathy-behavior-guidelines",
-      language: "zh" as const,
-      name: "Karpathy 行为指南",
-      content:
-        "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->",
-      sourceUrl:
-        "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
-    }));
-    renderMemoryEditor(null, { loadMemoryPresetContent });
-
-    const repositoryLink = screen.getByRole("button", {
-      name: "打开 Karpathy 行为指南原仓库",
-    });
-    const importButton = screen.getByRole("button", { name: "导入 Karpathy 行为指南" });
-
-    expect(repositoryLink.parentElement).toContainElement(importButton);
-    expect(
-      importButton.compareDocumentPosition(repositoryLink) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
-
-    fireEvent.click(repositoryLink);
-
-    expect(openUrlMock).toHaveBeenCalledWith(
-      "https://github.com/multica-ai/andrej-karpathy-skills",
-    );
-  });
-
-  it("imports the English Karpathy preset when the current UI language is English", async () => {
-    setSystemLanguages(["en-US"]);
-    const loadMemoryPresetContent = vi.fn(async () => ({
-      presetId: "karpathy-behavior-guidelines",
-      language: "en" as const,
-      name: "Karpathy Behavioral Guidelines",
-      content:
-        "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:en:start -->\nThink Before Coding\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:en:end -->",
-      sourceUrl:
-        "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
-    }));
-    renderMemoryEditor(null, { loadMemoryPresetContent });
-
-    fireEvent.click(screen.getByRole("button", { name: "Import Karpathy Guidelines" }));
-
-    await waitFor(() => {
-      expect(loadMemoryPresetContent).toHaveBeenCalledWith("en");
-    });
-    expect(screen.getByRole("textbox", { name: /Memory Name/ })).toHaveValue(
-      "Karpathy Behavioral Guidelines",
-    );
-    expect(screen.getByLabelText("memory-content-editor")).toHaveValue(
-      "# Karpathy Behavioral Guidelines\n\n<!-- code-manager:memory-preset:karpathy-behavior-guidelines:en:start -->\nThink Before Coding\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:en:end -->",
-    );
-  });
-
-  it("does not duplicate the Karpathy preset block when importing twice", async () => {
-    const presetBlock =
-      "<!-- code-manager:memory-preset:karpathy-behavior-guidelines:zh:start -->\n编码前先思考\n<!-- /code-manager:memory-preset:karpathy-behavior-guidelines:zh:end -->";
-    const loadMemoryPresetContent = vi.fn(async () => ({
-      presetId: "karpathy-behavior-guidelines",
-      language: "zh" as const,
-      name: "Karpathy 行为指南",
-      content: presetBlock,
-      sourceUrl:
-        "https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/refs/heads/main/CLAUDE.md",
-    }));
-    renderMemoryEditor(
-      {
-        id: "team-memory",
-        name: "团队规范",
-        content: `已有规则\n\n${presetBlock}`,
-        targetType: "claude",
-        isActive: true,
-        createdAt: 1767225600000,
-        updatedAt: 1767225600000,
-      },
-      { loadMemoryPresetContent },
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "导入 Karpathy 行为指南" }));
-
-    await waitFor(() => {
-      expect(loadMemoryPresetContent).toHaveBeenCalledWith("zh");
-    });
-    const contentEditor = screen.getByLabelText("memory-content-editor") as HTMLTextAreaElement;
-    expect(
-      contentEditor.value.match(
-        /code-manager:memory-preset:karpathy-behavior-guidelines:zh:start/g,
-      ),
-    ).toHaveLength(1);
   });
 });

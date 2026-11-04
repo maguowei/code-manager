@@ -176,7 +176,6 @@ Providers are strictly **built-in and read-only**. They carry objective service 
 
 The Memory page manages user-level Claude Code instruction files.
 
-- **Karpathy Behavior Guide Preset**: When no primary memory exists, a banner offers to create and enable Karpathy's guidelines as `CLAUDE.md` with one click. When editing existing memories, the preset can be appended to the bottom (protected against duplicate insertions).
 - **Creating Memories**: Enter a name, select a type (`CLAUDE.md` written to `~/.claude/CLAUDE.md`, strictly single-active; Rules written to `~/.claude/rules/<path>.md`, multiple active with `paths` glob matching), and edit the Markdown content. Files are only written to disk when enabled.
 - **Maintenance**: Edit content, clone disabled duplicates, or delete obsolete rule files and folders.
 - **Importing**:

@@ -69,9 +69,6 @@ type StatusLinePresetInstallResult = {
 type CompatibleIpcOverrides = {
   addMemory(data: MemoryData): Promise<AppTypes.MemoryState>;
   addSkill(data: SkillData): Promise<AppTypes.Skill>;
-  applyMemoryPreset(
-    data: AppTypes.MemoryPresetApplyInput,
-  ): Promise<AppTypes.MemoryPresetApplyResult>;
   applyProfile(id: string): Promise<null>;
   cleanupProjectBranches(
     project: string,
@@ -106,9 +103,6 @@ type CompatibleIpcOverrides = {
   getHistory(): Promise<HistoryResult>;
   getHistoryIfChanged(lastMtime: number): Promise<HistoryResult | null>;
   getMemories(): Promise<AppTypes.MemoryState>;
-  getMemoryPresetContent(
-    data: AppTypes.MemoryPresetContentInput,
-  ): Promise<AppTypes.MemoryPresetContentResult>;
   getNativeOpenAppOptions(): Promise<AppTypes.NativeOpenAppOptions>;
   getProjectClaudeDirectoryOverview(project: string): Promise<AppTypes.ClaudeDirectoryOverview>;
   getProjectClaudeFilePreview(

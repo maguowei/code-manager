@@ -173,7 +173,6 @@ Skills 对应 Claude Code 的自定义技能扩展，位于 `~/.claude/skills/<i
 
 记忆页面专用于集中维护 Claude Code 用户级系统指令。
 
-- **Karpathy 行为指南预设**：当尚未配置主记忆时，页面顶部会呈现 Karpathy 行为指南推荐卡片，支持一键创建并启用为 `CLAUDE.md`。在编辑已有的 `CLAUDE.md` 时，亦支持将该指南一键追加至文末（内置防重复追加标记）。
 - **新增记忆**：填写记忆名称，选择类型（`CLAUDE.md` 写入 `~/.claude/CLAUDE.md`，全局单例启用；Rules 写入 `~/.claude/rules/<path>.md`，可多选同时启用并支持 `paths` glob），编写 Markdown 正文后保存。只有在列表中点击「启用」，文件才会真正写入磁盘。
 - **日常维护**：支持更新内容、克隆禁用副本、安全删除无用规则目录。
 - **接管与导入**：
