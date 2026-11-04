@@ -136,7 +136,7 @@ Skills 对应 Claude Code 的自定义技能扩展，位于 `~/.claude/skills/<i
 - **环境变量**：集中维护自定义 `env` 键值对。内置防重校验与 JSON 格式检查，编辑未保存时会阻断提交。
 - **权限控制**：默认权限模式、禁用 `bypassPermissions` 开关、设置允许/拒绝/确认规则清单，支持添加目录信任与一键载入推荐规则预设。
 - **Sandbox 沙箱**：沙箱启闭开关，支持载入推荐预设，复杂需求可无缝切换至高级 JSON 模式。
-- **Hooks 钩子**：维护各阶段钩子脚本并展示摘要，内置常见乱码排查预设，支持切换 JSON 模式。
+- **Hooks 钩子**：维护各阶段钩子脚本并展示摘要，支持切换 JSON 模式。
 - **插件市场**：维护 `extraKnownMarketplaces`，预置官方插件市场（`claude-plugins-official`）与社区市场（`claude-community`）配置模板，支持从界面一键导入。
 - **插件管理**：管理 `enabledPlugins`，包含「已配置」和「浏览市场」双标签页。支持按市场、启用状态、分类多维检索，开启后即时同步；网络请求与安装计数均设超时保护。
 - **状态行（Statusline）**：配置自定义状态栏输出脚本，内置默认状态行预设（macOS/Linux 写入 `~/.claude/statusline.sh`，Windows 写入 `~/.claude/statusline.ps1` 并自动配置 PowerShell 执行指令），附带 60 秒定时刷新保证缓存倒计时准确。
@@ -173,7 +173,6 @@ Skills 对应 Claude Code 的自定义技能扩展，位于 `~/.claude/skills/<i
 
 记忆页面专用于集中维护 Claude Code 用户级系统指令。
 
-- **Karpathy 行为指南预设**：当尚未配置主记忆时，页面顶部会呈现 Karpathy 行为指南推荐卡片，支持一键创建并启用为 `CLAUDE.md`。在编辑已有的 `CLAUDE.md` 时，亦支持将该指南一键追加至文末（内置防重复追加标记）。
 - **新增记忆**：填写记忆名称，选择类型（`CLAUDE.md` 写入 `~/.claude/CLAUDE.md`，全局单例启用；Rules 写入 `~/.claude/rules/<path>.md`，可多选同时启用并支持 `paths` glob），编写 Markdown 正文后保存。只有在列表中点击「启用」，文件才会真正写入磁盘。
 - **日常维护**：支持更新内容、克隆禁用副本、安全删除无用规则目录。
 - **接管与导入**：

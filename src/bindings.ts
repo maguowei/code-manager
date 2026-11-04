@@ -50,8 +50,6 @@ export const commands = {
 	getNativeOpenAppOptions: () => __TAURI_INVOKE<NativeOpenAppOptions>("get_native_open_app_options"),
 	getMemories: () => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("get_memories")),
 	addMemory: (data: MemoryData) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("add_memory", { data })),
-	applyMemoryPreset: (data: MemoryPresetApplyInput) => typedError<MemoryPresetApplyResult_Serialize, string>(__TAURI_INVOKE("apply_memory_preset", { data })),
-	getMemoryPresetContent: (data: MemoryPresetContentInput) => typedError<MemoryPresetContentResult, string>(__TAURI_INVOKE("get_memory_preset_content", { data })),
 	updateMemory: (id: string, data: MemoryData) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("update_memory", { id, data })),
 	duplicateMemory: (id: string, nameSuffix: string) => typedError<MemoryState_Serialize, string>(__TAURI_INVOKE("duplicate_memory", { id, nameSuffix })),
 	previewDeleteMemory: (id: string) => typedError<MemoryDeletePreview, string>(__TAURI_INVOKE("preview_delete_memory", { id })),
@@ -483,45 +481,6 @@ export type MemoryDirectoryImportSkippedItem_Serialize = {
 	reason: MemoryDirectoryImportSkipReason,
 	detail?: string | null,
 };
-
-export type MemoryPresetAction = "createClaude";
-
-export type MemoryPresetApplyInput = {
-	presetId: string,
-	language: MemoryPresetLanguage,
-	action: MemoryPresetAction,
-};
-
-export type MemoryPresetApplyOutcome = "createdClaude" | "activatedExisting";
-
-export type MemoryPresetApplyResult = MemoryPresetApplyResult_Serialize | MemoryPresetApplyResult_Deserialize;
-
-export type MemoryPresetApplyResult_Deserialize = {
-	state: MemoryState_Deserialize,
-	outcome: MemoryPresetApplyOutcome,
-	memoryId: string,
-};
-
-export type MemoryPresetApplyResult_Serialize = {
-	state: MemoryState_Serialize,
-	outcome: MemoryPresetApplyOutcome,
-	memoryId: string,
-};
-
-export type MemoryPresetContentInput = {
-	presetId: string,
-	language: MemoryPresetLanguage,
-};
-
-export type MemoryPresetContentResult = {
-	presetId: string,
-	language: MemoryPresetLanguage,
-	name: string,
-	content: string,
-	sourceUrl: string,
-};
-
-export type MemoryPresetLanguage = "zh" | "en";
 
 export type MemoryState = MemoryState_Serialize | MemoryState_Deserialize;
 

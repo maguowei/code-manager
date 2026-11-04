@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { type TranslationKey, useI18n } from "../../i18n";
 import ConfirmAlertDialog from "../ConfirmAlertDialog";
@@ -6,11 +6,6 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { readObject, readString } from "./editor-utils";
-import {
-  hasMojibakeHookPreset,
-  isMojibakePresetAction,
-  mergeMojibakeHookPreset,
-} from "./hook-presets";
 
 interface HooksEditorProps {
   value: unknown;
@@ -29,7 +24,6 @@ interface HookActionSummary {
   summaryKey: string;
   collapsedLabel: string;
   fullLabel: string;
-  isBuiltinPreset: boolean;
 }
 
 interface HookEventSummary {
@@ -62,7 +56,6 @@ function buildHookActionSummary(
     return {
       collapsedLabel: label,
       fullLabel: label,
-      isBuiltinPreset: false,
     };
   }
 
@@ -79,14 +72,12 @@ function buildHookActionSummary(
     return {
       collapsedLabel: type,
       fullLabel: type,
-      isBuiltinPreset: isMojibakePresetAction(action),
     };
   }
 
   return {
     collapsedLabel: `${type}: ${truncateText(detail)}`,
     fullLabel: `${type}: ${detail}`,
-    isBuiltinPreset: isMojibakePresetAction(action),
   };
 }
 
@@ -168,38 +159,20 @@ function buildHookSummaries(
 function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
   const { t } = useI18n();
   const [hooksValue, setHooksValue] = useState(() => readObject(value));
-  const [interactionError, setInteractionError] = useState("");
   const [pendingDeleteEvent, setPendingDeleteEvent] = useState<string | null>(null);
   const [expandedActionKeys, setExpandedActionKeys] = useState<Set<string>>(() => new Set());
   const summaries = useMemo(() => buildHookSummaries(hooksValue, t), [hooksValue, t]);
-  const mojibakePresetApplied = useMemo(() => hasMojibakeHookPreset(hooksValue), [hooksValue]);
 
   useEffect(() => {
     setHooksValue(readObject(value));
-    setInteractionError("");
     setPendingDeleteEvent(null);
     setExpandedActionKeys(new Set());
   }, [value]);
 
+  // 摘要视图不产生校验错误，挂载时清空父级的分区错误
   useEffect(() => {
-    onError(interactionError);
-  }, [interactionError, onError]);
-
-  function handleAddMojibakePreset() {
-    const result = mergeMojibakeHookPreset(hooksValue);
-    if (!result.supported) {
-      setInteractionError(t("profileEditor.hooks.quickAddUnsupported"));
-      return;
-    }
-
-    setInteractionError("");
-    if (!result.changed) {
-      return;
-    }
-
-    setHooksValue(result.nextValue);
-    onChange(result.nextValue);
-  }
+    onError("");
+  }, [onError]);
 
   function handleConfirmDeleteHookEvent() {
     if (!pendingDeleteEvent) {
@@ -208,7 +181,6 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
 
     const nextValue = { ...hooksValue };
     delete nextValue[pendingDeleteEvent];
-    setInteractionError("");
     setHooksValue(nextValue);
     onChange(nextValue);
     setPendingDeleteEvent(null);
@@ -298,7 +270,6 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                             const actionButtonClassName = [
                               "inline-flex h-auto min-h-10 w-full min-w-0 max-w-full shrink cursor-pointer items-start justify-start whitespace-normal rounded-md border border-border bg-background px-3 py-2 text-left font-mono text-xs leading-5 text-foreground [overflow-wrap:anywhere] transition-colors hover:border-primary hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                               isExpanded ? "expanded whitespace-pre-wrap" : "",
-                              actionSummary.isBuiltinPreset ? "pr-24" : "",
                             ]
                               .filter(Boolean)
                               .join(" ");
@@ -307,11 +278,9 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                               <span
                                 key={actionKey}
                                 data-slot="hook-action-summary"
-                                data-preset={actionSummary.isBuiltinPreset ? "true" : "false"}
                                 className={[
                                   "relative inline-flex w-full min-w-0 max-w-full flex-wrap items-start gap-1.5",
                                   isExpanded ? "expanded" : "",
-                                  actionSummary.isBuiltinPreset ? "has-preset-tag" : "",
                                 ]
                                   .filter(Boolean)
                                   .join(" ")}
@@ -325,14 +294,6 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
                                 >
                                   {actionLabel}
                                 </Button>
-                                {actionSummary.isBuiltinPreset ? (
-                                  <Badge
-                                    variant="outline"
-                                    className="absolute top-2 right-2 border-primary/30 bg-primary/10 text-primary"
-                                  >
-                                    {t("profileEditor.hooks.builtinPresetTag")}
-                                  </Badge>
-                                ) : null}
                               </span>
                             );
                           })}
@@ -356,21 +317,6 @@ function HooksEditor({ value, onChange, onError }: HooksEditorProps) {
           ))}
         </div>
       )}
-
-      {interactionError ? (
-        <p className="m-0 text-sm font-medium text-destructive">{interactionError}</p>
-      ) : null}
-
-      <div className="flex justify-end">
-        <div className="flex flex-wrap gap-3">
-          {mojibakePresetApplied ? null : (
-            <Button type="button" onClick={handleAddMojibakePreset}>
-              <Plus className="size-4" aria-hidden="true" />
-              {t("profileEditor.hooks.addMojibakePreset")}
-            </Button>
-          )}
-        </div>
-      </div>
 
       {pendingDeleteEvent ? (
         <ConfirmAlertDialog

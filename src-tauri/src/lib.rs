@@ -58,9 +58,8 @@ use history::{
 use led::{led_probe_status, led_test_mode};
 use logging::{clear_app_logs, get_app_logs, open_logs_dir};
 use memory::{
-    add_memory, apply_memory_preset, delete_memory, duplicate_memory, get_memories,
-    get_memory_preset_content, import_memories_from_directory, import_unmanaged_memory,
-    preview_delete_memory, toggle_memory, update_memory,
+    add_memory, delete_memory, duplicate_memory, get_memories, import_memories_from_directory,
+    import_unmanaged_memory, preview_delete_memory, toggle_memory, update_memory,
 };
 use native_open::get_native_open_app_options;
 use plugins::{read_plugin_catalog, refresh_plugin_install_counts};
@@ -128,8 +127,6 @@ fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             get_native_open_app_options,
             get_memories,
             add_memory,
-            apply_memory_preset,
-            get_memory_preset_content,
             update_memory,
             duplicate_memory,
             preview_delete_memory,
