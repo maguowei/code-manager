@@ -2,7 +2,11 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../i18n";
 import HooksEditor from "../HooksEditor";
-import { MOJIBAKE_POST_TOOL_USE_COMMAND, MOJIBAKE_PRE_TOOL_USE_COMMAND } from "../hook-presets";
+
+// 已下线的乱码检查预设曾写入的命令；保留副本用于验证历史配置按普通自定义 hook 显示
+const LEGACY_MOJIBAKE_PRE_TOOL_USE_COMMAND = String.raw`CMD=$(jq -r '.tool_input.command // empty' </dev/stdin) && echo "$CMD" | grep -q 'git commit' || exit 0 && G=$(printf '\xef\xbf\xbd') && echo "$CMD" | grep -qF "$G" && jq -nc '{"decision":"block","reason":"提交信息包含乱码字符 (U+FFFD)，请修复后再提交"}' || true`;
+
+const LEGACY_MOJIBAKE_POST_TOOL_USE_COMMAND = String.raw`FILE=$(jq -r '.tool_input.file_path // empty' </dev/stdin) && [ -n "$FILE" ] && [ -f "$FILE" ] && G=$(printf '\xef\xbf\xbd') && RESULT=$(grep -FHn "$G" "$FILE" 2>/dev/null) && [ -n "$RESULT" ] && jq -nc --arg r "$RESULT" '{"decision":"block","reason":("检测到乱码字符 (U+FFFD)，请修复后再继续:\n" + $r)}' || true`;
 
 function renderEditor(options?: {
   value?: Record<string, unknown>;
@@ -27,167 +31,46 @@ function getHookActionSummary(text: string | ((content: string) => boolean)): HT
 }
 
 describe("HooksEditor", () => {
-  it("adds the mojibake check preset from an empty hooks object", () => {
-    const { onChange } = renderEditor();
+  it("does not offer a built-in hook preset action", () => {
+    renderEditor();
 
-    fireEvent.click(screen.getByRole("button", { name: "添加乱码检查预设" }));
-
-    expect(screen.getByText("PreToolUse")).toBeInTheDocument();
-    expect(screen.getByText("PostToolUse")).toBeInTheDocument();
-    expect(screen.getByText("Bash")).toBeInTheDocument();
-    expect(screen.getByText("Edit|Write")).toBeInTheDocument();
-    expect(screen.getAllByText("乱码检测")).toHaveLength(2);
-    expect(onChange).toHaveBeenLastCalledWith({
-      PreToolUse: [
-        {
-          matcher: "Bash",
-          hooks: [
-            {
-              type: "command",
-              command: MOJIBAKE_PRE_TOOL_USE_COMMAND,
-            },
-          ],
-        },
-      ],
-      PostToolUse: [
-        {
-          matcher: "Edit|Write",
-          hooks: [
-            {
-              type: "command",
-              command: MOJIBAKE_POST_TOOL_USE_COMMAND,
-            },
-          ],
-        },
-      ],
-    });
+    expect(screen.queryByRole("button", { name: /预设/ })).not.toBeInTheDocument();
   });
 
-  it("merges the mojibake preset into existing hooks without duplicating the same command", () => {
+  it("shows legacy mojibake hooks as plain custom hooks that can still be deleted", () => {
     const { onChange } = renderEditor({
       value: {
         PreToolUse: [
           {
             matcher: "Bash",
-            hooks: [
-              {
-                type: "command",
-                command: MOJIBAKE_PRE_TOOL_USE_COMMAND,
-              },
-            ],
+            hooks: [{ type: "command", command: LEGACY_MOJIBAKE_PRE_TOOL_USE_COMMAND }],
           },
         ],
         PostToolUse: [
           {
-            matcher: "Write",
-            hooks: [
-              {
-                type: "command",
-                command: "pnpm build",
-              },
-            ],
+            matcher: "Edit|Write",
+            hooks: [{ type: "command", command: LEGACY_MOJIBAKE_POST_TOOL_USE_COMMAND }],
           },
         ],
       },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "添加乱码检查预设" }));
+    const legacyAction = getHookActionSummary((content) => content.startsWith("command: FILE="));
+    expect(legacyAction).not.toHaveAttribute("data-preset");
+    expect(screen.queryByText("乱码检测")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "删除 Hook PostToolUse" }));
+    const dialog = screen.getByRole("alertdialog", { name: "删除 Hook" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "删除" }));
 
     expect(onChange).toHaveBeenLastCalledWith({
       PreToolUse: [
         {
           matcher: "Bash",
-          hooks: [
-            {
-              type: "command",
-              command: MOJIBAKE_PRE_TOOL_USE_COMMAND,
-            },
-          ],
-        },
-      ],
-      PostToolUse: [
-        {
-          matcher: "Write",
-          hooks: [
-            {
-              type: "command",
-              command: "pnpm build",
-            },
-          ],
-        },
-        {
-          matcher: "Edit|Write",
-          hooks: [
-            {
-              type: "command",
-              command: MOJIBAKE_POST_TOOL_USE_COMMAND,
-            },
-          ],
+          hooks: [{ type: "command", command: LEGACY_MOJIBAKE_PRE_TOOL_USE_COMMAND }],
         },
       ],
     });
-  });
-
-  it("hides the mojibake preset action when the preset already exists", () => {
-    renderEditor({
-      value: {
-        PreToolUse: [
-          {
-            matcher: "Bash",
-            hooks: [
-              {
-                type: "command",
-                command: MOJIBAKE_PRE_TOOL_USE_COMMAND,
-              },
-            ],
-          },
-        ],
-        PostToolUse: [
-          {
-            matcher: "Edit|Write",
-            hooks: [
-              {
-                type: "command",
-                command: MOJIBAKE_POST_TOOL_USE_COMMAND,
-              },
-            ],
-          },
-        ],
-      },
-    });
-
-    expect(screen.queryByRole("button", { name: "添加乱码检查预设" })).not.toBeInTheDocument();
-    expect(screen.getAllByText("乱码检测")).toHaveLength(2);
-  });
-
-  it("marks only the built-in preset command action when a matcher has mixed actions", () => {
-    renderEditor({
-      value: {
-        PostToolUse: [
-          {
-            matcher: "Edit|Write",
-            hooks: [
-              {
-                type: "command",
-                command: "pnpm build",
-              },
-              {
-                type: "command",
-                command: MOJIBAKE_POST_TOOL_USE_COMMAND,
-              },
-            ],
-          },
-        ],
-      },
-    });
-
-    const customAction = getHookActionSummary("command: pnpm build");
-    const presetAction = getHookActionSummary((content) => content.startsWith("command: FILE="));
-
-    expect(customAction).toHaveAttribute("data-preset", "false");
-    expect(presetAction).toHaveAttribute("data-preset", "true");
-    expect(within(customAction).queryByText("乱码检测")).not.toBeInTheDocument();
-    expect(within(presetAction).getByText("乱码检测")).toBeInTheDocument();
   });
 
   it("renders hook matchers as separated rule items", () => {
@@ -208,7 +91,7 @@ describe("HooksEditor", () => {
             hooks: [
               {
                 type: "command",
-                command: MOJIBAKE_PRE_TOOL_USE_COMMAND,
+                command: LEGACY_MOJIBAKE_PRE_TOOL_USE_COMMAND,
               },
             ],
           },
@@ -229,7 +112,7 @@ describe("HooksEditor", () => {
             hooks: [
               {
                 type: "command",
-                command: MOJIBAKE_POST_TOOL_USE_COMMAND,
+                command: LEGACY_MOJIBAKE_POST_TOOL_USE_COMMAND,
               },
             ],
           },
@@ -265,7 +148,7 @@ describe("HooksEditor", () => {
             hooks: [
               {
                 type: "command",
-                command: MOJIBAKE_POST_TOOL_USE_COMMAND,
+                command: LEGACY_MOJIBAKE_POST_TOOL_USE_COMMAND,
               },
             ],
           },
@@ -292,7 +175,7 @@ describe("HooksEditor", () => {
             hooks: [
               {
                 type: "command",
-                command: MOJIBAKE_PRE_TOOL_USE_COMMAND,
+                command: LEGACY_MOJIBAKE_PRE_TOOL_USE_COMMAND,
               },
             ],
           },
@@ -337,28 +220,11 @@ describe("HooksEditor", () => {
           hooks: [
             {
               type: "command",
-              command: MOJIBAKE_PRE_TOOL_USE_COMMAND,
+              command: LEGACY_MOJIBAKE_PRE_TOOL_USE_COMMAND,
             },
           ],
         },
       ],
     });
-  });
-
-  it("shows an error and keeps hooks unchanged when the target event cannot be merged", () => {
-    const { onChange } = renderEditor({
-      value: {
-        PreToolUse: {
-          matcher: "Bash",
-        },
-      },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "添加乱码检查预设" }));
-
-    expect(
-      screen.getByText("当前 Hooks 结构不支持一键添加，请切换到 JSON 手动处理。"),
-    ).toBeInTheDocument();
-    expect(onChange).not.toHaveBeenCalled();
   });
 });

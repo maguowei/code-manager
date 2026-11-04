@@ -139,7 +139,7 @@ The configuration drawer is organized into clean, functional sections:
 - **Environment Variables**: Manage custom `env` key-value pairs with duplicate key detection and JSON syntax validation.
 - **Permissions**: Default permission mode, disable `bypassPermissions` toggle, allow / deny / ask rules, trusted directories, and recommended security presets.
 - **Sandbox**: Toggle sandbox isolation with recommended presets; switch to JSON mode for advanced configurations.
-- **Hooks**: Maintain lifecycle hooks with an interactive summary view; includes built-in presets and JSON mode support.
+- **Hooks**: Maintain lifecycle hooks with an interactive summary view; supports JSON mode.
 - **Plugin Marketplaces**: Manage `extraKnownMarketplaces` with built-in templates for official (`claude-plugins-official`) and community (`claude-community`) marketplaces.
 - **Plugins**: Manage `enabledPlugins` across **Configured** and **Browse marketplace** tabs. Filter by marketplace, status, and category with real-time toggle syncing.
 - **Status Line**: Configure custom status line commands. Includes presets for macOS/Linux (`~/.claude/statusline.sh`) and Windows (`~/.claude/statusline.ps1` with PowerShell invocation), complete with a 60-second idle refresh interval to keep prompt cache countdowns accurate.
