@@ -120,6 +120,10 @@ pub struct AppPreferences {
     /// 浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。
     #[serde(default = "default_floating_widget_opacity")]
     pub floating_widget_opacity: u8,
+    /// 浮窗最近一次的尺寸与位置（逻辑像素）。由浮窗 resize/move 事件防抖写入，
+    /// 不经设置面板编辑；None 表示尚无记录，创建时使用默认尺寸与位置。
+    #[serde(default)]
+    pub floating_widget_geometry: Option<WidgetGeometry>,
     /// 会话等待输入时是否播放提示音效（独立于 system_notifications_enabled）。
     #[serde(default)]
     pub waiting_sound_enabled: bool,
@@ -156,6 +160,7 @@ impl Default for AppPreferences {
             floating_widget_enabled: false,
             floating_widget_metrics: default_floating_widget_metrics(),
             floating_widget_opacity: default_floating_widget_opacity(),
+            floating_widget_geometry: None,
             waiting_sound_enabled: false,
             waiting_sound: WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
@@ -163,6 +168,16 @@ impl Default for AppPreferences {
             cache_hit_rate_threshold: default_cache_hit_rate_threshold(),
         }
     }
+}
+
+/// 浮窗几何信息（逻辑像素，取整存储）：外框左上角位置 + 内容区尺寸。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WidgetGeometry {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
@@ -403,6 +418,10 @@ pub struct AppPreferencesInput {
     pub floating_widget_metrics: Vec<String>,
     #[serde(default = "default_floating_widget_opacity")]
     pub floating_widget_opacity: u8,
+    /// 前端会把读到的偏好整体回传，这里仅为兼容该字段而接收；落库时由
+    /// `replace_app_preferences` 以已落盘记录覆盖（几何只由浮窗窗口事件写入）。
+    #[serde(default)]
+    pub floating_widget_geometry: Option<WidgetGeometry>,
     #[serde(default)]
     pub waiting_sound_enabled: bool,
     #[serde(default)]
@@ -1088,6 +1107,8 @@ fn normalize_app_preferences(input: AppPreferencesInput) -> Result<AppPreference
         floating_widget_metrics: normalize_floating_widget_metrics(input.floating_widget_metrics),
         // 不透明度钳制到 30-100，越界退回合法边界
         floating_widget_opacity: input.floating_widget_opacity.clamp(30, 100),
+        // 回传值原样透传，落库前由 replace_app_preferences 以已落盘记录覆盖
+        floating_widget_geometry: input.floating_widget_geometry,
         waiting_sound_enabled: input.waiting_sound_enabled,
         waiting_sound: input.waiting_sound,
         sleep_prevention: input.sleep_prevention,
@@ -3040,6 +3061,23 @@ pub fn set_sleep_prevention_mode(
     Ok(registry)
 }
 
+/// 仅更新浮窗最近一次的尺寸与位置并落盘。供浮窗 resize/move 防抖回调使用，
+/// 不广播 config-workspace-changed，避免拖动结束后触发前端无谓的重新加载。
+pub fn set_floating_widget_geometry(geometry: WidgetGeometry) -> Result<(), String> {
+    let _lock = crate::utils::lock_config()?;
+    write_floating_widget_geometry(geometry)
+}
+
+/// 不加锁的几何写入，调用方需持有 config 锁。
+fn write_floating_widget_geometry(geometry: WidgetGeometry) -> Result<(), String> {
+    let mut registry = load_registry()?;
+    if registry.app.floating_widget_geometry == Some(geometry) {
+        return Ok(());
+    }
+    registry.app.floating_widget_geometry = Some(geometry);
+    save_registry(&registry)
+}
+
 /// 取反「屏幕常亮」偏好并落盘，返回最新 registry。锁内单次读改写，供托盘勾选项快捷切换使用。
 pub fn toggle_keep_display_awake() -> Result<ConfigRegistry, String> {
     let _lock = crate::utils::lock_config()?;
@@ -3047,6 +3085,17 @@ pub fn toggle_keep_display_awake() -> Result<ConfigRegistry, String> {
     registry.app.keep_display_awake = !registry.app.keep_display_awake;
     save_registry(&registry)?;
     Ok(registry)
+}
+
+/// 用设置面板提交的偏好替换 registry 中的偏好，返回实际落库的偏好。
+/// 浮窗尺寸/位置只由浮窗窗口事件写入，替换时保留已有记录，避免被覆盖清空。
+fn replace_app_preferences(
+    registry: &mut ConfigRegistry,
+    mut preferences: AppPreferences,
+) -> AppPreferences {
+    preferences.floating_widget_geometry = registry.app.floating_widget_geometry;
+    registry.app = preferences.clone();
+    preferences
 }
 
 #[tauri::command]
@@ -3060,7 +3109,7 @@ pub fn set_app_preferences(
         let preferences = normalize_app_preferences(data)?;
         let mut registry = load_registry()?;
         let previous_third_party_pricing = registry.app.third_party_provider_pricing_enabled;
-        registry.app = preferences.clone();
+        let preferences = replace_app_preferences(&mut registry, preferences);
         save_registry(&registry)?;
         rebuild_tray_menu(&app_handle, Some(&registry));
         // 偏好可能改了聚焦快捷键，按最新值重注册全局快捷键
@@ -3219,6 +3268,7 @@ mod tests {
             floating_widget_enabled: false,
             floating_widget_metrics: default_floating_widget_metrics(),
             floating_widget_opacity: default_floating_widget_opacity(),
+            floating_widget_geometry: None,
             waiting_sound_enabled: true,
             waiting_sound: WaitingSound::Submarine,
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
@@ -3275,6 +3325,7 @@ mod tests {
             floating_widget_enabled: false,
             floating_widget_metrics: default_floating_widget_metrics(),
             floating_widget_opacity: default_floating_widget_opacity(),
+            floating_widget_geometry: None,
             waiting_sound_enabled: false,
             waiting_sound: WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
@@ -3320,6 +3371,7 @@ mod tests {
             floating_widget_enabled: false,
             floating_widget_metrics: default_floating_widget_metrics(),
             floating_widget_opacity: default_floating_widget_opacity(),
+            floating_widget_geometry: None,
             waiting_sound_enabled: false,
             waiting_sound: WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),
@@ -3654,6 +3706,59 @@ mod tests {
             resolved["env"]["ANTHROPIC_BASE_URL"],
             Value::String("https://legacy.example.com".to_string())
         );
+    }
+
+    #[test]
+    fn app_preferences_input_accepts_round_tripped_geometry_and_ignores_it() {
+        // 设置抽屉把 workspace.app 整体回传；deny_unknown_fields 下该字段必须可被接收
+        let mut value = serde_json::to_value(AppPreferences::default()).unwrap();
+        value["floatingWidgetGeometry"] =
+            serde_json::json!({"x": 1, "y": 2, "width": 300, "height": 200});
+        let input: AppPreferencesInput =
+            serde_json::from_value(value).expect("回传的偏好应能反序列化为输入");
+        let normalized = normalize_app_preferences(input).unwrap();
+
+        // 落库时以 registry 中已有记录为准，前端回传的旧值不生效
+        let stored = WidgetGeometry {
+            x: 10,
+            y: 20,
+            width: 260,
+            height: 160,
+        };
+        let mut registry = ConfigRegistry::default();
+        registry.app.floating_widget_geometry = Some(stored);
+        let saved = replace_app_preferences(&mut registry, normalized);
+        assert_eq!(saved.floating_widget_geometry, Some(stored));
+    }
+
+    #[test]
+    fn floating_widget_geometry_persists_and_survives_preference_save() {
+        let _guard = crate::utils::lock_config().unwrap();
+        let root = temp_root("widget-geometry");
+        set_test_env(&root);
+
+        let geometry = WidgetGeometry {
+            x: 120,
+            y: -40,
+            width: 320,
+            height: 210,
+        };
+        write_floating_widget_geometry(geometry).unwrap();
+        let mut registry = load_registry().unwrap();
+        assert_eq!(registry.app.floating_widget_geometry, Some(geometry));
+
+        // 设置面板保存偏好（输入不含几何）后，几何记录保持不变
+        let submitted = AppPreferences {
+            floating_widget_enabled: true,
+            ..AppPreferences::default()
+        };
+        let saved = replace_app_preferences(&mut registry, submitted);
+        assert!(saved.floating_widget_enabled);
+        assert_eq!(saved.floating_widget_geometry, Some(geometry));
+        assert_eq!(registry.app.floating_widget_geometry, Some(geometry));
+
+        clear_test_env();
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
@@ -4488,6 +4593,7 @@ mod tests {
                 floating_widget_enabled: false,
                 floating_widget_metrics: default_floating_widget_metrics(),
                 floating_widget_opacity: default_floating_widget_opacity(),
+                floating_widget_geometry: None,
                 waiting_sound_enabled: false,
                 waiting_sound: WaitingSound::default(),
                 sleep_prevention: crate::sleep::SleepPreventionMode::default(),

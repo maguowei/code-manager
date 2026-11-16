@@ -288,7 +288,8 @@ Filter by custom date ranges, quick presets (Today, Last 7 Days, Last 30 Days, T
 
 An always-on-top, translucent, borderless desktop mini-window that tracks today's usage without keeping the main application open.
 
-- **Desktop Integration**: Persists across all macOS Spaces, bypasses the taskbar, initializes in the lower-right corner, remembers drag coordinates, and runs across all three platforms.
+- **Desktop Integration**: Persists across all macOS Spaces, bypasses the taskbar, initializes in the lower-right corner, and runs across all three platforms.
+- **Resizable & Remembered**: Drag the edges or the bottom-right grip to resize; metrics reflow to fit. The last size and position are restored after restarting the app or re-enabling the widget, and fall back to the default position if the saved spot is no longer on any display.
 - **Customizable KPIs**: Displays today's essential metrics (cost, total tokens, cache hit rate, message count, session count, top model) with custom selection and ordering in Settings.
 - **Real-Time Sync**: Shares the analytics engine cache and refreshes automatically when logs or pricing tables update.
 - **Instant Access**: Click the widget body to launch Code Manager directly to the Usage page.

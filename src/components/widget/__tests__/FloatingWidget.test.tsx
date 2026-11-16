@@ -5,14 +5,19 @@ import { I18nProvider } from "../../../i18n";
 import type { WidgetMetric } from "../../../types";
 import FloatingWidget from "../FloatingWidget";
 
-const { useWidgetUsageKpiMock, getConfigWorkspaceMock, openUsagePageMock, hideMock } = vi.hoisted(
-  () => ({
-    useWidgetUsageKpiMock: vi.fn(),
-    getConfigWorkspaceMock: vi.fn(),
-    openUsagePageMock: vi.fn(async () => null),
-    hideMock: vi.fn(async () => undefined),
-  }),
-);
+const {
+  useWidgetUsageKpiMock,
+  getConfigWorkspaceMock,
+  openUsagePageMock,
+  hideMock,
+  startResizeDraggingMock,
+} = vi.hoisted(() => ({
+  useWidgetUsageKpiMock: vi.fn(),
+  getConfigWorkspaceMock: vi.fn(),
+  openUsagePageMock: vi.fn(async () => null),
+  hideMock: vi.fn(async () => undefined),
+  startResizeDraggingMock: vi.fn(async () => undefined),
+}));
 
 vi.mock("../../../hooks/useWidgetUsageKpi", () => ({
   useWidgetUsageKpi: useWidgetUsageKpiMock,
@@ -26,7 +31,7 @@ vi.mock("../../../ipc", () => ({
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({ hide: hideMock }),
+  getCurrentWindow: () => ({ hide: hideMock, startResizeDragging: startResizeDraggingMock }),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -75,6 +80,7 @@ describe("FloatingWidget", () => {
     getConfigWorkspaceMock.mockReset();
     openUsagePageMock.mockClear();
     hideMock.mockClear();
+    startResizeDraggingMock.mockClear();
   });
 
   afterEach(() => {
@@ -135,5 +141,24 @@ describe("FloatingWidget", () => {
     // catch 分支保持默认三项指标，浮窗仍可展示
     await waitFor(() => expect(screen.getByText("今日花费")).toBeInTheDocument());
     expect(screen.queryByText("Top 模型")).not.toBeInTheDocument();
+  });
+
+  it("starts native resize dragging from the corner grip without triggering window drag", async () => {
+    useWidgetUsageKpiMock.mockReturnValue({ kpi, loading: false });
+    mockWorkspace(ALL_METRICS);
+
+    renderWidget();
+    await waitFor(() => expect(screen.getByText("今日花费")).toBeInTheDocument());
+
+    const grip = screen.getByTitle("拖动调整浮窗大小");
+    // 把手显式退出拖拽区，避免 mousedown 被窗口移动抢走
+    expect(grip).toHaveAttribute("data-tauri-drag-region", "false");
+
+    // 仅左键触发缩放
+    fireEvent.mouseDown(grip, { button: 2 });
+    expect(startResizeDraggingMock).not.toHaveBeenCalled();
+    fireEvent.mouseDown(grip, { button: 0 });
+    expect(startResizeDraggingMock).toHaveBeenCalledWith("SouthEast");
+    expect(openUsagePageMock).not.toHaveBeenCalled();
   });
 });

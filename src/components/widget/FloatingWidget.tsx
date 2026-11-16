@@ -1,6 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAnimatedNumber } from "../../hooks/useAnimatedNumber";
 import useTauriEvent from "../../hooks/useTauriEvent";
@@ -101,8 +101,10 @@ function MetricRow({ metric, kpi }: { metric: WidgetMetric; kpi: WidgetUsageKpi 
   const valueColorClass = kpi ? metricValueColorClass(metric, kpi) : undefined;
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="truncate text-xs text-muted-foreground">{t(METRIC_LABEL_KEY[metric])}</span>
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <span className="min-w-0 truncate text-xs text-muted-foreground">
+        {t(METRIC_LABEL_KEY[metric])}
+      </span>
       <span className={cn("shrink-0 text-sm font-semibold tabular-nums", valueColorClass)}>
         {display}
       </span>
@@ -159,6 +161,14 @@ export default function FloatingWidget() {
     void ipc.openUsagePage();
   }, []);
 
+  // 无边框窗口的边缘缩放依平台而定，右下角把手统一走原生 resize dragging 兜底
+  const handleResizeStart = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void getCurrentWindow().startResizeDragging("SouthEast");
+  }, []);
+
   const panelStyle = useMemo(() => ({ opacity: opacity / 100 }), [opacity]);
 
   return (
@@ -166,7 +176,7 @@ export default function FloatingWidget() {
       <div
         data-tauri-drag-region="deep"
         className={cn(
-          "group flex h-full cursor-move flex-col overflow-hidden rounded-lg border border-border/80 bg-background shadow-floating",
+          "group relative flex h-full cursor-move flex-col overflow-hidden rounded-lg border border-border/80 bg-background shadow-floating",
         )}
         style={panelStyle}
       >
@@ -185,7 +195,7 @@ export default function FloatingWidget() {
           </Button>
         </div>
 
-        {/* 指标主体：整体可点击跳转到用量页 */}
+        {/* 指标主体：整体可点击跳转到用量页；按窗口宽度自动分列，高度不足时纵向滚动而非溢出 */}
         <div
           role="button"
           tabIndex={0}
@@ -197,11 +207,22 @@ export default function FloatingWidget() {
             }
           }}
           title={t("widget.openUsage")}
-          className="flex flex-1 cursor-pointer flex-col gap-1 px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+          className="grid min-h-0 flex-1 cursor-pointer auto-rows-min grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] content-start gap-x-4 gap-y-1 overflow-y-auto px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
         >
           {metrics.map((metric) => (
             <MetricRow key={metric} metric={metric} kpi={kpi} />
           ))}
+        </div>
+
+        {/* 右下角缩放把手：退出拖拽区，hover 卡片时淡入 */}
+        <div
+          data-tauri-drag-region="false"
+          aria-hidden="true"
+          title={t("widget.resize")}
+          onMouseDown={handleResizeStart}
+          className="absolute right-0 bottom-0 size-3 cursor-se-resize opacity-0 transition-opacity group-hover:opacity-100"
+        >
+          <span className="absolute right-1 bottom-1 size-1.5 border-r border-b border-muted-foreground/70" />
         </div>
       </div>
     </div>
