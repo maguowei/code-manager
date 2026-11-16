@@ -87,6 +87,16 @@ fn default_position(primary: MonitorRect, width: f64, height: f64) -> (f64, f64)
     (x, y)
 }
 
+/// 回落到主屏默认位置：尺寸按主屏限制，位置基于限制后的实际尺寸计算。
+fn fallback_to_default(width: f64, height: f64, primary: Option<MonitorRect>) -> ResolvedGeometry {
+    let (width, height) = clamp_size(width, height, primary);
+    ResolvedGeometry {
+        width,
+        height,
+        position: primary.map(|p| default_position(p, width, height)),
+    }
+}
+
 /// 按记录与当前显示器布局解析浮窗几何：
 /// - 无记录：默认尺寸 + 默认位置；
 /// - 记录位置在某显示器可见区域内：恢复记录，尺寸限制在该显示器内，并把窗口平移回该显示器边界内；
@@ -97,12 +107,7 @@ fn resolve_widget_geometry(
     primary: Option<MonitorRect>,
 ) -> ResolvedGeometry {
     let Some(saved) = saved else {
-        let (width, height) = clamp_size(WIDGET_WIDTH, WIDGET_HEIGHT, primary);
-        return ResolvedGeometry {
-            width,
-            height,
-            position: primary.map(|p| default_position(p, width, height)),
-        };
+        return fallback_to_default(WIDGET_WIDTH, WIDGET_HEIGHT, primary);
     };
 
     let (x, y) = (f64::from(saved.x), f64::from(saved.y));
@@ -132,14 +137,7 @@ fn resolve_widget_geometry(
                 position: Some((x, y)),
             }
         }
-        None => {
-            let (width, height) = clamp_size(raw_w, raw_h, primary);
-            ResolvedGeometry {
-                width,
-                height,
-                position: primary.map(|p| default_position(p, width, height)),
-            }
-        }
+        None => fallback_to_default(raw_w, raw_h, primary),
     }
 }
 
