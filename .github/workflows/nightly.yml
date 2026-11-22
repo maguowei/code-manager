@@ -28,7 +28,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      checks: write
     outputs:
       commit_sha: ${{ steps.commit.outputs.sha }}
       nightly_version: ${{ steps.version.outputs.version }}
@@ -56,7 +55,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: reviewdog/action-actionlint@dbe5299849118fd6f099ba563d263d770955a64a # v1.73.2
         with:
-          reporter: github-check
+          reporter: local
           fail_level: error
 
       - name: Gitleaks 密钥扫描（仅手动触发）
