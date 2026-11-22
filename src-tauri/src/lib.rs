@@ -323,11 +323,8 @@ pub fn run() {
             led::start_led_runtime(app);
             // 启动防止休眠运行时（按当前偏好 + 会话状态决定是否阻止系统空闲休眠，仅 macOS 生效）
             sleep::start_sleep_runtime(app);
-            // 按当前偏好同步桌面用量浮窗显隐（启用则创建置顶小窗）
-            widget::sync_widget_visibility(
-                app.handle(),
-                config::load_app_preferences().floating_widget_enabled,
-            );
+            // 按当前偏好同步桌面用量浮窗（启用则创建置顶状态条）
+            widget::sync_widget(app.handle(), &config::load_app_preferences());
             Ok(())
         })
         .on_window_event(|window, event| {

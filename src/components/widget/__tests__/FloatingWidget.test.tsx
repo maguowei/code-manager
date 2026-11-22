@@ -5,14 +5,13 @@ import { I18nProvider } from "../../../i18n";
 import type { WidgetMetric } from "../../../types";
 import FloatingWidget from "../FloatingWidget";
 
-const { useWidgetUsageKpiMock, getConfigWorkspaceMock, openUsagePageMock, hideMock } = vi.hoisted(
-  () => ({
+const { useWidgetUsageKpiMock, getConfigWorkspaceMock, openUsagePageMock, startDraggingMock } =
+  vi.hoisted(() => ({
     useWidgetUsageKpiMock: vi.fn(),
     getConfigWorkspaceMock: vi.fn(),
     openUsagePageMock: vi.fn(async () => null),
-    hideMock: vi.fn(async () => undefined),
-  }),
-);
+    startDraggingMock: vi.fn(async () => undefined),
+  }));
 
 vi.mock("../../../hooks/useWidgetUsageKpi", () => ({
   useWidgetUsageKpi: useWidgetUsageKpiMock,
@@ -26,7 +25,7 @@ vi.mock("../../../ipc", () => ({
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({ hide: hideMock }),
+  getCurrentWindow: () => ({ startDragging: startDraggingMock }),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -66,6 +65,10 @@ function renderWidget() {
   );
 }
 
+function bar() {
+  return screen.getByRole("button", { name: "打开用量页" });
+}
+
 describe("FloatingWidget", () => {
   let restoreTauri: () => void;
 
@@ -74,45 +77,78 @@ describe("FloatingWidget", () => {
     useWidgetUsageKpiMock.mockReset();
     getConfigWorkspaceMock.mockReset();
     openUsagePageMock.mockClear();
-    hideMock.mockClear();
+    startDraggingMock.mockClear();
   });
 
   afterEach(() => {
     restoreTauri();
   });
 
-  it("renders every configured metric row with its formatted value", async () => {
+  it("renders only the values of every configured metric, with labels kept for hover and screen readers", async () => {
     useWidgetUsageKpiMock.mockReturnValue({ kpi, loading: false });
     mockWorkspace(ALL_METRICS);
 
     renderWidget();
 
-    // 偏好读取后展示全部 6 个指标标签
-    await waitFor(() => {
-      expect(screen.getByText("今日花费")).toBeInTheDocument();
-    });
-    expect(screen.getByText("Top 模型")).toBeInTheDocument();
-    // 文本指标 topModel 直接展示模型名
-    expect(screen.getByText("claude-opus-4")).toBeInTheDocument();
-    // 数值指标格式化展示
+    await waitFor(() => expect(screen.getByText("claude-opus-4")).toBeInTheDocument());
     expect(screen.getByText("$12.34")).toBeInTheDocument();
+    expect(screen.getByText("4.5M")).toBeInTheDocument();
     expect(screen.getByText("88.0%")).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("7")).toBeInTheDocument();
+    // 没有可见标题与标签，完整标签只作为悬停提示与读屏文本
+    expect(screen.queryByText("今日")).not.toBeInTheDocument();
+    expect(screen.getByTitle("今日花费")).toBeInTheDocument();
+    expect(screen.getByText("今日花费")).toHaveClass("sr-only");
+    expect(screen.getByTitle("Top 模型")).toHaveClass("flex-[2]");
+    expect(bar()).toHaveStyle({ opacity: "0.8" });
   });
 
-  it("opens the usage page on click and on Enter, and hides the window on close", async () => {
+  it("opens the usage page on a click without movement and on Enter", async () => {
     useWidgetUsageKpiMock.mockReturnValue({ kpi, loading: false });
     mockWorkspace(ALL_METRICS);
 
     renderWidget();
-    await waitFor(() => expect(screen.getByText("今日花费")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("$12.34")).toBeInTheDocument());
 
-    const openButton = screen.getByTitle("打开用量页");
-    fireEvent.click(openButton);
-    fireEvent.keyDown(openButton, { key: "Enter" });
+    fireEvent.mouseDown(bar(), { button: 0, screenX: 100, screenY: 100 });
+    fireEvent.mouseMove(bar(), { screenX: 101, screenY: 101 });
+    fireEvent.mouseUp(bar(), { button: 0, screenX: 101, screenY: 101 });
+    fireEvent.keyDown(bar(), { key: "Enter" });
+
     expect(openUsagePageMock).toHaveBeenCalledTimes(2);
+    expect(startDraggingMock).not.toHaveBeenCalled();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: "隐藏浮窗" }));
-    expect(hideMock).toHaveBeenCalledTimes(1);
+  it("starts native dragging once the pointer moves past the threshold and skips the click", async () => {
+    useWidgetUsageKpiMock.mockReturnValue({ kpi, loading: false });
+    mockWorkspace(ALL_METRICS);
+
+    renderWidget();
+    await waitFor(() => expect(screen.getByText("$12.34")).toBeInTheDocument());
+
+    fireEvent.mouseDown(bar(), { button: 0, screenX: 100, screenY: 100 });
+    fireEvent.mouseMove(bar(), { screenX: 110, screenY: 100 });
+    fireEvent.mouseMove(bar(), { screenX: 130, screenY: 100 });
+    fireEvent.mouseUp(bar(), { button: 0, screenX: 130, screenY: 100 });
+
+    expect(startDraggingMock).toHaveBeenCalledTimes(1);
+    expect(openUsagePageMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores non-left buttons", async () => {
+    useWidgetUsageKpiMock.mockReturnValue({ kpi, loading: false });
+    mockWorkspace(ALL_METRICS);
+
+    renderWidget();
+    await waitFor(() => expect(screen.getByText("$12.34")).toBeInTheDocument());
+
+    fireEvent.mouseDown(bar(), { button: 2, screenX: 100, screenY: 100 });
+    fireEvent.mouseMove(bar(), { screenX: 150, screenY: 100 });
+    fireEvent.mouseUp(bar(), { button: 2 });
+
+    expect(startDraggingMock).not.toHaveBeenCalled();
+    expect(openUsagePageMock).not.toHaveBeenCalled();
   });
 
   it("falls back to default metrics and shows placeholders when KPI is unavailable", async () => {
@@ -122,8 +158,8 @@ describe("FloatingWidget", () => {
 
     renderWidget();
 
-    await waitFor(() => expect(screen.getByText("今日花费")).toBeInTheDocument());
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
+    await waitFor(() => expect(getConfigWorkspaceMock).toHaveBeenCalled());
+    expect(screen.getAllByText("—")).toHaveLength(3);
   });
 
   it("keeps default metrics when preference loading fails", async () => {
@@ -133,7 +169,8 @@ describe("FloatingWidget", () => {
     renderWidget();
 
     // catch 分支保持默认三项指标，浮窗仍可展示
-    await waitFor(() => expect(screen.getByText("今日花费")).toBeInTheDocument());
-    expect(screen.queryByText("Top 模型")).not.toBeInTheDocument();
+    await waitFor(() => expect(getConfigWorkspaceMock).toHaveBeenCalled());
+    expect(screen.getByText("$12.34")).toBeInTheDocument();
+    expect(screen.queryByText("claude-opus-4")).not.toBeInTheDocument();
   });
 });

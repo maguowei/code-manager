@@ -288,10 +288,11 @@ Filter by custom date ranges, quick presets (Today, Last 7 Days, Last 30 Days, T
 
 An always-on-top, translucent, borderless desktop mini-window that tracks today's usage without keeping the main application open.
 
-- **Desktop Integration**: Persists across all macOS Spaces, bypasses the taskbar, initializes in the lower-right corner, remembers drag coordinates, and runs across all three platforms.
+- **Desktop Integration**: Persists across all macOS Spaces, bypasses the taskbar, initializes in the lower-right corner, and runs across all three platforms.
+- **Compact Status Bar**: A fixed-size single-row bar with no header or labels, showing only the values of the selected metrics (three numbers in a row by default), told apart by color with metric names on hover. Its width follows the number of selected metrics; it cannot be resized manually.
 - **Customizable KPIs**: Displays today's essential metrics (cost, total tokens, cache hit rate, message count, session count, top model) with custom selection and ordering in Settings.
 - **Real-Time Sync**: Shares the analytics engine cache and refreshes automatically when logs or pricing tables update.
-- **Instant Access**: Click the widget body to launch Code Manager directly to the Usage page.
+- **Drag & Open**: Press and drag anywhere on the bar to move it (the cursor shows a grab hand); the last position is restored after restarting or re-enabling the widget, falling back to the default position if the saved spot is no longer on any display. A click without moving launches Code Manager directly to the Usage page. Hide the widget from the tray menu or the Settings toggle.
 - **Appearance**: Adjust overall opacity from 30% to 100% in Settings.
 
 ## Cheat Sheet

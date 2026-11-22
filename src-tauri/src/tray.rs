@@ -1679,6 +1679,7 @@ mod tests {
             floating_widget_enabled: false,
             floating_widget_metrics: Vec::new(),
             floating_widget_opacity: 92,
+            floating_widget_geometry: None,
             waiting_sound_enabled: false,
             waiting_sound: crate::config::WaitingSound::default(),
             sleep_prevention: crate::sleep::SleepPreventionMode::default(),

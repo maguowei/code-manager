@@ -27,6 +27,7 @@
       "cacheHitRate"
     ],
     "floatingWidgetOpacity": 92,
+    "floatingWidgetGeometry": null,
     "waitingSoundEnabled": false,
     "waitingSound": "glass",
     "sleepPrevention": "off",

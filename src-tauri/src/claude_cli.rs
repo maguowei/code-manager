@@ -130,19 +130,16 @@ fn is_executable(path: &Path) -> bool {
     let Ok(metadata) = path.metadata() else {
         return false;
     };
-    if !metadata.is_file() {
-        return false;
-    }
-
+    // 每个 cfg 分支各自返回完整表达式，避免非 unix 下出现 clippy::needless_bool
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        metadata.permissions().mode() & 0o111 != 0
+        metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
     }
 
     #[cfg(not(unix))]
     {
-        true
+        metadata.is_file()
     }
 }
 

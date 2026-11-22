@@ -28,14 +28,15 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      checks: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: actionlint workflow 校验
         uses: reviewdog/action-actionlint@dbe5299849118fd6f099ba563d263d770955a64a # v1.73.2
         with:
-          reporter: github-check
+          reporter: local
+          # local reporter 没有 diff 来源，需关闭按 diff 过滤，否则报 "diff command is empty"
+          filter_mode: nofilter
           fail_level: error
 
   secrets:

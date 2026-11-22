@@ -34,7 +34,7 @@ paths:
 | `plugins.rs` | 插件市场后端操作：触发 `claude plugin list --available --json`，让 claude 按 24h TTL 默认策略刷新插件安装数缓存（不主动删缓存、不强制刷新） |
 | `macos_notifications.rs` | macOS 原生通知（`UNUserNotificationCenter`）：发待处理会话通知，点击聚焦对应会话终端 |
 | `led.rs` | USB LED 灯效：把托盘会话红绿状态镜像到外接 ANTICATER 设备；macOS 走 hidapi 独立 worker 线程独占设备，非 macOS 仅保留协议层单测 |
-| `widget.rs` | 桌面用量浮窗：按偏好动态创建无边框/透明/置顶的第二个 webview 窗口，加载 `index.html?window=widget`，前端据此只渲染浮窗组件 |
+| `widget.rs` | 桌面用量浮窗：按偏好动态创建无边框/透明/置顶的第二个 webview 窗口，加载 `index.html?window=widget`，前端据此只渲染浮窗组件；固定尺寸单行状态条（`widget_size` 按所选指标数量计算宽度，偏好变更时由 `sync_widget` 调整），位置经 move 防抖写入 `AppPreferences.floating_widget_geometry`，恢复时按显示器边界钳制、离屏回落默认位置 |
 | `auto_memory.rs` | 项目自动记忆查看：读取 `~/.claude/projects/<编码>/memory/`（`MEMORY.md` 索引 + 主题 markdown），供 Projects 页 `ProjectAutoMemoryExplorer` 展示 |
 | `migration.rs` | 一次性数据目录迁移（`ai-manager`→`code-manager`）：只搬不可重建的 `~/.config` 应用数据；`usage.db` 与日志刻意不迁移，由首启重建。`lib.rs` setup 调用一次 |
 | `sound.rs` | 会话等待输入提示音效：macOS 经 `afplay` 播放 `/System/Library/Sounds/` 系统音效，白名单枚举杜绝路径注入；非 macOS no-op |

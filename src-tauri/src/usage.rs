@@ -2332,12 +2332,8 @@ fn apply_filter_with_third_party_pricing<'a>(
                     return false;
                 }
             }
-            if !include_unknown
-                && is_unknown_model(&r.model, pricing, third_party_provider_pricing_enabled)
-            {
-                return false;
-            }
-            true
+            include_unknown
+                || !is_unknown_model(&r.model, pricing, third_party_provider_pricing_enabled)
         })
         .collect()
 }

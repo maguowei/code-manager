@@ -434,13 +434,10 @@ function ClaudeOverviewPage({ active = false }: { active?: boolean }) {
     ? (entryByPath.get(activePreview.path) ?? selectedEntry)
     : selectedEntry;
 
-  useEffect(() => {
-    openPreviewsRef.current = openPreviews;
-  }, [openPreviews]);
-
-  useEffect(() => {
-    activePreviewPathRef.current = activePreviewPath;
-  }, [activePreviewPath]);
+  // render 阶段同步 ref：DOM 一提交事件回调即可读到最新值。若放在 passive effect 中，
+  // 预览刚打开、effect 尚未执行时到达的 claude-directory-changed 会读到旧列表而漏关已删除文件的 tab。
+  openPreviewsRef.current = openPreviews;
+  activePreviewPathRef.current = activePreviewPath;
 
   useEffect(
     () => () => {

@@ -170,6 +170,11 @@ export type AppPreferences = {
 	floatingWidgetMetrics?: string[],
 	/**  浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。 */
 	floatingWidgetOpacity?: number,
+	/**
+	 *  浮窗最近一次的位置（逻辑像素）。由浮窗 move 事件防抖写入，
+	 *  不经设置面板编辑；None 表示尚无记录，创建时使用默认位置。浮窗尺寸固定，不记录。
+	 */
+	floatingWidgetGeometry?: WidgetGeometry | null,
 	/**  会话等待输入时是否播放提示音效（独立于 system_notifications_enabled）。 */
 	waitingSoundEnabled?: boolean,
 	/**  等待提示音效，默认 Glass。 */
@@ -199,6 +204,11 @@ export type AppPreferencesInput = {
 	floatingWidgetEnabled?: boolean,
 	floatingWidgetMetrics?: string[],
 	floatingWidgetOpacity?: number,
+	/**
+	 *  前端会把读到的偏好整体回传，这里仅为兼容该字段而接收；落库时由
+	 *  `replace_app_preferences` 以已落盘记录覆盖（几何只由浮窗窗口事件写入）。
+	 */
+	floatingWidgetGeometry?: WidgetGeometry | null,
 	waitingSoundEnabled?: boolean,
 	waitingSound?: WaitingSound,
 	sleepPrevention?: SleepPreventionMode,
@@ -1245,6 +1255,15 @@ export type UserSettingsImportInput = {
  *  变体映射到 macOS `/System/Library/Sounds/` 下的系统音效（映射见 `sound.rs`）。
  */
 export type WaitingSound = "glass" | "submarine" | "hero" | "ping" | "sosumi" | "tink";
+
+/**
+ *  浮窗几何信息（逻辑像素，取整存储）：外框左上角位置。
+ *  浮窗为固定尺寸状态条，旧版本记录中的 width/height 字段在反序列化时忽略。
+ */
+export type WidgetGeometry = {
+	x: number,
+	y: number,
+};
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {
