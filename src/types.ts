@@ -57,12 +57,10 @@ export type WidgetMetric =
   | "sessions"
   | "topModel";
 
-/** 浮窗几何信息（逻辑像素）：外框左上角位置 + 内容区尺寸。 */
+/** 浮窗几何信息（逻辑像素）：外框左上角位置。浮窗为固定尺寸状态条，不记录尺寸。 */
 export interface WidgetGeometry {
   x: number;
   y: number;
-  width: number;
-  height: number;
 }
 
 export interface AppPreferences {
@@ -85,7 +83,7 @@ export interface AppPreferences {
   floatingWidgetMetrics: string[];
   /** 浮窗面板不透明度百分比（30-100）。 */
   floatingWidgetOpacity: number;
-  /** 浮窗最近一次的尺寸与位置（逻辑像素），由浮窗窗口事件写入，设置面板不编辑。 */
+  /** 浮窗最近一次的位置（逻辑像素），由浮窗窗口事件写入，设置面板不编辑。 */
   floatingWidgetGeometry?: WidgetGeometry | null;
   /** 会话等待输入时是否播放提示音效。 */
   waitingSoundEnabled: boolean;

@@ -120,8 +120,8 @@ pub struct AppPreferences {
     /// 浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。
     #[serde(default = "default_floating_widget_opacity")]
     pub floating_widget_opacity: u8,
-    /// 浮窗最近一次的尺寸与位置（逻辑像素）。由浮窗 resize/move 事件防抖写入，
-    /// 不经设置面板编辑；None 表示尚无记录，创建时使用默认尺寸与位置。
+    /// 浮窗最近一次的位置（逻辑像素）。由浮窗 move 事件防抖写入，
+    /// 不经设置面板编辑；None 表示尚无记录，创建时使用默认位置。浮窗尺寸固定，不记录。
     #[serde(default)]
     pub floating_widget_geometry: Option<WidgetGeometry>,
     /// 会话等待输入时是否播放提示音效（独立于 system_notifications_enabled）。
@@ -170,14 +170,13 @@ impl Default for AppPreferences {
     }
 }
 
-/// 浮窗几何信息（逻辑像素，取整存储）：外框左上角位置 + 内容区尺寸。
+/// 浮窗几何信息（逻辑像素，取整存储）：外框左上角位置。
+/// 浮窗为固定尺寸状态条，旧版本记录中的 width/height 字段在反序列化时忽略。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WidgetGeometry {
     pub x: i32,
     pub y: i32,
-    pub width: u32,
-    pub height: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
@@ -3061,7 +3060,7 @@ pub fn set_sleep_prevention_mode(
     Ok(registry)
 }
 
-/// 仅更新浮窗最近一次的尺寸与位置并落盘。供浮窗 resize/move 防抖回调使用，
+/// 仅更新浮窗最近一次的位置并落盘。供浮窗 move 防抖回调使用，
 /// 不广播 config-workspace-changed，避免拖动结束后触发前端无谓的重新加载。
 pub fn set_floating_widget_geometry(geometry: WidgetGeometry) -> Result<(), String> {
     let _lock = crate::utils::lock_config()?;
@@ -3088,7 +3087,7 @@ pub fn toggle_keep_display_awake() -> Result<ConfigRegistry, String> {
 }
 
 /// 用设置面板提交的偏好替换 registry 中的偏好，返回实际落库的偏好。
-/// 浮窗尺寸/位置只由浮窗窗口事件写入，替换时保留已有记录，避免被覆盖清空。
+/// 浮窗位置只由浮窗窗口事件写入，替换时保留已有记录，避免被覆盖清空。
 fn replace_app_preferences(
     registry: &mut ConfigRegistry,
     mut preferences: AppPreferences,
@@ -3114,8 +3113,8 @@ pub fn set_app_preferences(
         rebuild_tray_menu(&app_handle, Some(&registry));
         // 偏好可能改了聚焦快捷键，按最新值重注册全局快捷键
         crate::tray::apply_focus_session_shortcut(&app_handle);
-        // 按最新偏好同步桌面用量浮窗的显隐（启用则创建/显示，关闭则隐藏）
-        crate::widget::sync_widget_visibility(&app_handle, preferences.floating_widget_enabled);
+        // 按最新偏好同步桌面用量浮窗（显隐跟随开关，尺寸跟随所选指标数量）
+        crate::widget::sync_widget(&app_handle, &preferences);
         // 按最新防止休眠偏好重新评估（切到 off 立即释放，切到 always/whileActive 按会话状态处理）
         crate::sleep::apply_sleep_preference(&app_handle);
         let _ = app_handle.emit("config-workspace-changed", ());
@@ -3712,19 +3711,13 @@ mod tests {
     fn app_preferences_input_accepts_round_tripped_geometry_and_ignores_it() {
         // 设置抽屉把 workspace.app 整体回传；deny_unknown_fields 下该字段必须可被接收
         let mut value = serde_json::to_value(AppPreferences::default()).unwrap();
-        value["floatingWidgetGeometry"] =
-            serde_json::json!({"x": 1, "y": 2, "width": 300, "height": 200});
+        value["floatingWidgetGeometry"] = serde_json::json!({"x": 1, "y": 2});
         let input: AppPreferencesInput =
             serde_json::from_value(value).expect("回传的偏好应能反序列化为输入");
         let normalized = normalize_app_preferences(input).unwrap();
 
         // 落库时以 registry 中已有记录为准，前端回传的旧值不生效
-        let stored = WidgetGeometry {
-            x: 10,
-            y: 20,
-            width: 260,
-            height: 160,
-        };
+        let stored = WidgetGeometry { x: 10, y: 20 };
         let mut registry = ConfigRegistry::default();
         registry.app.floating_widget_geometry = Some(stored);
         let saved = replace_app_preferences(&mut registry, normalized);
@@ -3737,12 +3730,7 @@ mod tests {
         let root = temp_root("widget-geometry");
         set_test_env(&root);
 
-        let geometry = WidgetGeometry {
-            x: 120,
-            y: -40,
-            width: 320,
-            height: 210,
-        };
+        let geometry = WidgetGeometry { x: 120, y: -40 };
         write_floating_widget_geometry(geometry).unwrap();
         let mut registry = load_registry().unwrap();
         assert_eq!(registry.app.floating_widget_geometry, Some(geometry));

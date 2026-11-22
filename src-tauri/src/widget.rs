@@ -7,30 +7,35 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use tauri::{
-    AppHandle, Emitter, Manager, Monitor, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-    WindowEvent,
+    AppHandle, Emitter, LogicalSize, Manager, Monitor, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, WindowEvent,
 };
 
-use crate::config::WidgetGeometry;
+use crate::config::{AppPreferences, WidgetGeometry};
 
 /// 浮窗窗口 label，capability 作用域与窗口查找都依赖该常量。
 pub const WIDGET_WINDOW_LABEL: &str = "widget";
 
-// 浮窗默认尺寸：紧凑小窗，足够容纳数项 KPI。
-const WIDGET_WIDTH: f64 = 248.0;
-const WIDGET_HEIGHT: f64 = 148.0;
-// 浮窗最小尺寸：保证标题条与至少一行指标可见。
-const WIDGET_MIN_WIDTH: f64 = 196.0;
-const WIDGET_MIN_HEIGHT: f64 = 96.0;
+// 浮窗固定为单行状态条：每个指标一格，只显示数值。尺寸由指标数量决定，不可缩放。
+// 以下常量需与前端 FloatingWidget.tsx 的样式保持一致：
+// 外层 p-1.5（每侧 6）+ 状态条边框（每侧 1）+ 状态条 px-3（每侧 12）+ 格间 gap-3（12）。
+const WIDGET_CELL_WIDTH: f64 = 68.0;
+// topModel 是模型名文本，给双倍宽度，超长截断
+const WIDGET_TEXT_CELL_WIDTH: f64 = 136.0;
+const WIDGET_CELL_GAP: f64 = 12.0;
+const WIDGET_BAR_PADDING_X: f64 = 12.0;
+const WIDGET_FRAME: f64 = 14.0;
+// 状态条高 h-9（36，含边框）+ 外层上下 p-1.5（12）
+const WIDGET_HEIGHT: f64 = 48.0;
 // 默认位置横向贴右的边距。
 const WIDGET_DEFAULT_MARGIN: f64 = 24.0;
 // 记录位置视为"可见"所需的最小可见区域：露出太少的窗口无法被抓取，按不可见处理。
 const VISIBLE_MIN_WIDTH: f64 = 48.0;
 const VISIBLE_MIN_HEIGHT: f64 = 32.0;
-// resize/move 事件防抖时长：拖动停止后才落盘，避免拖动过程中频繁写盘。
+// move 事件防抖时长：拖动停止后才落盘，避免拖动过程中频繁写盘。
 const GEOMETRY_SAVE_DEBOUNCE: Duration = Duration::from_millis(500);
 
-/// 防抖代际计数：每次 resize/move 递增，延时到期时代际未变才真正落盘。
+/// 防抖代际计数：每次 move 递增，延时到期时代际未变才真正落盘。
 static GEOMETRY_SAVE_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 /// 显示器矩形（逻辑像素，全局坐标）。
@@ -63,20 +68,23 @@ impl MonitorRect {
     }
 }
 
-/// 恢复浮窗时实际采用的尺寸与位置；position 为 None 时交给系统默认位置。
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct ResolvedGeometry {
-    width: f64,
-    height: f64,
-    position: Option<(f64, f64)>,
-}
-
-/// 尺寸边界处理：不小于最小尺寸，不大于所在显示器（显示器比最小尺寸还小时以最小尺寸为准）。
-fn clamp_size(width: f64, height: f64, monitor: Option<MonitorRect>) -> (f64, f64) {
-    let (max_w, max_h) = monitor.map_or((f64::INFINITY, f64::INFINITY), |m| (m.width, m.height));
+/// 按所选指标计算状态条的固定窗口尺寸（逻辑像素）。指标列表为空时按 1 格计算。
+fn widget_size(metrics: &[String]) -> (f64, f64) {
+    let cells: f64 = metrics
+        .iter()
+        .map(|metric| {
+            if metric == "topModel" {
+                WIDGET_TEXT_CELL_WIDTH
+            } else {
+                WIDGET_CELL_WIDTH
+            }
+        })
+        .sum::<f64>()
+        .max(WIDGET_CELL_WIDTH);
+    let gaps = metrics.len().saturating_sub(1) as f64 * WIDGET_CELL_GAP;
     (
-        width.min(max_w).max(WIDGET_MIN_WIDTH),
-        height.min(max_h).max(WIDGET_MIN_HEIGHT),
+        cells + gaps + WIDGET_BAR_PADDING_X * 2.0 + WIDGET_FRAME,
+        WIDGET_HEIGHT,
     )
 }
 
@@ -87,57 +95,41 @@ fn default_position(primary: MonitorRect, width: f64, height: f64) -> (f64, f64)
     (x, y)
 }
 
-/// 回落到主屏默认位置：尺寸按主屏限制，位置基于限制后的实际尺寸计算。
-fn fallback_to_default(width: f64, height: f64, primary: Option<MonitorRect>) -> ResolvedGeometry {
-    let (width, height) = clamp_size(width, height, primary);
-    ResolvedGeometry {
-        width,
-        height,
-        position: primary.map(|p| default_position(p, width, height)),
-    }
-}
-
-/// 按记录与当前显示器布局解析浮窗几何：
-/// - 无记录：默认尺寸 + 默认位置；
-/// - 记录位置在某显示器可见区域内：恢复记录，尺寸限制在该显示器内，并把窗口平移回该显示器边界内；
-/// - 记录位置不在任何显示器可见区域内（如外接屏已断开）：保留尺寸（按主屏限制），回落默认位置。
-fn resolve_widget_geometry(
+/// 按记录与当前显示器布局解析浮窗位置；返回 None 时交给系统默认位置：
+/// - 无记录：主屏默认位置；
+/// - 记录位置在某显示器可见区域内：恢复记录，并把窗口平移回该显示器边界内；
+/// - 记录位置不在任何显示器可见区域内（如外接屏已断开）：回落主屏默认位置。
+fn resolve_widget_position(
     saved: Option<WidgetGeometry>,
+    (width, height): (f64, f64),
     monitors: &[MonitorRect],
     primary: Option<MonitorRect>,
-) -> ResolvedGeometry {
+) -> Option<(f64, f64)> {
+    let fallback = || primary.map(|p| default_position(p, width, height));
     let Some(saved) = saved else {
-        return fallback_to_default(WIDGET_WIDTH, WIDGET_HEIGHT, primary);
+        return fallback();
     };
-
     let (x, y) = (f64::from(saved.x), f64::from(saved.y));
-    let (raw_w, raw_h) = clamp_size(f64::from(saved.width), f64::from(saved.height), None);
 
     // 取可见交集最大的显示器作为归属显示器
     let host = monitors
         .iter()
         .filter_map(|monitor| {
-            let (overlap_w, overlap_h) = monitor.intersection(x, y, raw_w, raw_h);
-            let visible = overlap_w >= VISIBLE_MIN_WIDTH.min(raw_w)
-                && overlap_h >= VISIBLE_MIN_HEIGHT.min(raw_h);
+            let (overlap_w, overlap_h) = monitor.intersection(x, y, width, height);
+            let visible = overlap_w >= VISIBLE_MIN_WIDTH.min(width)
+                && overlap_h >= VISIBLE_MIN_HEIGHT.min(height);
             visible.then_some((*monitor, overlap_w * overlap_h))
         })
         .max_by(|a, b| a.1.total_cmp(&b.1))
         .map(|(monitor, _)| monitor);
 
     match host {
-        Some(monitor) => {
-            let (width, height) = clamp_size(raw_w, raw_h, Some(monitor));
-            // 平移回显示器边界内；尺寸已不超过显示器，max/min 顺序保证左上角优先可见
-            let x = x.min(monitor.x + monitor.width - width).max(monitor.x);
-            let y = y.min(monitor.y + monitor.height - height).max(monitor.y);
-            ResolvedGeometry {
-                width,
-                height,
-                position: Some((x, y)),
-            }
-        }
-        None => fallback_to_default(raw_w, raw_h, primary),
+        // 平移回显示器边界内；max/min 顺序保证左上角优先可见
+        Some(monitor) => Some((
+            x.min(monitor.x + monitor.width - width).max(monitor.x),
+            y.min(monitor.y + monitor.height - height).max(monitor.y),
+        )),
+        None => fallback(),
     }
 }
 
@@ -158,11 +150,17 @@ fn query_monitors(app: &AppHandle) -> (Vec<MonitorRect>, Option<MonitorRect>) {
     (monitors, primary)
 }
 
-/// 创建浮窗窗口（无边框、透明、置顶、跨桌面常驻、不进任务栏、可缩放）。
+/// 创建浮窗窗口（无边框、透明、置顶、跨桌面常驻、不进任务栏、固定尺寸）。
 fn create_widget_window(app: &AppHandle) -> tauri::Result<()> {
-    let saved = crate::config::load_app_preferences().floating_widget_geometry;
+    let preferences = crate::config::load_app_preferences();
+    let size = widget_size(&preferences.floating_widget_metrics);
     let (monitors, primary) = query_monitors(app);
-    let geometry = resolve_widget_geometry(saved, &monitors, primary);
+    let position = resolve_widget_position(
+        preferences.floating_widget_geometry,
+        size,
+        &monitors,
+        primary,
+    );
 
     let mut builder = WebviewWindowBuilder::new(
         app,
@@ -170,51 +168,44 @@ fn create_widget_window(app: &AppHandle) -> tauri::Result<()> {
         WebviewUrl::App("index.html?window=widget".into()),
     )
     .title("Code Manager")
-    .inner_size(geometry.width, geometry.height)
-    .min_inner_size(WIDGET_MIN_WIDTH, WIDGET_MIN_HEIGHT)
+    .inner_size(size.0, size.1)
     .decorations(false)
     .transparent(true)
     .always_on_top(true)
     // 跨所有 macOS 桌面(Spaces)与应用切换始终可见，避免切换桌面后浮窗"消失"
     .visible_on_all_workspaces(true)
     .skip_taskbar(true)
-    // 允许缩放：无边框窗口的边缘缩放依平台而定，前端另提供右下角缩放把手兜底
-    .resizable(true)
+    // 固定尺寸状态条：尺寸只随所选指标数量变化，由 sync_widget 调整
+    .resizable(false)
     .shadow(false);
 
     // 有记录按记录恢复，否则主屏右偏下；查询不到显示器则回落系统默认位置。
-    // 隐藏/再显示不重建窗口，沿用当前尺寸与位置。
-    if let Some((x, y)) = geometry.position {
+    // 隐藏/再显示不重建窗口，沿用当前位置。
+    if let Some((x, y)) = position {
         builder = builder.position(x, y);
     }
 
     let window = builder.build()?;
     let handle = window.clone();
     window.on_window_event(move |event| {
-        if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_)) {
+        if matches!(event, WindowEvent::Moved(_)) {
             schedule_geometry_save(handle.clone());
         }
     });
     Ok(())
 }
 
-/// 读取浮窗当前几何（逻辑像素取整）；窗口尺寸为 0（最小化等）时返回 None。
+/// 读取浮窗当前位置（逻辑像素取整）。
 fn current_geometry(window: &WebviewWindow) -> Option<WidgetGeometry> {
     let scale = window.scale_factor().ok()?;
     let position = window.outer_position().ok()?.to_logical::<f64>(scale);
-    let size = window.inner_size().ok()?.to_logical::<f64>(scale);
-    if size.width < 1.0 || size.height < 1.0 {
-        return None;
-    }
     Some(WidgetGeometry {
         x: position.x.round() as i32,
         y: position.y.round() as i32,
-        width: size.width.round() as u32,
-        height: size.height.round() as u32,
     })
 }
 
-/// 防抖保存浮窗几何：最后一次 resize/move 后静默 GEOMETRY_SAVE_DEBOUNCE 才落盘。
+/// 防抖保存浮窗位置：最后一次 move 后静默 GEOMETRY_SAVE_DEBOUNCE 才落盘。
 fn schedule_geometry_save(window: WebviewWindow) {
     let generation = GEOMETRY_SAVE_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn(async move {
@@ -251,9 +242,16 @@ pub fn toggle_floating_widget(app: AppHandle, visible: bool) -> Result<(), Strin
     Ok(())
 }
 
-/// 按偏好同步浮窗显隐：启动时与偏好变更后调用，失败只记日志不影响主流程。
-pub fn sync_widget_visibility(app: &AppHandle, enabled: bool) {
-    if let Err(error) = toggle_floating_widget(app.clone(), enabled) {
+/// 按偏好同步浮窗：显隐跟随启用开关，已存在的窗口按所选指标数量调整固定尺寸。
+/// 启动时与偏好变更后调用，失败只记日志不影响主流程。
+pub fn sync_widget(app: &AppHandle, preferences: &AppPreferences) {
+    if let Some(window) = app.get_webview_window(WIDGET_WINDOW_LABEL) {
+        let (width, height) = widget_size(&preferences.floating_widget_metrics);
+        if let Err(error) = window.set_size(LogicalSize::new(width, height)) {
+            log::warn!("event=widget.resize status=error detail={error}");
+        }
+    }
+    if let Err(error) = toggle_floating_widget(app.clone(), preferences.floating_widget_enabled) {
         log::warn!("event=widget.sync status=error detail={error}");
     }
 }
@@ -270,7 +268,6 @@ pub fn open_usage_page(app: AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AppPreferences, WidgetGeometry};
 
     fn monitor(x: f64, y: f64, width: f64, height: f64) -> MonitorRect {
         MonitorRect {
@@ -281,12 +278,17 @@ mod tests {
         }
     }
 
+    fn metrics(keys: &[&str]) -> Vec<String> {
+        keys.iter().map(|key| key.to_string()).collect()
+    }
+
     const PRIMARY: MonitorRect = MonitorRect {
         x: 0.0,
         y: 0.0,
         width: 1440.0,
         height: 900.0,
     };
+    const SIZE: (f64, f64) = (266.0, 48.0);
 
     #[test]
     fn legacy_preferences_without_geometry_deserialize_to_none() {
@@ -298,34 +300,46 @@ mod tests {
     }
 
     #[test]
-    fn geometry_round_trips_through_serde() {
-        let prefs = AppPreferences {
-            floating_widget_geometry: Some(WidgetGeometry {
-                x: -100,
-                y: 40,
-                width: 320,
-                height: 200,
-            }),
-            ..AppPreferences::default()
-        };
+    fn legacy_geometry_with_size_fields_keeps_only_position() {
+        // 旧版本记录带 width/height，固定尺寸后只取位置，多余字段忽略
+        let prefs: AppPreferences = serde_json::from_str(
+            r#"{"floatingWidgetGeometry":{"x":-100,"y":40,"width":320,"height":200}}"#,
+        )
+        .expect("带尺寸的旧记录应能反序列化");
+        assert_eq!(
+            prefs.floating_widget_geometry,
+            Some(WidgetGeometry { x: -100, y: 40 })
+        );
         let json = serde_json::to_value(&prefs).unwrap();
         assert_eq!(
             json["floatingWidgetGeometry"],
-            serde_json::json!({"x": -100, "y": 40, "width": 320, "height": 200})
+            serde_json::json!({"x": -100, "y": 40})
         );
-        let back: AppPreferences = serde_json::from_value(json).unwrap();
-        assert_eq!(back, prefs);
     }
 
     #[test]
-    fn no_record_uses_default_size_and_default_position() {
-        let resolved = resolve_widget_geometry(None, &[PRIMARY], Some(PRIMARY));
-        assert_eq!(resolved.width, WIDGET_WIDTH);
-        assert_eq!(resolved.height, WIDGET_HEIGHT);
-        assert_eq!(
-            resolved.position,
-            Some(default_position(PRIMARY, WIDGET_WIDTH, WIDGET_HEIGHT))
-        );
+    fn default_three_metrics_form_a_single_row_bar() {
+        let (width, height) = widget_size(&metrics(&["cost", "totalTokens", "cacheHitRate"]));
+        assert_eq!(width, 3.0 * 68.0 + 2.0 * 12.0 + 24.0 + 14.0);
+        assert_eq!(height, WIDGET_HEIGHT);
+    }
+
+    #[test]
+    fn width_grows_per_metric_and_top_model_takes_a_wide_cell() {
+        let narrow = widget_size(&metrics(&["cost"])).0;
+        let wide = widget_size(&metrics(&["cost", "topModel"])).0;
+        assert_eq!(wide - narrow, WIDGET_TEXT_CELL_WIDTH + WIDGET_CELL_GAP);
+    }
+
+    #[test]
+    fn empty_metrics_still_reserve_one_cell() {
+        assert_eq!(widget_size(&[]), widget_size(&metrics(&["cost"])));
+    }
+
+    #[test]
+    fn no_record_uses_default_position() {
+        let position = resolve_widget_position(None, SIZE, &[PRIMARY], Some(PRIMARY));
+        assert_eq!(position, Some(default_position(PRIMARY, SIZE.0, SIZE.1)));
     }
 
     #[test]
@@ -337,130 +351,47 @@ mod tests {
 
     #[test]
     fn record_inside_visible_area_is_restored_as_is() {
-        let saved = WidgetGeometry {
-            x: 200,
-            y: 150,
-            width: 360,
-            height: 220,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[PRIMARY], Some(PRIMARY));
-        assert_eq!(resolved.width, 360.0);
-        assert_eq!(resolved.height, 220.0);
-        assert_eq!(resolved.position, Some((200.0, 150.0)));
+        let saved = WidgetGeometry { x: 200, y: 150 };
+        let position = resolve_widget_position(Some(saved), SIZE, &[PRIMARY], Some(PRIMARY));
+        assert_eq!(position, Some((200.0, 150.0)));
     }
 
     #[test]
     fn record_on_secondary_monitor_is_restored() {
         let secondary = monitor(1440.0, -200.0, 1920.0, 1080.0);
-        let saved = WidgetGeometry {
-            x: 2000,
-            y: 0,
-            width: 300,
-            height: 180,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[PRIMARY, secondary], Some(PRIMARY));
-        assert_eq!(resolved.position, Some((2000.0, 0.0)));
-    }
-
-    #[test]
-    fn size_below_minimum_is_raised_to_minimum() {
-        let saved = WidgetGeometry {
-            x: 100,
-            y: 100,
-            width: 50,
-            height: 20,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[PRIMARY], Some(PRIMARY));
-        assert_eq!(resolved.width, WIDGET_MIN_WIDTH);
-        assert_eq!(resolved.height, WIDGET_MIN_HEIGHT);
-    }
-
-    #[test]
-    fn size_larger_than_monitor_is_clamped_to_monitor() {
-        let saved = WidgetGeometry {
-            x: 0,
-            y: 0,
-            width: 5000,
-            height: 4000,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[PRIMARY], Some(PRIMARY));
-        assert_eq!(resolved.width, 1440.0);
-        assert_eq!(resolved.height, 900.0);
-        assert_eq!(resolved.position, Some((0.0, 0.0)));
+        let saved = WidgetGeometry { x: 2000, y: 0 };
+        let position =
+            resolve_widget_position(Some(saved), SIZE, &[PRIMARY, secondary], Some(PRIMARY));
+        assert_eq!(position, Some((2000.0, 0.0)));
     }
 
     #[test]
     fn partially_offscreen_record_is_pulled_back_inside_monitor() {
         // 右下角超出屏幕但仍有足够可见区域：保留所在显示器，平移回边界内
-        let saved = WidgetGeometry {
-            x: 1300,
-            y: 800,
-            width: 300,
-            height: 200,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[PRIMARY], Some(PRIMARY));
-        assert_eq!(resolved.position, Some((1140.0, 700.0)));
+        let saved = WidgetGeometry { x: 1300, y: 860 };
+        let position = resolve_widget_position(Some(saved), SIZE, &[PRIMARY], Some(PRIMARY));
+        assert_eq!(position, Some((1440.0 - SIZE.0, 900.0 - SIZE.1)));
     }
 
     #[test]
     fn record_outside_all_monitors_falls_back_to_default_position() {
         // 外接屏已断开：记录位置不在任何显示器可见区域内
-        let saved = WidgetGeometry {
-            x: 3000,
-            y: 200,
-            width: 300,
-            height: 180,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[PRIMARY], Some(PRIMARY));
-        assert_eq!(resolved.width, 300.0);
-        assert_eq!(resolved.height, 180.0);
-        assert_eq!(
-            resolved.position,
-            Some(default_position(PRIMARY, 300.0, 180.0))
-        );
+        let saved = WidgetGeometry { x: 3000, y: 200 };
+        let position = resolve_widget_position(Some(saved), SIZE, &[PRIMARY], Some(PRIMARY));
+        assert_eq!(position, Some(default_position(PRIMARY, SIZE.0, SIZE.1)));
     }
 
     #[test]
     fn barely_visible_sliver_counts_as_not_visible() {
         // 仅露出几像素的窗口无法被抓取，视为不可见并回落默认位置
-        let saved = WidgetGeometry {
-            x: 1436,
-            y: 100,
-            width: 300,
-            height: 180,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[PRIMARY], Some(PRIMARY));
-        assert_eq!(
-            resolved.position,
-            Some(default_position(PRIMARY, 300.0, 180.0))
-        );
+        let saved = WidgetGeometry { x: 1436, y: 100 };
+        let position = resolve_widget_position(Some(saved), SIZE, &[PRIMARY], Some(PRIMARY));
+        assert_eq!(position, Some(default_position(PRIMARY, SIZE.0, SIZE.1)));
     }
 
     #[test]
-    fn fallback_size_is_clamped_to_primary_monitor() {
-        let small = monitor(0.0, 0.0, 800.0, 600.0);
-        let saved = WidgetGeometry {
-            x: 5000,
-            y: 5000,
-            width: 1200,
-            height: 900,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[small], Some(small));
-        assert_eq!(resolved.width, 800.0);
-        assert_eq!(resolved.height, 600.0);
-    }
-
-    #[test]
-    fn without_monitor_info_keeps_size_and_leaves_position_to_system() {
-        let saved = WidgetGeometry {
-            x: 10,
-            y: 10,
-            width: 300,
-            height: 180,
-        };
-        let resolved = resolve_widget_geometry(Some(saved), &[], None);
-        assert_eq!(resolved.width, 300.0);
-        assert_eq!(resolved.height, 180.0);
-        assert_eq!(resolved.position, None);
+    fn without_monitor_info_leaves_position_to_system() {
+        let saved = WidgetGeometry { x: 10, y: 10 };
+        assert_eq!(resolve_widget_position(Some(saved), SIZE, &[], None), None);
     }
 }

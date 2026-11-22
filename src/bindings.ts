@@ -171,8 +171,8 @@ export type AppPreferences = {
 	/**  浮窗面板不透明度百分比，范围 30-100（前端按 /100 映射到 CSS opacity）。 */
 	floatingWidgetOpacity?: number,
 	/**
-	 *  浮窗最近一次的尺寸与位置（逻辑像素）。由浮窗 resize/move 事件防抖写入，
-	 *  不经设置面板编辑；None 表示尚无记录，创建时使用默认尺寸与位置。
+	 *  浮窗最近一次的位置（逻辑像素）。由浮窗 move 事件防抖写入，
+	 *  不经设置面板编辑；None 表示尚无记录，创建时使用默认位置。浮窗尺寸固定，不记录。
 	 */
 	floatingWidgetGeometry?: WidgetGeometry | null,
 	/**  会话等待输入时是否播放提示音效（独立于 system_notifications_enabled）。 */
@@ -1256,12 +1256,13 @@ export type UserSettingsImportInput = {
  */
 export type WaitingSound = "glass" | "submarine" | "hero" | "ping" | "sosumi" | "tink";
 
-/**  浮窗几何信息（逻辑像素，取整存储）：外框左上角位置 + 内容区尺寸。 */
+/**
+ *  浮窗几何信息（逻辑像素，取整存储）：外框左上角位置。
+ *  浮窗为固定尺寸状态条，旧版本记录中的 width/height 字段在反序列化时忽略。
+ */
 export type WidgetGeometry = {
 	x: number,
 	y: number,
-	width: number,
-	height: number,
 };
 
 /* Tauri Specta runtime */
