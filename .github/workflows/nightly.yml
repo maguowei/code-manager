@@ -56,6 +56,8 @@ jobs:
         uses: reviewdog/action-actionlint@dbe5299849118fd6f099ba563d263d770955a64a # v1.73.2
         with:
           reporter: local
+          # local reporter 没有 diff 来源，需关闭按 diff 过滤，否则报 "diff command is empty"
+          filter_mode: nofilter
           fail_level: error
 
       - name: Gitleaks 密钥扫描（仅手动触发）
